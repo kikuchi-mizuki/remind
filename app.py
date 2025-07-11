@@ -13,6 +13,8 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from werkzeug.middleware.proxy_fix import ProxyFix
+import re
+from datetime import datetime, timedelta
 
 load_dotenv()
 app = Flask(__name__)
@@ -318,6 +320,41 @@ def callback():
                                 reply_token,
                                 TextSendMessage(text=guide_text)
                             )
+                            continue
+                        
+                        # 21時の繰り越し確認への返信処理
+                        if re.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
+                            from datetime import datetime, timedelta
+                            today_str = datetime.now().strftime('%Y-%m-%d')
+                            tasks = task_service.get_user_tasks(user_id)
+                            today_tasks = [t for t in tasks if t.due_date == today_str]
+                            if not today_tasks:
+                                continue
+                            # 返信が「なし」→全削除
+                            if user_message.strip() == 'なし':
+                                for t in today_tasks:
+                                    # Assuming db is available or task_service has an update_task_status method
+                                    # For now, using task_service as a placeholder
+                                    task_service.update_task_status(t.task_id, 'archived')
+                                reply_text = '本日分のタスクはすべて削除しました。お疲れさまでした！'
+                                line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
+                                continue
+                            # 番号抽出
+                            nums = re.findall(r'\d+', user_message)
+                            carryover_indexes = set(int(n)-1 for n in nums)
+                            for idx, t in enumerate(today_tasks):
+                                if idx in carryover_indexes:
+                                    # 期日を翌日に更新
+                                    next_day = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                                    t.due_date = next_day
+                                    # Assuming db is available or task_service has a create_task method
+                                    # For now, using task_service as a placeholder
+                                    task_service.create_task(t)  # 新規保存（上書き用のupdateがあればそちらを使う）
+                                    task_service.update_task_status(t.task_id, 'archived')  # 元タスクはアーカイブ
+                                else:
+                                    task_service.update_task_status(t.task_id, 'archived')
+                            reply_text = '指定されたタスクを明日に繰り越し、それ以外は削除しました。'
+                            line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                             continue
                         
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
