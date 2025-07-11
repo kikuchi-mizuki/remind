@@ -78,25 +78,29 @@ def google_auth():
 
 @app.route("/oauth2callback")
 def oauth2callback():
-    state = request.args.get('state')
-    user_id = state or session.get('user_id')
-    flow = Flow.from_client_secrets_file(
-        'client_secrets.json',
-        scopes=['https://www.googleapis.com/auth/calendar'],
-        state=state,
-        redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
-    )
-    flow.fetch_token(authorization_response=request.url)
-    creds = flow.credentials
-    # ユーザーごとにトークンを保存
-    import os
-    os.makedirs('tokens', exist_ok=True)
-    token_path = f'tokens/{user_id}_token.json'
-    with open(token_path, 'w') as token:
-        token.write(creds.to_json())
-    # 認証済みユーザーとして登録
-    add_google_authenticated_user(user_id)
-    return "Google認証が完了しました。LINEに戻って操作を続けてください。"
+    try:
+        state = request.args.get('state')
+        user_id = state or session.get('user_id')
+        flow = Flow.from_client_secrets_file(
+            'client_secrets.json',
+            scopes=['https://www.googleapis.com/auth/calendar'],
+            state=state,
+            redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
+        )
+        flow.fetch_token(authorization_response=request.url)
+        creds = flow.credentials
+        # ユーザーごとにトークンを保存
+        import os
+        os.makedirs('tokens', exist_ok=True)
+        token_path = f'tokens/{user_id}_token.json'
+        with open(token_path, 'w') as token:
+            token.write(creds.to_json())
+        # 認証済みユーザーとして登録
+        add_google_authenticated_user(user_id)
+        return "Google認証が完了しました。LINEに戻って操作を続けてください。"
+    except Exception as e:
+        import traceback
+        return f"認証エラー: {e}<br><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route("/callback", methods=['POST'])
 def callback():
