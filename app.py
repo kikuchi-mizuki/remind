@@ -9,6 +9,9 @@ from models.database import init_db, Task
 from linebot import LineBotApi
 from linebot.models import TextSendMessage
 import json
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
 load_dotenv()
 app = Flask(__name__)
@@ -39,15 +42,49 @@ def add_google_authenticated_user(user_id):
         with open(GOOGLE_AUTH_USERS_FILE, "w") as f:
             json.dump(users, f)
 
-# Google認証URL生成（ダミー）
+# Google認証URL生成（本番URLに修正）
 def get_google_auth_url(user_id):
-    return f"https://your-app-url.com/google_auth?user_id={user_id}"
+    return f"https://web-production-bf2e2.up.railway.app/google_auth?user_id={user_id}"
 
 @app.route("/google_auth")
 def google_auth():
     user_id = request.args.get("user_id")
-    # ここでGoogle OAuth認証フローを実装（省略）
-    # 認証成功時:
+    # Google OAuth2フロー開始
+    flow = Flow.from_client_secrets_file(
+        'client_secrets.json',
+        scopes=['https://www.googleapis.com/auth/calendar'],
+        redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
+    )
+    # stateにuser_idを含める
+    auth_url, state = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        state=user_id
+    )
+    # stateをセッションに保存（本番はDB推奨）
+    session['state'] = state
+    session['user_id'] = user_id
+    return redirect(auth_url)
+
+@app.route("/oauth2callback")
+def oauth2callback():
+    state = request.args.get('state')
+    user_id = state or session.get('user_id')
+    flow = Flow.from_client_secrets_file(
+        'client_secrets.json',
+        scopes=['https://www.googleapis.com/auth/calendar'],
+        state=state,
+        redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
+    )
+    flow.fetch_token(authorization_response=request.url)
+    creds = flow.credentials
+    # ユーザーごとにトークンを保存
+    import os
+    os.makedirs('tokens', exist_ok=True)
+    token_path = f'tokens/{user_id}_token.json'
+    with open(token_path, 'w') as token:
+        token.write(creds.to_json())
+    # 認証済みユーザーとして登録
     add_google_authenticated_user(user_id)
     return "Google認証が完了しました。LINEに戻って操作を続けてください。"
 
@@ -195,6 +232,21 @@ def callback():
                             TextSendMessage(text=reply_text)
                         )
                         continue
+                    # どのコマンドにも該当しない場合はガイドメッセージを返信
+                    guide_text = (
+                        "🤖 ご利用ありがとうございます！\n\n"
+                        "現在ご利用いただける主な機能は以下の通りです：\n\n"
+                        "【使い方】\n\n"
+                        "📝 タスク登録\n例：「筋トレ 20分 毎日」\n例：「買い物 30分」\n\n"
+                        "📅 スケジュール確認\n毎朝8時に今日のタスク一覧をお送りします\n\n"
+                        "✅ スケジュール承認\n提案されたスケジュールに「承認」と返信\n\n"
+                        "🔄 スケジュール修正\n例：「筋トレを15時に変更して」\n\n"
+                        "何かご質問がございましたら、お気軽にお聞きください！"
+                    )
+                    line_bot_api.reply_message(
+                        reply_token,
+                        TextSendMessage(text=guide_text)
+                    )
     except Exception as e:
         print("エラー:", e)
     return "OK", 200
