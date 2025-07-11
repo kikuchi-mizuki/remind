@@ -234,11 +234,20 @@ def callback():
                             )
                             continue
                         except Exception as e:
-                            # タスク登録エラーの場合
-                            reply_text = f"タスク登録エラー: {e}"
+                            # タスク登録エラーの場合はガイドメッセージのみ返信
+                            guide_text = (
+                                "🤖 ご利用ありがとうございます！\n\n"
+                                "現在ご利用いただける主な機能は以下の通りです：\n\n"
+                                "【使い方】\n\n"
+                                "📝 タスク登録\n例：「筋トレ 20分 毎日」\n例：「買い物 30分」\n\n"
+                                "📅 スケジュール確認\n毎朝8時に今日のタスク一覧をお送りします\n\n"
+                                "✅ スケジュール承認\n提案されたスケジュールに「承認」と返信\n\n"
+                                "🔄 スケジュール修正\n例：「筋トレを15時に変更して」\n\n"
+                                "何かご質問がございましたら、お気軽にお聞きください！"
+                            )
                             line_bot_api.reply_message(
                                 reply_token,
-                                TextSendMessage(text=reply_text)
+                                TextSendMessage(text=guide_text)
                             )
                             continue
                         
