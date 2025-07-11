@@ -96,15 +96,13 @@ class NotificationService:
         """スケジューラーを開始"""
         if self.is_running:
             return
-        
         self.is_running = True
-        
         # 毎朝8時にタスク通知
         schedule.every().day.at("08:00").do(self.send_daily_task_notification)
-        
         # 毎週日曜日の20時に週次レポート
         schedule.every().sunday.at("20:00").do(self._send_weekly_reports_to_all_users)
-        
+        # 毎日21時に繰り越し確認
+        schedule.every().day.at("21:00").do(self.send_carryover_check)
         # スケジューラーを別スレッドで実行
         self.scheduler_thread = threading.Thread(target=self._run_scheduler)
         self.scheduler_thread.daemon = True
@@ -186,3 +184,22 @@ class NotificationService:
             self.line_bot_api.push_message(user_id, TextSendMessage(text=help_message))
         except Exception as e:
             print(f"Error sending help message: {e}") 
+
+    def send_carryover_check(self):
+        """毎日21時に今日のタスクのうち明日に繰り越すものを確認し、繰り越さないものは削除"""
+        from datetime import datetime, timedelta
+        user_ids = self._get_active_user_ids()
+        today_str = datetime.now().strftime('%Y-%m-%d')
+        for user_id in user_ids:
+            tasks = self.task_service.get_user_tasks(user_id)
+            # 今日が期日のタスクのみ抽出
+            today_tasks = [t for t in tasks if t.due_date == today_str]
+            if not today_tasks:
+                continue
+            # タスク一覧をLINEで送信し、繰り越すかどうかを聞く
+            msg = '🔔 本日分タスクの繰り越し確認\n\n'
+            for i, t in enumerate(today_tasks, 1):
+                msg += f'{i}. {t.name}（{t.duration_minutes}分）\n'
+            msg += '\n明日に繰り越すタスクの番号をカンマ区切りで返信してください。\n（例: 1,3）\n繰り越さない場合は「なし」と返信してください。'
+            self.line_bot_api.push_message(user_id, TextSendMessage(text=msg))
+            # 実際の削除・繰り越し処理はLINE返信の受信時にapp.py側で実装する必要あり 
