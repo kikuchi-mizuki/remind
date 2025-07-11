@@ -117,17 +117,12 @@ def callback():
                     try:
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
-                            daily_tasks = [t for t in task_service.get_user_tasks(user_id) if t.repeat]
-                            once_tasks = [t for t in task_service.get_user_tasks(user_id) if not t.repeat]
-                            reply_text = "📋 タスク一覧\n\n"
-                            reply_text += "🔄 毎日タスク\n" if daily_tasks else ""
-                            for i, t in enumerate(daily_tasks, 1):
-                                reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
-                            reply_text += "\n📌 単発タスク\n" if once_tasks else ""
-                            for i, t in enumerate(once_tasks, 1):
-                                reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
-                            if not daily_tasks and not once_tasks:
-                                reply_text += "登録されているタスクはありません。"
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            reply_text = "📋 タスク一覧\n＝＝＝＝＝＝\n"
+                            for i, t in enumerate(all_tasks, 1):
+                                repeat_text = "🔄 毎日" if t.repeat else "📌 単発"
+                                reply_text += f"{i}. {t.name} ({t.duration_minutes}分) {repeat_text}\n"
+                            reply_text += "＝＝＝＝＝＝\n今日やるタスクを選んでください！\n例：１、３、５"
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text)
@@ -140,14 +135,24 @@ def callback():
                                 with open(f"selected_tasks_{user_id}.json", "w") as f:
                                     import json
                                     json.dump([t.task_id for t in selected_tasks], f)
-                                reply_text = "今日やるタスクを選択しました:\n" + "\n".join([f"・{t.name} ({t.duration_minutes}分)" for t in selected_tasks])
-                            else:
-                                reply_text = "選択されたタスクが見つかりませんでした。"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            continue
+                                reply_text = "今日やるタスクはこちらで良いですか？\n"
+                                reply_text += "\n".join([f"・{t.name} ({t.duration_minutes}分)" for t in selected_tasks])
+                                from linebot.models import TemplateSendMessage, ConfirmTemplate, MessageAction
+                                confirm_template = TemplateSendMessage(
+                                    alt_text=reply_text,
+                                    template=ConfirmTemplate(
+                                        text=reply_text,
+                                        actions=[
+                                            MessageAction(label="はい", text="はい"),
+                                            MessageAction(label="修正する", text="修正する")
+                                        ]
+                                    )
+                                )
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    confirm_template
+                                )
+                                continue
                         # スケジュール提案コマンド
                         if user_message.strip() in ["スケジュール提案", "提案して"]:
                             if not is_google_authenticated(user_id):
