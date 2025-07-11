@@ -31,6 +31,7 @@ class TaskService:
                 # 時間の場合は分に変換
                 if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
                     duration_minutes *= 60
+                message = re.sub(pattern, '', message)
                 break
         
         if not duration_minutes:
@@ -42,31 +43,36 @@ class TaskService:
         for keyword in repeat_keywords:
             if keyword in message:
                 repeat = True
+                message = message.replace(keyword, '')
                 break
         
-        # 期日の抽出
+        # 期日の抽出（明日→YYYY-MM-DD→M/D→M月D日 の順で1つだけ）
         due_date = None
         today = datetime.now()
         # 明日
         if '明日' in message:
             due_date = (today + timedelta(days=1)).strftime('%Y-%m-%d')
             message = message.replace('明日', '')
-        # YYYY-MM-DD
-        m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', message)
-        if m:
-            due_date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-            message = message.replace(m.group(0), '')
-        # M/D or M月D日
-        m2 = re.search(r'(\d{1,2})[/-](\d{1,2})', message)
-        if m2:
-            year = today.year
-            due_date = f"{year}-{int(m2.group(1)):02d}-{int(m2.group(2)):02d}"
-            message = message.replace(m2.group(0), '')
-        m3 = re.search(r'(\d{1,2})月(\d{1,2})日', message)
-        if m3:
-            year = today.year
-            due_date = f"{year}-{int(m3.group(1)):02d}-{int(m3.group(2)):02d}"
-            message = message.replace(m3.group(0), '')
+        else:
+            # YYYY-MM-DD
+            m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', message)
+            if m:
+                due_date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+                message = message.replace(m.group(0), '')
+            else:
+                # M/D
+                m2 = re.search(r'(\d{1,2})[/-](\d{1,2})', message)
+                if m2:
+                    year = today.year
+                    due_date = f"{year}-{int(m2.group(1)):02d}-{int(m2.group(2)):02d}"
+                    message = message.replace(m2.group(0), '')
+                else:
+                    # M月D日
+                    m3 = re.search(r'(\d{1,2})月(\d{1,2})日', message)
+                    if m3:
+                        year = today.year
+                        due_date = f"{year}-{int(m3.group(1)):02d}-{int(m3.group(2)):02d}"
+                        message = message.replace(m3.group(0), '')
         # タスク名の抽出（時間・頻度・期日部分を除く）
         task_name = message
         for pattern in time_patterns:
