@@ -12,10 +12,12 @@ import json
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your-default-secret-key")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 task_service = TaskService()
 calendar_service = CalendarService()
