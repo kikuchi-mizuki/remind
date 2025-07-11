@@ -115,6 +115,15 @@ def callback():
                     user_message = event["message"]["text"]
                     user_id = event["source"].get("userId", "")
                     try:
+                        # すべてのメッセージで最初にGoogle認証チェック
+                        if not is_google_authenticated(user_id):
+                            auth_url = get_google_auth_url(user_id)
+                            reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
@@ -195,14 +204,6 @@ def callback():
                                 continue
                         # スケジュール提案コマンド
                         if user_message.strip() in ["スケジュール提案", "提案して"]:
-                            if not is_google_authenticated(user_id):
-                                auth_url = get_google_auth_url(user_id)
-                                reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                continue
                             import json
                             import os
                             from datetime import datetime
@@ -230,14 +231,6 @@ def callback():
                             continue
                         # スケジュール承認
                         if user_message.strip() == "承認":
-                            if not is_google_authenticated(user_id):
-                                auth_url = get_google_auth_url(user_id)
-                                reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                continue
                             import os
                             proposal_path = f"schedule_proposal_{user_id}.txt"
                             if os.path.exists(proposal_path):
