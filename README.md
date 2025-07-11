@@ -85,6 +85,18 @@ ACTIVE_USER_IDS=user_id_1,user_id_2,user_id_3
 3. サービスアカウントキーを作成
 4. 環境変数に設定
 
+## 🛠️ データベースマイグレーション（スキーマ変更）
+
+### 期日管理機能追加時のマイグレーション
+
+既存の `tasks.db` に `due_date` カラムを追加する場合、以下のコマンドを実行してください：
+
+```sh
+sqlite3 tasks.db 'ALTER TABLE tasks ADD COLUMN due_date TEXT;'
+```
+
+これにより、タスクの期日管理・一覧表示が正しく動作します。
+
 ## 🚀 起動方法
 
 ### 開発環境
