@@ -182,8 +182,9 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-                        # タスク選択（番号のみのメッセージ）
-                        if all(s.isdigit() or s.isspace() for s in user_message) and any(s.isdigit() for s in user_message):
+                        # タスク選択（番号のみのメッセージ: 半角/全角数字・カンマ・スペース対応）
+                        import re
+                        if re.fullmatch(r'[\d\s,、]+', user_message.strip()):
                             selected_tasks = task_service.get_selected_tasks(user_id, user_message)
                             if selected_tasks:
                                 with open(f"selected_tasks_{user_id}.json", "w") as f:
