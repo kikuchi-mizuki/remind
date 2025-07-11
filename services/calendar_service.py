@@ -64,8 +64,8 @@ class CalendarService:
             # 既存の予定を取得
             events_result = self.service.events().list(
                 calendarId='primary',
-                timeMin=start_time.isoformat() + 'Z',
-                timeMax=end_time.isoformat() + 'Z',
+                timeMin=start_time.isoformat(),
+                timeMax=end_time.isoformat(),
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
@@ -188,8 +188,8 @@ class CalendarService:
             
             events_result = self.service.events().list(
                 calendarId='primary',
-                timeMin=today.isoformat() + 'Z',
-                timeMax=tomorrow.isoformat() + 'Z',
+                timeMin=today.isoformat(),
+                timeMax=tomorrow.isoformat(),
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
@@ -225,8 +225,8 @@ class CalendarService:
             
             events_result = self.service.events().list(
                 calendarId='primary',
-                timeMin=start_time.isoformat() + 'Z',
-                timeMax=end_time.isoformat() + 'Z',
+                timeMin=start_time.isoformat(),
+                timeMax=end_time.isoformat(),
                 singleEvents=True
             ).execute()
             
