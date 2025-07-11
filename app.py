@@ -81,27 +81,36 @@ def google_auth():
 @app.route("/oauth2callback")
 def oauth2callback():
     try:
+        print("[oauth2callback] start")
         state = request.args.get('state')
+        print(f"[oauth2callback] state: {state}")
         user_id = state or session.get('user_id')
+        print(f"[oauth2callback] user_id: {user_id}")
         flow = Flow.from_client_secrets_file(
             'client_secrets.json',
             scopes=['https://www.googleapis.com/auth/calendar'],
             state=state,
             redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
         )
+        print("[oauth2callback] flow created")
         flow.fetch_token(authorization_response=request.url)
+        print("[oauth2callback] token fetched")
         creds = flow.credentials
+        print(f"[oauth2callback] creds: {creds}")
         # ユーザーごとにトークンを保存
         import os
         os.makedirs('tokens', exist_ok=True)
         token_path = f'tokens/{user_id}_token.json'
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
+        print(f"[oauth2callback] token saved: {token_path}")
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
+        print("[oauth2callback] user registered")
         return "Google認証が完了しました。LINEに戻って操作を続けてください。"
     except Exception as e:
         import traceback
+        print(f"[oauth2callback] error: {e}\n{traceback.format_exc()}")
         return f"認証エラー: {e}<br><pre>{traceback.format_exc()}</pre>", 500
 
 @app.route("/callback", methods=['POST'])
