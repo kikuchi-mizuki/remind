@@ -30,10 +30,17 @@ def callback():
                 if event.get("type") == "message" and "replyToken" in event:
                     reply_token = event["replyToken"]
                     user_message = event["message"]["text"]
-                    # 即時返信
+                    user_id = event["source"].get("userId", "")
+                    # タスク登録メッセージか判定してDB保存
+                    try:
+                        task_info = task_service.parse_task_message(user_message)
+                        task_service.create_task(user_id, task_info)
+                        reply_text = f"タスク「{task_info['name']}」({task_info['duration_minutes']}分, {'毎日' if task_info['repeat'] else '単発'})を登録しました。"
+                    except Exception as e:
+                        reply_text = f"タスク登録エラー: {e}"
                     line_bot_api.reply_message(
                         reply_token,
-                        TextSendMessage(text=f"あなたのメッセージ: {user_message}")
+                        TextSendMessage(text=reply_text)
                     )
     except Exception as e:
         print("エラー:", e)
