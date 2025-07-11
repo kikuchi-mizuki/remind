@@ -36,8 +36,21 @@ class OpenAIService:
                 end = ft['end'].strftime('%H:%M')
                 free_time_str += f"- {start}〜{end} ({ft['duration_minutes']}分)\n"
         
+        # 現在日時（日本時間）を取得
+        from datetime import datetime, timedelta, timezone
+        import pytz
+        jst = pytz.timezone('Asia/Tokyo')
+        now_jst = datetime.now(jst)
+        now_str = now_jst.strftime("%Y-%m-%dT%H:%M:%S%z")
+        now_str = now_str[:-2] + ":" + now_str[-2:]  # +0900 → +09:00 形式に
+        
         # プロンプトを作成
-        prompt = self._create_schedule_prompt(task_info, total_duration, free_time_str)
+        prompt = (
+            f"現在の日時（日本時間）は {now_str} です。\n"
+            "この日時は、すべての自然言語の解釈において常に絶対的な基準としてください。\n"
+            "会話の流れや前回の入力に引きずられることなく、毎回この現在日時を最優先にしてください。\n"
+        )
+        prompt += self._create_schedule_prompt(task_info, total_duration, free_time_str)
         
         try:
             response = self.client.chat.completions.create(
