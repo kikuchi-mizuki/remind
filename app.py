@@ -314,8 +314,14 @@ def callback():
                             if os.path.exists(proposal_path):
                                 with open(proposal_path, "r") as f:
                                     proposal = f.read()
+                                print(f"[承認する] 読み込んだ提案: {proposal}")
                                 # Googleカレンダーに登録
-                                success = calendar_service.add_events_to_calendar(user_id, proposal)
+                                try:
+                                    success = calendar_service.add_events_to_calendar(user_id, proposal)
+                                    print(f"[承認する] カレンダー登録結果: {success}")
+                                except Exception as e:
+                                    print(f"[承認する] カレンダー登録時エラー: {e}")
+                                    success = False
                                 if success:
                                     # 今日のスケジュール一覧を取得
                                     today = datetime.now()
@@ -339,6 +345,7 @@ def callback():
                                     auth_url = get_google_auth_url(user_id)
                                     reply_text += f"🔗 {auth_url}"
                             else:
+                                print("[承認する] proposalファイルが存在しません")
                                 reply_text = "先にスケジュール提案を受け取ってください。"
                             line_bot_api.reply_message(
                                 reply_token,
