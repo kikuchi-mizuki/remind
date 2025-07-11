@@ -195,13 +195,13 @@ def callback():
                                 matched = False
                                 in_reason = False
                                 for line in proposal.split('\n'):
-                                    # スケジュール本体（09:00〜09:20 ...）
-                                    m = re.match(r"[-・*]?\s*(\d{2}:\d{2})\s*[-~〜]\s*(\d{2}:\d{2})\s*(.+?)\s*\((\d+)分\)", line)
+                                    # スケジュール本体（09:00〜09:20 ...）の抽出
+                                    m = re.match(r"[-・*]?\s*(\d{1,2}):(\d{2})\s*[-~〜ー―‐–—−﹣－]?\s*(\d{1,2}):(\d{2})\s*(.+?)\s*\((\d+)分\)", line)
                                     if m:
                                         matched = True
                                         schedule_lines.append("━━━━━━━━━━━━━━")
-                                        schedule_lines.append(f"🕒 {m.group(1)}〜{m.group(2)}")
-                                        schedule_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
+                                        schedule_lines.append(f"🕒 {m.group(1)}:{m.group(2)}〜{m.group(3)}:{m.group(4)}")
+                                        schedule_lines.append(f"📝 {m.group(5).strip()}（{m.group(6)}分）")
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
                                     # 理由やまとめの開始を検出（例: '理由', 'まとめ', '説明' などのキーワード）
                                     elif re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line):
