@@ -241,7 +241,20 @@ def callback():
                         try:
                             task_info = task_service.parse_task_message(user_message)
                             task_service.create_task(user_id, task_info)
-                            reply_text = f"タスク「{task_info['name']}」({task_info['duration_minutes']}分, {'毎日' if task_info['repeat'] else '単発'})を登録しました。"
+                            # タスク一覧を取得
+                            daily_tasks = [t for t in task_service.get_user_tasks(user_id) if t.repeat]
+                            once_tasks = [t for t in task_service.get_user_tasks(user_id) if not t.repeat]
+                            reply_text = "✅タスクを追加しました！\n\n"
+                            reply_text += "📋 タスク一覧\n＝＝＝＝＝＝＝\n"
+                            if daily_tasks:
+                                reply_text += "🔄 毎日タスク\n"
+                                for i, t in enumerate(daily_tasks, 1):
+                                    reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
+                            if once_tasks:
+                                reply_text += "\n📌 単発タスク\n"
+                                for i, t in enumerate(once_tasks, 1):
+                                    reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
+                            reply_text += "＝＝＝＝＝＝＝"
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text)
