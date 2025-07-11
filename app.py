@@ -232,6 +232,7 @@ def callback():
                         # スケジュール承認
                         if user_message.strip() == "承認":
                             import os
+                            from datetime import datetime
                             proposal_path = f"schedule_proposal_{user_id}.txt"
                             if os.path.exists(proposal_path):
                                 with open(proposal_path, "r") as f:
@@ -239,7 +240,18 @@ def callback():
                                 # Googleカレンダーに登録
                                 success = calendar_service.add_events_to_calendar(user_id, proposal)
                                 if success:
-                                    reply_text = "スケジュールをGoogleカレンダーに登録しました！"
+                                    # 今日のスケジュール一覧を取得
+                                    today = datetime.now()
+                                    events = calendar_service.get_today_schedule(user_id)
+                                    reply_text = "✅本日のスケジュールです！\n\n"
+                                    reply_text += f"📅 {today.strftime('%Y/%m/%d (%a)')}\n"
+                                    reply_text += "━━━━━━━━━━\n"
+                                    if events:
+                                        for i, ev in enumerate(events, 1):
+                                            reply_text += f"{i}. {ev['title']}\n⏰ {ev['start']}～{ev['end']}\n\n"
+                                    else:
+                                        reply_text += "本日の予定はありません。\n"
+                                    reply_text += "━━━━━━━━━━"
                                 else:
                                     reply_text = "カレンダー登録に失敗しました。Google認証や権限設定をご確認ください。"
                             else:
