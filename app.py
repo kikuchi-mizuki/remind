@@ -144,59 +144,15 @@ def callback():
                                 with open(f"selected_tasks_{user_id}.json", "w") as f:
                                     import json
                                     json.dump([t.task_id for t in selected_tasks], f)
-                                # --- テキスト短縮処理 ---
-                                max_tasks = 5
-                                show_tasks = selected_tasks[:max_tasks]
-                                reply_text = "今日やるタスクはこちらで良いですか？\n"
-                                reply_text += "\n".join([f"・{t.name} ({t.duration_minutes}分)" for t in show_tasks])
-                                if len(selected_tasks) > max_tasks:
-                                    reply_text += f"\n他{len(selected_tasks)-max_tasks}件..."
-                                # --- ConfirmTemplate送信＋フォールバック ---
-                                try:
-                                    from linebot.models import TemplateSendMessage, ConfirmTemplate, MessageAction
-                                    # 240文字制限対応
-                                    confirm_text = reply_text
-                                    if len(confirm_text) > 240:
-                                        # 省略バージョン
-                                        confirm_text = "今日やるタスクはこちらで良いですか？\n(タスクが多いため一部省略)"
-                                        fallback_text = reply_text + "\n\n「はい」または「修正する」と返信してください。"
-                                        # ConfirmTemplateは短縮文、詳細は通常テキスト
-                                        confirm_template = TemplateSendMessage(
-                                            alt_text=confirm_text,
-                                            template=ConfirmTemplate(
-                                                text=confirm_text,
-                                                actions=[
-                                                    MessageAction(label="はい", text="はい"),
-                                                    MessageAction(label="修正する", text="修正する")
-                                                ]
-                                            )
-                                        )
-                                        line_bot_api.reply_message(
-                                            reply_token,
-                                            [confirm_template, TextSendMessage(text=fallback_text)]
-                                        )
-                                    else:
-                                        confirm_template = TemplateSendMessage(
-                                            alt_text=confirm_text,
-                                            template=ConfirmTemplate(
-                                                text=confirm_text,
-                                                actions=[
-                                                    MessageAction(label="はい", text="はい"),
-                                                    MessageAction(label="修正する", text="修正する")
-                                                ]
-                                            )
-                                        )
-                                        line_bot_api.reply_message(
-                                            reply_token,
-                                            confirm_template
-                                        )
-                                except Exception as e:
-                                    # フォールバック: 通常テキストで案内
-                                    fallback_text = reply_text + "\n\n「はい」または「修正する」と返信してください。"
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=fallback_text)
-                                    )
+                                # --- テキストメッセージのみで確認案内 ---
+                                reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
+                                reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
+                                reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
+                                from linebot.models import TextSendMessage
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
                                 continue
                         # 「はい」と返信された場合は自動でスケジュール提案
                         if user_message.strip() == "はい":
