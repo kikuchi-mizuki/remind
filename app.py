@@ -230,6 +230,9 @@ def callback():
                                     )
                                     continue
                                 proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                                # スケジュール提案を一時保存
+                                with open(f"schedule_proposal_{user_id}.txt", "w") as f:
+                                    f.write(proposal)
                                 # --- リッチテキスト整形 ---
                                 rich_lines = []
                                 rich_lines.append("🗓️【本日のスケジュール提案】\n")
