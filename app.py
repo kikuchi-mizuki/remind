@@ -148,7 +148,6 @@ def callback():
                                 reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
                                 reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
                                 reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
-                                from linebot.models import TextSendMessage
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
