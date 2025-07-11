@@ -54,10 +54,19 @@ class TaskService:
         due_date = None
         jst = pytz.timezone('Asia/Tokyo')
         today = datetime.now(jst)
-        if '明日' in message:
-            due_date = (today + timedelta(days=1)).strftime('%Y-%m-%d')
-            message = message.replace('明日', '')
-            print(f"[parse_task_message] 期日抽出: 明日 → {due_date}")
+        # 自然言語→日付変換辞書
+        natural_date_map = {
+            '明日': 1,
+            '明後日': 2,
+            '明々後日': 3,
+            '明明後日': 3,  # 誤表記も吸収
+        }
+        for key, delta in natural_date_map.items():
+            if key in message:
+                due_date = (today + timedelta(days=delta)).strftime('%Y-%m-%d')
+                message = message.replace(key, '')
+                print(f"[parse_task_message] 期日抽出: {key} → {due_date}")
+                break
         else:
             m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', message)
             if m:
