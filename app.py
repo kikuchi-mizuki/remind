@@ -261,7 +261,7 @@ def callback():
                             )
                             continue
                         # スケジュール承認
-                        if user_message.strip() == "承認":
+                        if user_message.strip() == "承認する":
                             import os
                             from datetime import datetime
                             proposal_path = f"schedule_proposal_{user_id}.txt"
@@ -317,7 +317,6 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-                        
                         # タスク登録メッセージか判定してDB保存
                         try:
                             task_info = task_service.parse_task_message(user_message)
