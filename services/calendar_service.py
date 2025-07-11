@@ -149,14 +149,18 @@ class CalendarService:
             return False
 
     def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> bool:
-        """スケジュール提案をカレンダーに反映"""
+        """スケジュール提案をカレンダーに反映（パース強化・装飾/区切り/空行スキップ）"""
         try:
             import re
             from datetime import datetime, timedelta
             lines = schedule_proposal.split('\n')
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             event_added = False
+            unparsable_lines = []
             for line in lines:
+                # 区切り線・空行・装飾行はスキップ
+                if re.match(r'^[\s\-━―ー=＿_]+$', line) or not line.strip() or re.match(r'^[🗓️📝✅📅📌].*', line.strip()):
+                    continue
                 # 1. (所要時間明示あり) 柔軟な正規表現
                 m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
                 if m:
@@ -166,7 +170,6 @@ class CalendarService:
                     end_min = int(m.group(4))
                     task_name = m.group(6).strip()
                     duration = int(m.group(7))
-                    # 開始日時
                     start_time = today.replace(hour=start_hour, minute=start_min)
                     self.add_event_to_calendar(user_id, task_name, start_time, duration)
                     event_added = True
@@ -180,7 +183,6 @@ class CalendarService:
                         end_hour = int(m2.group(3))
                         end_min = int(m2.group(4))
                         task_name = m2.group(6).strip()
-                        # 所要時間を自動計算
                         start = datetime(2000,1,1,start_hour,start_min)
                         end = datetime(2000,1,1,end_hour,end_min)
                         if end <= start:
@@ -192,23 +194,25 @@ class CalendarService:
                     except Exception as e:
                         print(f"[add_events_to_calendar] パース失敗: {line} err={e}")
                     continue
-                # パースできなかった行を警告
+                # パースできなかった行を記録
                 if line.strip():
                     print(f"[add_events_to_calendar] パースできなかった行: {line}")
+                    unparsable_lines.append(line)
+            # 今後: unparsable_linesを返すなどでユーザー警告も可能
             return event_added
         except Exception as e:
             print(f"Error adding events to calendar: {e}")
             return False
 
     def get_today_schedule(self, user_id: str) -> List[Dict]:
-        """今日のスケジュールを取得"""
+        """今日のスケジュールを取得（JST厳密化）"""
         if not self.authenticate_user(user_id):
             return []
-        
         try:
-            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            import pytz
+            jst = pytz.timezone('Asia/Tokyo')
+            today = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
             tomorrow = today + timedelta(days=1)
-            
             events_result = self.service.events().list(
                 calendarId='primary',
                 timeMin=today.isoformat(),
@@ -216,24 +220,19 @@ class CalendarService:
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
-            
             events = events_result.get('items', [])
-            
             schedule = []
             for event in events:
                 start = event['start'].get('dateTime', event['start'].get('date'))
                 end = event['end'].get('dateTime', event['end'].get('date'))
-                
                 schedule.append({
                     'title': event['summary'],
                     'start': start,
                     'end': end,
                     'description': event.get('description', '')
                 })
-            
             return schedule
-            
-        except HttpError as error:
+        except Exception as error:
             print(f'Calendar API error: {error}')
             return []
 
