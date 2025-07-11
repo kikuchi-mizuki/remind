@@ -13,6 +13,7 @@ class TaskService:
 
     def parse_task_message(self, message: str) -> Dict:
         """LINEメッセージからタスク情報を解析"""
+        print(f"[parse_task_message] 入力: '{message}'")
         # 時間の抽出（分、時間、min、hour、h、m）
         time_patterns = [
             r'(\d+)\s*分',
@@ -28,15 +29,17 @@ class TaskService:
             match = re.search(pattern, message)
             if match:
                 duration_minutes = int(match.group(1))
+                print(f"[parse_task_message] 時間抽出: {duration_minutes} (pattern: {pattern})")
                 # 時間の場合は分に変換
                 if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
                     duration_minutes *= 60
+                    print(f"[parse_task_message] 時間→分変換: {duration_minutes}")
                 message = re.sub(pattern, '', message)
+                print(f"[parse_task_message] 時間除去後: '{message}'")
                 break
-        
         if not duration_minutes:
+            print("[parse_task_message] 所要時間が見つかりませんでした")
             raise ValueError("所要時間が見つかりませんでした")
-        
         # 頻度の判定
         repeat = False
         repeat_keywords = ['毎日', 'daily', '毎', '日々', 'ルーチン']
@@ -44,43 +47,44 @@ class TaskService:
             if keyword in message:
                 repeat = True
                 message = message.replace(keyword, '')
+                print(f"[parse_task_message] 頻度抽出: {keyword} → repeat={repeat}")
                 break
-        
-        # 期日の抽出（明日→YYYY-MM-DD→M/D→M月D日 の順で1つだけ）
+        # 期日の抽出
         due_date = None
         today = datetime.now()
-        # 明日
         if '明日' in message:
             due_date = (today + timedelta(days=1)).strftime('%Y-%m-%d')
             message = message.replace('明日', '')
+            print(f"[parse_task_message] 期日抽出: 明日 → {due_date}")
         else:
-            # YYYY-MM-DD
             m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', message)
             if m:
                 due_date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
                 message = message.replace(m.group(0), '')
+                print(f"[parse_task_message] 期日抽出: YYYY-MM-DD → {due_date}")
             else:
-                # M/D
                 m2 = re.search(r'(\d{1,2})[/-](\d{1,2})', message)
                 if m2:
                     year = today.year
                     due_date = f"{year}-{int(m2.group(1)):02d}-{int(m2.group(2)):02d}"
                     message = message.replace(m2.group(0), '')
+                    print(f"[parse_task_message] 期日抽出: M/D → {due_date}")
                 else:
-                    # M月D日
                     m3 = re.search(r'(\d{1,2})月(\d{1,2})日', message)
                     if m3:
                         year = today.year
                         due_date = f"{year}-{int(m3.group(1)):02d}-{int(m3.group(2)):02d}"
                         message = message.replace(m3.group(0), '')
-        # タスク名の抽出（時間・頻度・期日部分を除く）
+                        print(f"[parse_task_message] 期日抽出: M月D日 → {due_date}")
+        # タスク名の抽出
         task_name = message
+        print(f"[parse_task_message] タスク名抽出前: '{task_name}'")
         for pattern in time_patterns:
             task_name = re.sub(pattern, '', task_name)
         for keyword in repeat_keywords:
             task_name = task_name.replace(keyword, '')
         task_name = re.sub(r'[\s　]+', ' ', task_name).strip()
-        # タスク名が空の場合は、元のメッセージから時間・頻度・期日部分のみ除去して再抽出
+        print(f"[parse_task_message] タスク名抽出後: '{task_name}'")
         if not task_name:
             temp_message = message
             for pattern in time_patterns:
@@ -92,8 +96,11 @@ class TaskService:
             temp_message = re.sub(r'(\d{1,2})[/-](\d{1,2})', '', temp_message)
             temp_message = re.sub(r'(\d{1,2})月(\d{1,2})日', '', temp_message)
             task_name = re.sub(r'[\s　]+', ' ', temp_message).strip()
+            print(f"[parse_task_message] タスク名再抽出: '{task_name}'")
         if not task_name:
+            print("[parse_task_message] タスク名が見つかりませんでした")
             raise ValueError("タスク名が見つかりませんでした")
+        print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}")
         return {
             'name': task_name,
             'duration_minutes': duration_minutes,
