@@ -48,6 +48,10 @@ class CalendarService:
             return True
         except Exception as e:
             print(f"Authentication error: {e}")
+            # refresh_tokenが不足している場合の案内
+            if "refresh_token" in str(e):
+                print("refresh_tokenが不足しています。Google認証を再実行してください。")
+                print("認証時は必ずアカウント選択画面でアカウントを選び直してください。")
             return False
 
     def get_free_busy_times(self, user_id: str, date: datetime) -> List[Dict]:

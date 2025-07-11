@@ -186,6 +186,20 @@ def callback():
                                 selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
                                 today = datetime.now()
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
+                                if not free_times and len(free_times) == 0:
+                                    # Google認証エラーの可能性
+                                    reply_text = "❌ Googleカレンダーへのアクセスに失敗しました。\n\n"
+                                    reply_text += "以下の手順で再認証をお願いします：\n"
+                                    reply_text += "1. 下記のリンクからGoogle認証を実行\n"
+                                    reply_text += "2. 認証時は必ずアカウント選択画面でアカウントを選び直してください\n"
+                                    reply_text += "3. 認証完了後、再度「はい」と送信してください\n\n"
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text += f"🔗 {auth_url}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
                                 proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
                                 # --- リッチテキスト整形 ---
                                 rich_lines = []
@@ -284,7 +298,14 @@ def callback():
                                         reply_text += "本日の予定はありません。\n"
                                     reply_text += "━━━━━━━━━━"
                                 else:
-                                    reply_text = "カレンダー登録に失敗しました。Google認証や権限設定をご確認ください。"
+                                    reply_text = "❌ カレンダー登録に失敗しました。\n\n"
+                                    reply_text += "Google認証に問題がある可能性があります。\n"
+                                    reply_text += "以下の手順で再認証をお願いします：\n"
+                                    reply_text += "1. 下記のリンクからGoogle認証を実行\n"
+                                    reply_text += "2. 認証時は必ずアカウント選択画面でアカウントを選び直してください\n"
+                                    reply_text += "3. 認証完了後、再度「承認する」と送信してください\n\n"
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text += f"🔗 {auth_url}"
                             else:
                                 reply_text = "先にスケジュール提案を受け取ってください。"
                             line_bot_api.reply_message(
