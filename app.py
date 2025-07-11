@@ -154,20 +154,42 @@ def callback():
                                 # --- ConfirmTemplate送信＋フォールバック ---
                                 try:
                                     from linebot.models import TemplateSendMessage, ConfirmTemplate, MessageAction
-                                    confirm_template = TemplateSendMessage(
-                                        alt_text=reply_text,
-                                        template=ConfirmTemplate(
-                                            text=reply_text,
-                                            actions=[
-                                                MessageAction(label="はい", text="はい"),
-                                                MessageAction(label="修正する", text="修正する")
-                                            ]
+                                    # 240文字制限対応
+                                    confirm_text = reply_text
+                                    if len(confirm_text) > 240:
+                                        # 省略バージョン
+                                        confirm_text = "今日やるタスクはこちらで良いですか？\n(タスクが多いため一部省略)"
+                                        fallback_text = reply_text + "\n\n「はい」または「修正する」と返信してください。"
+                                        # ConfirmTemplateは短縮文、詳細は通常テキスト
+                                        confirm_template = TemplateSendMessage(
+                                            alt_text=confirm_text,
+                                            template=ConfirmTemplate(
+                                                text=confirm_text,
+                                                actions=[
+                                                    MessageAction(label="はい", text="はい"),
+                                                    MessageAction(label="修正する", text="修正する")
+                                                ]
+                                            )
                                         )
-                                    )
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        confirm_template
-                                    )
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            [confirm_template, TextSendMessage(text=fallback_text)]
+                                        )
+                                    else:
+                                        confirm_template = TemplateSendMessage(
+                                            alt_text=confirm_text,
+                                            template=ConfirmTemplate(
+                                                text=confirm_text,
+                                                actions=[
+                                                    MessageAction(label="はい", text="はい"),
+                                                    MessageAction(label="修正する", text="修正する")
+                                                ]
+                                            )
+                                        )
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            confirm_template
+                                        )
                                 except Exception as e:
                                     # フォールバック: 通常テキストで案内
                                     fallback_text = reply_text + "\n\n「はい」または「修正する」と返信してください。"
