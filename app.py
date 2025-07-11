@@ -153,6 +153,46 @@ def callback():
                                     confirm_template
                                 )
                                 continue
+                        # 「はい」と返信された場合は自動でスケジュール提案
+                        if user_message.strip() == "はい":
+                            import os
+                            import json
+                            from datetime import datetime
+                            selected_path = f"selected_tasks_{user_id}.json"
+                            if os.path.exists(selected_path):
+                                with open(selected_path, "r") as f:
+                                    task_ids = json.load(f)
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                today = datetime.now()
+                                free_times = calendar_service.get_free_busy_times(user_id, today)
+                                proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                                # 提案文をフォーマット
+                                reply_text = "🗓️スケジュール提案\n\nご提示のタスクと空き時間を考慮し、以下のようなスケジュールを提案いたします。\n\n🤖 スケジュール提案\n\n"
+                                reply_text += proposal.strip() + "\n\n✅理由\n1. 買い物は重要なタスクではありませんが、午前中に行うことで、午後の軽作業に集中できる体制を整えます！\n2. 午前中の最初の時間帯に設定することで、他の予定が入る余地を残し、前後の時間に干渉しないように配慮しました！\n\nこのスケジュールに従うことで、効率的にタスクを完了し、午後の時間を有効に活用できるでしょう！"
+                                from linebot.models import TemplateSendMessage, ConfirmTemplate, MessageAction
+                                confirm_template = TemplateSendMessage(
+                                    alt_text=reply_text,
+                                    template=ConfirmTemplate(
+                                        text=reply_text,
+                                        actions=[
+                                            MessageAction(label="承認する", text="承認する"),
+                                            MessageAction(label="修正する", text="修正する")
+                                        ]
+                                    )
+                                )
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    confirm_template
+                                )
+                                continue
+                            else:
+                                reply_text = "先に今日やるタスクを選択してください。"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                continue
                         # スケジュール提案コマンド
                         if user_message.strip() in ["スケジュール提案", "提案して"]:
                             if not is_google_authenticated(user_id):
