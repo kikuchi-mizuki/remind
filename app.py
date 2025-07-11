@@ -233,6 +233,8 @@ def callback():
                                 with open(f"schedule_proposal_{user_id}.txt", "w") as f:
                                     f.write(proposal)
                                 # --- リッチテキスト整形 ---
+                                import re
+                                from datetime import datetime, timedelta
                                 rich_lines = []
                                 rich_lines.append("🗓️【本日のスケジュール提案】\n")
                                 schedule_lines = []
@@ -240,18 +242,36 @@ def callback():
                                 matched = False
                                 in_reason = False
                                 for line in proposal.split('\n'):
-                                    # 柔軟な正規表現: 記号・装飾・全角/半角・区切りの違いも許容
-                                    m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]?\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
+                                    # 1. (所要時間明示あり) 柔軟な正規表現
+                                    m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
                                     if m:
                                         matched = True
                                         schedule_lines.append("━━━━━━━━━━━━━━")
                                         schedule_lines.append(f"🕒 {m.group(1)}:{m.group(2)}〜{m.group(3)}:{m.group(4)}")
                                         schedule_lines.append(f"📝 {m.group(6).strip()}（{m.group(7)}分）")
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
-                                    # 理由やまとめの開始を検出（例: '理由', 'まとめ', '説明' などのキーワード）
-                                    elif re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line):
+                                        continue
+                                    # 2. (所要時間明示なし) 例: - **08:00 - 08:20** 書類作成
+                                    m2 = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+)", line)
+                                    if m2:
+                                        # 所要時間を自動計算
+                                        try:
+                                            start = datetime(2000,1,1,int(m2.group(1)),int(m2.group(2)))
+                                            end = datetime(2000,1,1,int(m2.group(3)),int(m2.group(4)))
+                                            if end <= start:
+                                                end += timedelta(days=1)
+                                            duration = int((end-start).total_seconds()//60)
+                                        except Exception:
+                                            duration = "?"
+                                        schedule_lines.append("━━━━━━━━━━━━━━")
+                                        schedule_lines.append(f"🕒 {m2.group(1)}:{m2.group(2)}〜{m2.group(3)}:{m2.group(4)}")
+                                        schedule_lines.append(f"📝 {m2.group(6).strip()}（{duration}分）")
+                                        schedule_lines.append("━━━━━━━━━━━━━━\n")
+                                        continue
+                                    # 理由やまとめの開始を検出
+                                    if re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line):
                                         in_reason = True
-                                    if in_reason and not m:
+                                    if in_reason and not (m or m2):
                                         reason_lines.append(line)
                                 # スケジュール本体
                                 if schedule_lines:
