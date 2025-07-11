@@ -64,7 +64,11 @@ def google_auth():
     # Google OAuth2フロー開始
     flow = Flow.from_client_secrets_file(
         'client_secrets.json',
-        scopes=['https://www.googleapis.com/auth/calendar'],
+        scopes=[
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/drive"
+        ],
         redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
     )
     # stateにuser_idを含める
@@ -88,7 +92,11 @@ def oauth2callback():
         print(f"[oauth2callback] user_id: {user_id}")
         flow = Flow.from_client_secrets_file(
             'client_secrets.json',
-            scopes=['https://www.googleapis.com/auth/calendar'],
+            scopes=[
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/drive.file",
+                "https://www.googleapis.com/auth/drive"
+            ],
             state=state,
             redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback"
         )
