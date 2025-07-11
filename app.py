@@ -389,7 +389,7 @@ def callback():
                             # タスク一覧を取得
                             all_tasks = task_service.get_user_tasks(user_id)
                             reply_text = "✅タスクを追加しました！\n\n"
-                            reply_text += task_service.format_task_list(all_tasks)
+                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text.strip())

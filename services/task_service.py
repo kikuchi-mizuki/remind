@@ -189,8 +189,10 @@ class TaskService:
             'new_time': time_modification
         }
 
-    def format_task_list(self, tasks: List[Task]) -> str:
-        """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化、M/D〆切形式）"""
+    def format_task_list(self, tasks: List[Task], show_select_guide: bool = True) -> str:
+        """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化、M/D〆切形式）
+        show_select_guide: 末尾の案内文を表示するかどうか
+        """
         if not tasks:
             return "登録されているタスクはありません。"
         # 期日昇順でソート（未設定は最後）
@@ -222,7 +224,9 @@ class TaskService:
             for task in group:
                 formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
                 idx += 1
-        formatted_list += "＝＝＝＝＝＝\n今日やるタスクを選んでください！\n例：１、３、５"
+        formatted_list += "＝＝＝＝＝＝"
+        if show_select_guide:
+            formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５"
         return formatted_list
 
     def get_daily_tasks(self, user_id: str) -> List[Task]:
