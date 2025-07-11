@@ -1,8 +1,9 @@
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from models.database import db, Task
+from collections import defaultdict
 
 class TaskService:
     """タスク管理サービスクラス"""
@@ -43,24 +44,44 @@ class TaskService:
                 repeat = True
                 break
         
-        # タスク名の抽出（時間と頻度の部分を除く）
+        # 期日の抽出
+        due_date = None
+        today = datetime.now()
+        # 明日
+        if '明日' in message:
+            due_date = (today + timedelta(days=1)).strftime('%Y-%m-%d')
+            message = message.replace('明日', '')
+        # YYYY-MM-DD
+        m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', message)
+        if m:
+            due_date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            message = message.replace(m.group(0), '')
+        # M/D or M月D日
+        m2 = re.search(r'(\d{1,2})[/-](\d{1,2})', message)
+        if m2:
+            year = today.year
+            due_date = f"{year}-{int(m2.group(1)):02d}-{int(m2.group(2)):02d}"
+            message = message.replace(m2.group(0), '')
+        m3 = re.search(r'(\d{1,2})月(\d{1,2})日', message)
+        if m3:
+            year = today.year
+            due_date = f"{year}-{int(m3.group(1)):02d}-{int(m3.group(2)):02d}"
+            message = message.replace(m3.group(0), '')
+        # タスク名の抽出（時間・頻度・期日部分を除く）
         task_name = message
         for pattern in time_patterns:
             task_name = re.sub(pattern, '', task_name)
-        
         for keyword in repeat_keywords:
             task_name = task_name.replace(keyword, '')
-        
         # 余分な空白を削除
         task_name = re.sub(r'\s+', ' ', task_name).strip()
-        
         if not task_name:
             raise ValueError("タスク名が見つかりませんでした")
-        
         return {
             'name': task_name,
             'duration_minutes': duration_minutes,
-            'repeat': repeat
+            'repeat': repeat,
+            'due_date': due_date
         }
 
     def create_task(self, user_id: str, task_info: Dict) -> Task:
@@ -71,7 +92,8 @@ class TaskService:
             user_id=user_id,
             name=task_info['name'],
             duration_minutes=task_info['duration_minutes'],
-            repeat=task_info['repeat']
+            repeat=task_info['repeat'],
+            due_date=task_info.get('due_date')
         )
         
         if self.db.create_task(task):
@@ -142,17 +164,33 @@ class TaskService:
         }
 
     def format_task_list(self, tasks: List[Task]) -> str:
-        """タスク一覧をフォーマット"""
+        """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化）"""
         if not tasks:
             return "登録されているタスクはありません。"
-        
-        formatted_list = "📋 タスク一覧\n\n"
-        for i, task in enumerate(tasks, 1):
-            repeat_text = "🔄 毎日" if task.repeat else "📌 単発"
-            formatted_list += f"{i}. {task.name} ({task.duration_minutes}分) {repeat_text}\n"
-        
-        formatted_list += "\n今日やるタスクの番号を選んでください。\n例: 1 3 5"
-        
+        # 期日昇順でソート（未設定は最後）
+        def due_date_key(task):
+            return (task.due_date or '9999-12-31', task.name)
+        tasks_sorted = sorted(tasks, key=due_date_key)
+        # 期日ごとにグループ化
+        grouped = defaultdict(list)
+        for task in tasks_sorted:
+            grouped[task.due_date or '未設定'].append(task)
+        formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝＝\n"
+        idx = 1
+        for due, group in sorted(grouped.items()):
+            if due != '未設定':
+                try:
+                    y, m, d = due.split('-')
+                    due_str = f"{int(m)}/{int(d)}"
+                except Exception:
+                    due_str = due
+                formatted_list += f"✅{due_str}〆切\n"
+            else:
+                formatted_list += "✅期日未設定\n"
+            for task in group:
+                formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
+                idx += 1
+        formatted_list += "＝＝＝＝＝＝＝"
         return formatted_list
 
     def get_daily_tasks(self, user_id: str) -> List[Task]:
