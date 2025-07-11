@@ -79,8 +79,19 @@ class TaskService:
             task_name = re.sub(pattern, '', task_name)
         for keyword in repeat_keywords:
             task_name = task_name.replace(keyword, '')
-        # 余分な空白を削除
-        task_name = re.sub(r'\s+', ' ', task_name).strip()
+        task_name = re.sub(r'[\s　]+', ' ', task_name).strip()
+        # タスク名が空の場合は、元のメッセージから時間・頻度・期日部分のみ除去して再抽出
+        if not task_name:
+            temp_message = message
+            for pattern in time_patterns:
+                temp_message = re.sub(pattern, '', temp_message)
+            for keyword in repeat_keywords:
+                temp_message = temp_message.replace(keyword, '')
+            temp_message = re.sub(r'明日', '', temp_message)
+            temp_message = re.sub(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', '', temp_message)
+            temp_message = re.sub(r'(\d{1,2})[/-](\d{1,2})', '', temp_message)
+            temp_message = re.sub(r'(\d{1,2})月(\d{1,2})日', '', temp_message)
+            task_name = re.sub(r'[\s　]+', ' ', temp_message).strip()
         if not task_name:
             raise ValueError("タスク名が見つかりませんでした")
         return {
