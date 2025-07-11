@@ -190,28 +190,36 @@ def callback():
                                 # --- リッチテキスト整形 ---
                                 rich_lines = []
                                 rich_lines.append("🗓️【本日のスケジュール提案】\n")
+                                schedule_lines = []
+                                reason_lines = []
                                 matched = False
+                                in_reason = False
                                 for line in proposal.split('\n'):
-                                    # - 09:00〜09:30 タスク名 (30分)
-                                    m = re.match(r"-?\s*(\d{2}:\d{2})(?:\s*[〜~\-]\s*(\d{2}:\d{2}))?\s*(.+?)\s*\((\d+)分\)", line)
+                                    # スケジュール本体（09:00〜09:20 ...）
+                                    m = re.match(r"[-・*]?\s*(\d{2}:\d{2})\s*[-~〜]\s*(\d{2}:\d{2})\s*(.+?)\s*\((\d+)分\)", line)
                                     if m:
                                         matched = True
-                                        if m.group(2):
-                                            rich_lines.append("━━━━━━━━━━━━━━")
-                                            rich_lines.append(f"🕒 {m.group(1)}〜{m.group(2)}")
-                                            rich_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
-                                            rich_lines.append("━━━━━━━━━━━━━━\n")
-                                        else:
-                                            rich_lines.append("━━━━━━━━━━━━━━")
-                                            rich_lines.append(f"🕒 {m.group(1)}")
-                                            rich_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
-                                            rich_lines.append("━━━━━━━━━━━━━━\n")
-                                # 1行もマッチしなかった場合はproposal本文をそのまま表示
-                                if not matched:
+                                        schedule_lines.append("━━━━━━━━━━━━━━")
+                                        schedule_lines.append(f"🕒 {m.group(1)}〜{m.group(2)}")
+                                        schedule_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
+                                        schedule_lines.append("━━━━━━━━━━━━━━\n")
+                                    # 理由やまとめの開始を検出（例: '理由', 'まとめ', '説明' などのキーワード）
+                                    elif re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line):
+                                        in_reason = True
+                                    if in_reason and not m:
+                                        reason_lines.append(line)
+                                # スケジュール本体
+                                if schedule_lines:
+                                    rich_lines.extend(schedule_lines)
+                                # 理由・まとめ
+                                if reason_lines:
+                                    rich_lines.append("\n---\n")
+                                    rich_lines.append("📝【理由・まとめ】")
+                                    rich_lines.extend(reason_lines)
+                                # どちらもなければproposal本文をそのまま表示
+                                if not schedule_lines and not reason_lines:
                                     rich_lines.append(proposal)
-                                # 理由・まとめ（例文）
-                                rich_lines.append("✅理由\n1. 買い物は重要なタスクではありませんが、午前中に行うことで、午後の軽作業に集中できる体制を整えます！\n2. 午前中の最初の時間帯に設定することで、他の予定が入る余地を残し、前後の時間に干渉しないように配慮しました！\n\nこのスケジュールに従うことで、効率的にタスクを完了し、午後の時間を有効に活用できるでしょう！\n")
-                                rich_lines.append("このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
+                                rich_lines.append("\nこのスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
                                 reply_text = "\n".join(rich_lines)
                                 line_bot_api.reply_message(
                                     reply_token,
