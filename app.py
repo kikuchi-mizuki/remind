@@ -176,11 +176,7 @@ def callback():
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text = "📋 タスク一覧\n＝＝＝＝＝＝\n"
-                            for i, t in enumerate(all_tasks, 1):
-                                repeat_text = "🔄 毎日" if t.repeat else "📌 単発"
-                                reply_text += f"{i}. {t.name} ({t.duration_minutes}分) {repeat_text}\n"
-                            reply_text += "＝＝＝＝＝＝\n今日やるタスクを選んでください！\n例：１、３、５"
+                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text)
