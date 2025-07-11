@@ -178,6 +178,11 @@ def callback():
                             import json
                             import re
                             from datetime import datetime
+                            # 進行中コメントを先に送信
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text="見積書を作成中です…")
+                            )
                             selected_path = f"selected_tasks_{user_id}.json"
                             if os.path.exists(selected_path):
                                 with open(selected_path, "r") as f:
@@ -201,8 +206,8 @@ def callback():
                                 rich_lines.append("✅理由\n1. 買い物は重要なタスクではありませんが、午前中に行うことで、午後の軽作業に集中できる体制を整えます！\n2. 午前中の最初の時間帯に設定することで、他の予定が入る余地を残し、前後の時間に干渉しないように配慮しました！\n\nこのスケジュールに従うことで、効率的にタスクを完了し、午後の時間を有効に活用できるでしょう！\n")
                                 rich_lines.append("このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
                                 reply_text = "\n".join(rich_lines)
-                                line_bot_api.reply_message(
-                                    reply_token,
+                                line_bot_api.push_message(
+                                    user_id,
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
