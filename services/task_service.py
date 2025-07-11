@@ -188,7 +188,7 @@ class TaskService:
         }
 
     def format_task_list(self, tasks: List[Task]) -> str:
-        """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化）"""
+        """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化、M/D〆切形式）"""
         if not tasks:
             return "登録されているタスクはありません。"
         # 期日昇順でソート（未設定は最後）
@@ -202,7 +202,8 @@ class TaskService:
             grouped[task.due_date or '未設定'].append(task)
         formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝\n"
         idx = 1
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now()
+        today_str = today.strftime('%Y-%m-%d')
         for due, group in sorted(grouped.items()):
             if due == today_str:
                 formatted_list += "📌 本日〆切\n"
@@ -216,7 +217,7 @@ class TaskService:
             else:
                 formatted_list += "📌 期日未設定\n"
             for task in group:
-                formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分) \n"
+                formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
                 idx += 1
         formatted_list += "＝＝＝＝＝＝\n今日やるタスクを選んでください！\n例：１、３、５"
         return formatted_list
