@@ -7,7 +7,7 @@ import json
 class Task:
     """タスクモデルクラス"""
     def __init__(self, task_id: str, user_id: str, name: str, duration_minutes: int, 
-                 repeat: bool, status: str = "active", created_at: Optional[datetime] = None):
+                 repeat: bool, status: str = "active", created_at: Optional[datetime] = None, due_date: Optional[str] = None):
         self.task_id = task_id
         self.user_id = user_id
         self.name = name
@@ -15,6 +15,7 @@ class Task:
         self.repeat = repeat
         self.status = status
         self.created_at = created_at or datetime.now()
+        self.due_date = due_date  # 期日（YYYY-MM-DD 形式の文字列）
 
 class ScheduleProposal:
     """スケジュール提案モデルクラス"""
@@ -43,7 +44,8 @@ class Database:
                 duration_minutes INTEGER NOT NULL,
                 repeat BOOLEAN NOT NULL,
                 status TEXT DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                due_date TEXT
             )
         ''')
         
@@ -74,20 +76,19 @@ class Database:
     def create_task(self, task: Task) -> bool:
         """タスクを作成"""
         try:
+            print(f"[create_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, repeat={task.repeat}, status={task.status}, created_at={task.created_at}, due_date={task.due_date}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
             cursor.execute('''
-                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
-                  task.repeat, task.status, task.created_at))
-            
+                  task.repeat, task.status, task.created_at, task.due_date))
             conn.commit()
             conn.close()
             return True
         except Exception as e:
-            print(f"Error creating task: {e}")
+            print(f"[create_task] Error creating task: {e}")
             return False
 
     def get_user_tasks(self, user_id: str, status: str = "active") -> List[Task]:
@@ -97,7 +98,7 @@ class Database:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at
+                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date
                 FROM tasks
                 WHERE user_id = ? AND status = ?
                 ORDER BY created_at DESC
@@ -112,7 +113,8 @@ class Database:
                     duration_minutes=row[3],
                     repeat=bool(row[4]),
                     status=row[5],
-                    created_at=datetime.fromisoformat(row[6])
+                    created_at=datetime.fromisoformat(row[6]),
+                    due_date=row[7]
                 )
                 tasks.append(task)
             
@@ -129,7 +131,7 @@ class Database:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at
+                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date
                 FROM tasks
                 WHERE task_id = ?
             ''', (task_id,))
@@ -145,7 +147,8 @@ class Database:
                     duration_minutes=row[3],
                     repeat=bool(row[4]),
                     status=row[5],
-                    created_at=datetime.fromisoformat(row[6])
+                    created_at=datetime.fromisoformat(row[6]),
+                    due_date=row[7]
                 )
             return None
         except Exception as e:
