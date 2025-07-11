@@ -197,18 +197,7 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-                        # タスク登録メッセージか判定してDB保存
-                        try:
-                            task_info = task_service.parse_task_message(user_message)
-                            task_service.create_task(user_id, task_info)
-                            reply_text = f"タスク「{task_info['name']}」({task_info['duration_minutes']}分, {'毎日' if task_info['repeat'] else '単発'})を登録しました。"
-                        except Exception as e:
-                            reply_text = f"タスク登録エラー: {e}"
-                        line_bot_api.reply_message(
-                            reply_token,
-                            TextSendMessage(text=reply_text)
-                        )
-                        # スケジュール修正指示
+                        # スケジュール修正指示（タスク登録より先にチェック）
                         if "を" in user_message and "時" in user_message and "変更" in user_message:
                             try:
                                 modification = task_service.parse_modification_message(user_message)
@@ -233,6 +222,26 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
+                        
+                        # タスク登録メッセージか判定してDB保存
+                        try:
+                            task_info = task_service.parse_task_message(user_message)
+                            task_service.create_task(user_id, task_info)
+                            reply_text = f"タスク「{task_info['name']}」({task_info['duration_minutes']}分, {'毎日' if task_info['repeat'] else '単発'})を登録しました。"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+                        except Exception as e:
+                            # タスク登録エラーの場合
+                            reply_text = f"タスク登録エラー: {e}"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+                        
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
                         guide_text = (
                             "🤖 ご利用ありがとうございます！\n\n"
