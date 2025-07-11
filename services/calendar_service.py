@@ -151,12 +151,14 @@ class CalendarService:
     def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> bool:
         """スケジュール提案をカレンダーに反映"""
         try:
+            import re
+            from datetime import datetime, timedelta
             lines = schedule_proposal.split('\n')
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             event_added = False
             for line in lines:
-                # 柔軟な正規表現: 記号・装飾・全角/半角・区切りの違いも許容
-                m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]?\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
+                # 1. (所要時間明示あり) 柔軟な正規表現
+                m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
                 if m:
                     start_hour = int(m.group(1))
                     start_min = int(m.group(2))
@@ -168,10 +170,31 @@ class CalendarService:
                     start_time = today.replace(hour=start_hour, minute=start_min)
                     self.add_event_to_calendar(user_id, task_name, start_time, duration)
                     event_added = True
-                else:
-                    # パースできなかった行を警告
-                    if line.strip():
-                        print(f"[add_events_to_calendar] パースできなかった行: {line}")
+                    continue
+                # 2. (所要時間明示なし) 例: - **08:00〜08:20** 書類作成 など
+                m2 = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+)", line)
+                if m2:
+                    try:
+                        start_hour = int(m2.group(1))
+                        start_min = int(m2.group(2))
+                        end_hour = int(m2.group(3))
+                        end_min = int(m2.group(4))
+                        task_name = m2.group(6).strip()
+                        # 所要時間を自動計算
+                        start = datetime(2000,1,1,start_hour,start_min)
+                        end = datetime(2000,1,1,end_hour,end_min)
+                        if end <= start:
+                            end += timedelta(days=1)
+                        duration = int((end-start).total_seconds()//60)
+                        start_time = today.replace(hour=start_hour, minute=start_min)
+                        self.add_event_to_calendar(user_id, task_name, start_time, duration)
+                        event_added = True
+                    except Exception as e:
+                        print(f"[add_events_to_calendar] パース失敗: {line} err={e}")
+                    continue
+                # パースできなかった行を警告
+                if line.strip():
+                    print(f"[add_events_to_calendar] パースできなかった行: {line}")
             return event_added
         except Exception as e:
             print(f"Error adding events to calendar: {e}")
