@@ -15,6 +15,7 @@ from googleapiclient.discovery import build
 from werkzeug.middleware.proxy_fix import ProxyFix
 import re
 from datetime import datetime, timedelta
+import pytz
 
 load_dotenv()
 app = Flask(__name__)
@@ -207,13 +208,15 @@ def callback():
                             import json
                             import re
                             from datetime import datetime
+                            import pytz
                             selected_path = f"selected_tasks_{user_id}.json"
                             if os.path.exists(selected_path):
                                 with open(selected_path, "r") as f:
                                     task_ids = json.load(f)
                                 all_tasks = task_service.get_user_tasks(user_id)
                                 selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
-                                today = datetime.now()
+                                jst = pytz.timezone('Asia/Tokyo')
+                                today = datetime.now(jst)
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
                                 if not free_times and len(free_times) == 0:
                                     # Google認証エラーの可能性
@@ -284,6 +287,7 @@ def callback():
                             import json
                             import os
                             from datetime import datetime
+                            import pytz
                             selected_path = f"selected_tasks_{user_id}.json"
                             if os.path.exists(selected_path):
                                 with open(selected_path, "r") as f:
@@ -291,7 +295,8 @@ def callback():
                                 all_tasks = task_service.get_user_tasks(user_id)
                                 selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
                                 # Googleカレンダーの空き時間を取得
-                                today = datetime.now()
+                                jst = pytz.timezone('Asia/Tokyo')
+                                today = datetime.now(jst)
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
                                 # ChatGPTでスケジュール提案（空き時間も渡す）
                                 proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
@@ -411,7 +416,9 @@ def callback():
                         # 21時の繰り越し確認への返信処理
                         if re.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
                             from datetime import datetime, timedelta
-                            today_str = datetime.now().strftime('%Y-%m-%d')
+                            import pytz
+                            jst = pytz.timezone('Asia/Tokyo')
+                            today_str = datetime.now(jst).strftime('%Y-%m-%d')
                             tasks = task_service.get_user_tasks(user_id)
                             today_tasks = [t for t in tasks if t.due_date == today_str]
                             if not today_tasks:
@@ -431,7 +438,7 @@ def callback():
                             for idx, t in enumerate(today_tasks):
                                 if idx in carryover_indexes:
                                     # 期日を翌日に更新
-                                    next_day = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                                    next_day = (datetime.now(jst) + timedelta(days=1)).strftime('%Y-%m-%d')
                                     t.due_date = next_day
                                     # Assuming db is available or task_service has a create_task method
                                     # For now, using task_service as a placeholder

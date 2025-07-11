@@ -3,6 +3,7 @@ import schedule
 import time
 import threading
 from datetime import datetime, timedelta
+import pytz
 from typing import List
 from linebot import LineBotApi
 from linebot.models import TextSendMessage
@@ -187,9 +188,10 @@ class NotificationService:
 
     def send_carryover_check(self):
         """毎日21時に今日のタスクのうち明日に繰り越すものを確認し、繰り越さないものは削除"""
-        from datetime import datetime, timedelta
+        import pytz
         user_ids = self._get_active_user_ids()
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        jst = pytz.timezone('Asia/Tokyo')
+        today_str = datetime.now(jst).strftime('%Y-%m-%d')
         for user_id in user_ids:
             tasks = self.task_service.get_user_tasks(user_id)
             # 今日が期日のタスクのみ抽出

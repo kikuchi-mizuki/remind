@@ -1,6 +1,7 @@
 import re
 import uuid
 from datetime import datetime, timedelta
+import pytz
 from typing import List, Dict, Optional
 from models.database import db, Task
 from collections import defaultdict
@@ -51,7 +52,8 @@ class TaskService:
                 break
         # 期日の抽出
         due_date = None
-        today = datetime.now()
+        jst = pytz.timezone('Asia/Tokyo')
+        today = datetime.now(jst)
         if '明日' in message:
             due_date = (today + timedelta(days=1)).strftime('%Y-%m-%d')
             message = message.replace('明日', '')
@@ -202,7 +204,8 @@ class TaskService:
             grouped[task.due_date or '未設定'].append(task)
         formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝\n"
         idx = 1
-        today = datetime.now()
+        jst = pytz.timezone('Asia/Tokyo')
+        today = datetime.now(jst)
         today_str = today.strftime('%Y-%m-%d')
         for due, group in sorted(grouped.items()):
             if due == today_str:
