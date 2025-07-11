@@ -155,19 +155,23 @@ class CalendarService:
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             event_added = False
             for line in lines:
-                # 例: - 08:00 〜 08:30 買い物 (30分)
-                m = re.match(r"-\s*(\d{2}):(\d{2})\s*[〜~\-]\s*(\d{2}):(\d{2})\s*(.+)\((\d+)分\)", line)
+                # 柔軟な正規表現: 記号・装飾・全角/半角・区切りの違いも許容
+                m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]?\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
                 if m:
                     start_hour = int(m.group(1))
                     start_min = int(m.group(2))
                     end_hour = int(m.group(3))
                     end_min = int(m.group(4))
-                    task_name = m.group(5).strip()
-                    duration = int(m.group(6))
+                    task_name = m.group(6).strip()
+                    duration = int(m.group(7))
                     # 開始日時
                     start_time = today.replace(hour=start_hour, minute=start_min)
                     self.add_event_to_calendar(user_id, task_name, start_time, duration)
                     event_added = True
+                else:
+                    # パースできなかった行を警告
+                    if line.strip():
+                        print(f"[add_events_to_calendar] パースできなかった行: {line}")
             return event_added
         except Exception as e:
             print(f"Error adding events to calendar: {e}")
