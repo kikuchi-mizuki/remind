@@ -18,40 +18,37 @@ class CalendarService:
         self.credentials = None
 
     def authenticate_user(self, user_id: str) -> bool:
-        """ユーザーの認証を行う"""
+        """ユーザーの認証を行う（app.pyの認証フローに依存）"""
         try:
-            creds = None
             token_path = f'tokens/{user_id}_token.json'
-            if os.path.exists(token_path):
-                creds = Credentials.from_authorized_user_file(token_path, self.SCOPES)
-            if not creds or not creds.valid:
-                if creds and creds.expired and creds.refresh_token:
+            if not os.path.exists(token_path):
+                print(f"Token file not found: {token_path}")
+                return False
+            
+            creds = Credentials.from_authorized_user_file(token_path, self.SCOPES)
+            
+            # refresh_tokenが無い場合は認証失敗
+            if not creds.refresh_token:
+                print(f"No refresh_token found for user: {user_id}")
+                return False
+            
+            # トークンが期限切れの場合は更新
+            if creds.expired:
+                try:
                     creds.refresh(Request())
-                else:
-                    # refresh_tokenが無い場合はLINEに再認証を促す
-                    from linebot import LineBotApi
-                    from linebot.models import TextSendMessage
-                    line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
-                    auth_url = self.get_authorization_url(user_id)
-                    msg = f"Googleカレンダー連携のため、再度認証をお願いします:\n{auth_url}"
-                    try:
-                        line_bot_api.push_message(user_id, TextSendMessage(text=msg))
-                    except Exception as e:
-                        print(f"LINE通知エラー: {e}")
+                    # 更新されたトークンを保存
+                    with open(token_path, 'w') as token:
+                        token.write(creds.to_json())
+                except Exception as e:
+                    print(f"Token refresh failed: {e}")
                     return False
-                # トークンを保存
-                os.makedirs('tokens', exist_ok=True)
-                with open(token_path, 'w') as token:
-                    token.write(creds.to_json())
+            
             self.credentials = creds
             self.service = build('calendar', 'v3', credentials=creds)
             return True
+            
         except Exception as e:
             print(f"Authentication error: {e}")
-            # refresh_tokenが不足している場合の案内
-            if "refresh_token" in str(e):
-                print("refresh_tokenが不足しています。Google認証を再実行してください。")
-                print("認証時は必ずアカウント選択画面でアカウントを選び直してください。")
             return False
 
     def get_free_busy_times(self, user_id: str, date: datetime) -> List[Dict]:

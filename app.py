@@ -35,24 +35,45 @@ if not os.path.exists("client_secrets.json"):
         with open("client_secrets.json", "w") as f:
             f.write(secrets)
 
-# Google認証済みユーザー管理（本番はDB推奨）
-GOOGLE_AUTH_USERS_FILE = "google_auth_users.json"
+# Google認証済みユーザー管理（tokenファイルの存在と有効性で判定）
 def is_google_authenticated(user_id):
-    if not os.path.exists(GOOGLE_AUTH_USERS_FILE):
+    """tokenファイルの存在と有効性をチェック"""
+    token_path = f'tokens/{user_id}_token.json'
+    if not os.path.exists(token_path):
         return False
-    with open(GOOGLE_AUTH_USERS_FILE, "r") as f:
-        users = json.load(f)
-    return user_id in users
+    
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        
+        creds = Credentials.from_authorized_user_file(token_path, [
+            "https://www.googleapis.com/auth/calendar",
+            "https://www.googleapis.com/auth/drive.file",
+            "https://www.googleapis.com/auth/drive"
+        ])
+        
+        # refresh_tokenが存在し、有効な場合のみTrue
+        if creds and creds.refresh_token:
+            if creds.expired and creds.refresh_token:
+                try:
+                    creds.refresh(Request())
+                    # 更新されたトークンを保存
+                    with open(token_path, 'w') as token:
+                        token.write(creds.to_json())
+                    return True
+                except Exception as e:
+                    print(f"Token refresh failed: {e}")
+                    return False
+            return True
+        return False
+    except Exception as e:
+        print(f"Token validation failed: {e}")
+        return False
 
 def add_google_authenticated_user(user_id):
-    users = []
-    if os.path.exists(GOOGLE_AUTH_USERS_FILE):
-        with open(GOOGLE_AUTH_USERS_FILE, "r") as f:
-            users = json.load(f)
-    if user_id not in users:
-        users.append(user_id)
-        with open(GOOGLE_AUTH_USERS_FILE, "w") as f:
-            json.dump(users, f)
+    """認証済みユーザーとして登録（tokenファイルが存在する場合のみ）"""
+    # tokenファイルの存在確認のみ（実際の登録はoauth2callbackで行う）
+    pass
 
 # Google認証URL生成（本番URLに修正）
 def get_google_auth_url(user_id):
@@ -75,6 +96,7 @@ def google_auth():
     auth_url, state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
+        prompt='consent',  # 確実にrefresh_tokenを取得するため
         state=user_id
     )
     # stateをセッションに保存（本番はDB推奨）
@@ -105,6 +127,12 @@ def oauth2callback():
         print("[oauth2callback] token fetched")
         creds = flow.credentials
         print(f"[oauth2callback] creds: {creds}")
+        
+        # refresh_tokenの確認
+        if not creds.refresh_token:
+            print("[oauth2callback] WARNING: refresh_token not found!")
+            return "認証エラー: refresh_tokenが取得できませんでした。<br>ブラウザで「別のアカウントを使用」を選択して再度認証してください。", 400
+        
         # ユーザーごとにトークンを保存
         import os
         os.makedirs('tokens', exist_ok=True)
@@ -112,6 +140,7 @@ def oauth2callback():
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
         print(f"[oauth2callback] token saved: {token_path}")
+        
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
         print("[oauth2callback] user registered")
