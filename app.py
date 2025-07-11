@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask, request, redirect, session, url_for
 from dotenv import load_dotenv
 from services.task_service import TaskService
 from services.calendar_service import CalendarService
@@ -8,6 +8,7 @@ from services.notification_service import NotificationService
 from models.database import init_db, Task
 from linebot import LineBotApi
 from linebot.models import TextSendMessage
+import json
 
 load_dotenv()
 app = Flask(__name__)
@@ -18,6 +19,37 @@ openai_service = OpenAIService()
 notification_service = NotificationService()
 
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+
+# Google認証済みユーザー管理（本番はDB推奨）
+GOOGLE_AUTH_USERS_FILE = "google_auth_users.json"
+def is_google_authenticated(user_id):
+    if not os.path.exists(GOOGLE_AUTH_USERS_FILE):
+        return False
+    with open(GOOGLE_AUTH_USERS_FILE, "r") as f:
+        users = json.load(f)
+    return user_id in users
+
+def add_google_authenticated_user(user_id):
+    users = []
+    if os.path.exists(GOOGLE_AUTH_USERS_FILE):
+        with open(GOOGLE_AUTH_USERS_FILE, "r") as f:
+            users = json.load(f)
+    if user_id not in users:
+        users.append(user_id)
+        with open(GOOGLE_AUTH_USERS_FILE, "w") as f:
+            json.dump(users, f)
+
+# Google認証URL生成（ダミー）
+def get_google_auth_url(user_id):
+    return f"https://your-app-url.com/google_auth?user_id={user_id}"
+
+@app.route("/google_auth")
+def google_auth():
+    user_id = request.args.get("user_id")
+    # ここでGoogle OAuth認証フローを実装（省略）
+    # 認証成功時:
+    add_google_authenticated_user(user_id)
+    return "Google認証が完了しました。LINEに戻って操作を続けてください。"
 
 @app.route("/callback", methods=['POST'])
 def callback():
@@ -31,6 +63,102 @@ def callback():
                     reply_token = event["replyToken"]
                     user_message = event["message"]["text"]
                     user_id = event["source"].get("userId", "")
+                    # タスク一覧コマンド
+                    if user_message.strip() == "タスク一覧":
+                        daily_tasks = [t for t in task_service.get_user_tasks(user_id) if t.repeat]
+                        once_tasks = [t for t in task_service.get_user_tasks(user_id) if not t.repeat]
+                        reply_text = "📋 タスク一覧\n\n"
+                        reply_text += "🔄 毎日タスク\n" if daily_tasks else ""
+                        for i, t in enumerate(daily_tasks, 1):
+                            reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
+                        reply_text += "\n📌 単発タスク\n" if once_tasks else ""
+                        for i, t in enumerate(once_tasks, 1):
+                            reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
+                        if not daily_tasks and not once_tasks:
+                            reply_text += "登録されているタスクはありません。"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
+                    # タスク選択（番号のみのメッセージ）
+                    if all(s.isdigit() or s.isspace() for s in user_message) and any(s.isdigit() for s in user_message):
+                        selected_tasks = task_service.get_selected_tasks(user_id, user_message)
+                        if selected_tasks:
+                            with open(f"selected_tasks_{user_id}.json", "w") as f:
+                                import json
+                                json.dump([t.task_id for t in selected_tasks], f)
+                            reply_text = "今日やるタスクを選択しました:\n" + "\n".join([f"・{t.name} ({t.duration_minutes}分)" for t in selected_tasks])
+                        else:
+                            reply_text = "選択されたタスクが見つかりませんでした。"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
+                    # スケジュール提案コマンド
+                    if user_message.strip() in ["スケジュール提案", "提案して"]:
+                        if not is_google_authenticated(user_id):
+                            auth_url = get_google_auth_url(user_id)
+                            reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+                        import json
+                        import os
+                        from datetime import datetime
+                        selected_path = f"selected_tasks_{user_id}.json"
+                        if os.path.exists(selected_path):
+                            with open(selected_path, "r") as f:
+                                task_ids = json.load(f)
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                            # Googleカレンダーの空き時間を取得
+                            today = datetime.now()
+                            free_times = calendar_service.get_free_busy_times(user_id, today)
+                            # ChatGPTでスケジュール提案（空き時間も渡す）
+                            proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                            # スケジュール提案を一時保存
+                            with open(f"schedule_proposal_{user_id}.txt", "w") as f2:
+                                f2.write(proposal)
+                            reply_text = f"🗓️ スケジュール提案\n\n{proposal}"
+                        else:
+                            reply_text = "先に今日やるタスクを選択してください。"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
+                    # スケジュール承認
+                    if user_message.strip() == "承認":
+                        if not is_google_authenticated(user_id):
+                            auth_url = get_google_auth_url(user_id)
+                            reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+                        import os
+                        proposal_path = f"schedule_proposal_{user_id}.txt"
+                        if os.path.exists(proposal_path):
+                            with open(proposal_path, "r") as f:
+                                proposal = f.read()
+                            # Googleカレンダーに登録
+                            success = calendar_service.add_events_to_calendar(user_id, proposal)
+                            if success:
+                                reply_text = "スケジュールをGoogleカレンダーに登録しました！"
+                            else:
+                                reply_text = "カレンダー登録に失敗しました。Google認証や権限設定をご確認ください。"
+                        else:
+                            reply_text = "先にスケジュール提案を受け取ってください。"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
                     # タスク登録メッセージか判定してDB保存
                     try:
                         task_info = task_service.parse_task_message(user_message)
@@ -42,10 +170,36 @@ def callback():
                         reply_token,
                         TextSendMessage(text=reply_text)
                     )
+                    # スケジュール修正指示
+                    if "を" in user_message and "時" in user_message and "変更" in user_message:
+                        try:
+                            modification = task_service.parse_modification_message(user_message)
+                            # 直前のスケジュール提案を取得
+                            import os
+                            proposal_path = f"schedule_proposal_{user_id}.txt"
+                            if os.path.exists(proposal_path):
+                                with open(proposal_path, "r") as f:
+                                    current_proposal = f.read()
+                            else:
+                                current_proposal = ""
+                            # 修正後のスケジュール案を生成
+                            new_proposal = openai_service.generate_modified_schedule(user_id, modification)
+                            # 新しい提案を一時保存
+                            with open(f"schedule_proposal_{user_id}.txt", "w") as f2:
+                                f2.write(new_proposal)
+                            reply_text = f"🔄 修正後のスケジュール提案\n\n{new_proposal}"
+                        except Exception as e:
+                            reply_text = f"スケジュール修正エラー: {e}"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
     except Exception as e:
         print("エラー:", e)
     return "OK", 200
 
 if __name__ == "__main__":
     init_db()
+    notification_service.start_scheduler()
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000))) 

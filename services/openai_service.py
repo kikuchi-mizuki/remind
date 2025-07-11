@@ -11,15 +11,14 @@ class OpenAIService:
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.model = "gpt-4o-mini"  # または "gpt-4o"
 
-    def generate_schedule_proposal(self, tasks: List[Task]) -> str:
-        """選択されたタスクからスケジュール提案を生成"""
+    def generate_schedule_proposal(self, tasks: List[Task], free_times: List[dict] = []) -> str:
+        """選択されたタスクと空き時間からスケジュール提案を生成"""
         if not tasks:
             return "タスクが選択されていません。"
         
         # タスク情報を整理
         task_info = []
         total_duration = 0
-        
         for task in tasks:
             task_info.append({
                 'name': task.name,
@@ -28,8 +27,17 @@ class OpenAIService:
             })
             total_duration += task.duration_minutes
         
+        # 空き時間情報を整形
+        free_time_str = ""
+        if free_times:
+            free_time_str = "\n空き時間リスト:\n"
+            for ft in free_times:
+                start = ft['start'].strftime('%H:%M')
+                end = ft['end'].strftime('%H:%M')
+                free_time_str += f"- {start}〜{end} ({ft['duration_minutes']}分)\n"
+        
         # プロンプトを作成
-        prompt = self._create_schedule_prompt(task_info, total_duration)
+        prompt = self._create_schedule_prompt(task_info, total_duration, free_time_str)
         
         try:
             response = self.client.chat.completions.create(
@@ -37,7 +45,7 @@ class OpenAIService:
                 messages=[
                     {
                         "role": "system",
-                        "content": "あなたは効率的なスケジュール管理の専門家です。与えられたタスクを最適な時間に配置し、生産性を最大化するスケジュールを提案してください。"
+                        "content": "あなたは効率的なスケジュール管理の専門家です。与えられたタスクと空き時間をもとに、生産性を最大化するスケジュールを提案してください。"
                     },
                     {
                         "role": "user",
@@ -47,12 +55,10 @@ class OpenAIService:
                 max_tokens=1000,
                 temperature=0.7
             )
-            
-            return response.choices[0].message.content
-            
+            return response.choices[0].message.content or ""
         except Exception as e:
             print(f"OpenAI API error: {e}")
-            return self._generate_fallback_schedule(tasks)
+            return self._generate_fallback_schedule(tasks) or ""
 
     def generate_modified_schedule(self, user_id: str, modification: Dict) -> str:
         """修正されたスケジュールを生成"""
@@ -72,7 +78,6 @@ class OpenAIService:
 09:00 筋トレ (20分)
 10:30 買い物 (30分)
 """
-        
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -89,20 +94,16 @@ class OpenAIService:
                 max_tokens=500,
                 temperature=0.7
             )
-            
-            return response.choices[0].message.content
-            
+            return response.choices[0].message.content or ""
         except Exception as e:
             print(f"OpenAI API error: {e}")
             return "スケジュールの修正に失敗しました。"
 
-    def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int) -> str:
-        """スケジュール提案用のプロンプトを作成"""
+    def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "") -> str:
+        """スケジュール提案用のプロンプトを作成（空き時間対応）"""
         task_list = "\n".join([
-            f"- {task['name']} ({task['duration']}分)"
-            for task in task_info
+            f"- {task['name']} ({task['duration']}分)" for task in task_info
         ])
-        
         return f"""
 以下のタスクを今日のスケジュールに最適に配置してください：
 
@@ -110,6 +111,7 @@ class OpenAIService:
 {task_list}
 
 総所要時間: {total_duration}分
+{free_time_str}
 
 配置ルール：
 1. 重要・集中系のタスクは午前中に配置
@@ -117,13 +119,7 @@ class OpenAIService:
 3. 前後の予定に干渉しないようマージンを持たせる
 4. 効率的な順序で配置（関連するタスクは近くに配置）
 
-提案フォーマット：
-時間 タスク名 (所要時間)
-例：
-09:00 筋トレ (20分)
-10:30 買い物 (30分)
-
-最適なスケジュールを提案してください。
+空き時間を考慮して、最適なスケジュールを提案してください。
 """
 
     def _generate_fallback_schedule(self, tasks: List[Task]) -> str:
@@ -160,7 +156,6 @@ class OpenAIService:
 
 優先度のみを返してください（high/medium/low）
 """
-        
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -177,9 +172,7 @@ class OpenAIService:
                 max_tokens=10,
                 temperature=0.3
             )
-            
-            return response.choices[0].message.content.strip().lower()
-            
+            return (response.choices[0].message.content or "").strip().lower()
         except Exception as e:
             print(f"OpenAI API error: {e}")
             return "medium"  # デフォルトは中優先度
@@ -205,7 +198,6 @@ class OpenAIService:
 
 具体的で実践的な提案をお願いします。
 """
-        
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -222,9 +214,7 @@ class OpenAIService:
                 max_tokens=500,
                 temperature=0.7
             )
-            
-            return response.choices[0].message.content
-            
+            return response.choices[0].message.content or ""
         except Exception as e:
             print(f"OpenAI API error: {e}")
             return "タスクの最適化提案を生成できませんでした。" 
