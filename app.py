@@ -178,11 +178,6 @@ def callback():
                             import json
                             import re
                             from datetime import datetime
-                            # 進行中コメントを先に送信
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text="見積書を作成中です…")
-                            )
                             selected_path = f"selected_tasks_{user_id}.json"
                             if os.path.exists(selected_path):
                                 with open(selected_path, "r") as f:
@@ -195,19 +190,31 @@ def callback():
                                 # --- リッチテキスト整形 ---
                                 rich_lines = []
                                 rich_lines.append("🗓️【本日のスケジュール提案】\n")
+                                matched = False
                                 for line in proposal.split('\n'):
-                                    m = re.match(r"-\s*(\d{2}:\d{2})\s*[〜~\-]\s*(\d{2}:\d{2})\s*(.+)\((\d+)分\)", line)
+                                    # - 09:00〜09:30 タスク名 (30分)
+                                    m = re.match(r"-?\s*(\d{2}:\d{2})(?:\s*[〜~\-]\s*(\d{2}:\d{2}))?\s*(.+?)\s*\((\d+)分\)", line)
                                     if m:
-                                        rich_lines.append("━━━━━━━━━━━━━━")
-                                        rich_lines.append(f"🕒 {m.group(1)}〜{m.group(2)}")
-                                        rich_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
-                                        rich_lines.append("━━━━━━━━━━━━━━\n")
+                                        matched = True
+                                        if m.group(2):
+                                            rich_lines.append("━━━━━━━━━━━━━━")
+                                            rich_lines.append(f"🕒 {m.group(1)}〜{m.group(2)}")
+                                            rich_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
+                                            rich_lines.append("━━━━━━━━━━━━━━\n")
+                                        else:
+                                            rich_lines.append("━━━━━━━━━━━━━━")
+                                            rich_lines.append(f"🕒 {m.group(1)}")
+                                            rich_lines.append(f"📝 {m.group(3).strip()}（{m.group(4)}分）")
+                                            rich_lines.append("━━━━━━━━━━━━━━\n")
+                                # 1行もマッチしなかった場合はproposal本文をそのまま表示
+                                if not matched:
+                                    rich_lines.append(proposal)
                                 # 理由・まとめ（例文）
                                 rich_lines.append("✅理由\n1. 買い物は重要なタスクではありませんが、午前中に行うことで、午後の軽作業に集中できる体制を整えます！\n2. 午前中の最初の時間帯に設定することで、他の予定が入る余地を残し、前後の時間に干渉しないように配慮しました！\n\nこのスケジュールに従うことで、効率的にタスクを完了し、午後の時間を有効に活用できるでしょう！\n")
                                 rich_lines.append("このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
                                 reply_text = "\n".join(rich_lines)
-                                line_bot_api.push_message(
-                                    user_id,
+                                line_bot_api.reply_message(
+                                    reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
@@ -308,19 +315,9 @@ def callback():
                             task_info = task_service.parse_task_message(user_message)
                             task_service.create_task(user_id, task_info)
                             # タスク一覧を取得
-                            daily_tasks = [t for t in task_service.get_user_tasks(user_id) if t.repeat]
-                            once_tasks = [t for t in task_service.get_user_tasks(user_id) if not t.repeat]
+                            all_tasks = task_service.get_user_tasks(user_id)
                             reply_text = "✅タスクを追加しました！\n\n"
-                            reply_text += "📋 タスク一覧\n＝＝＝＝＝＝＝\n"
-                            if daily_tasks:
-                                reply_text += "🔄 毎日タスク\n"
-                                for i, t in enumerate(daily_tasks, 1):
-                                    reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
-                            if once_tasks:
-                                reply_text += "\n📌 単発タスク\n"
-                                for i, t in enumerate(once_tasks, 1):
-                                    reply_text += f"{i}. {t.name} ({t.duration_minutes}分)\n"
-                            reply_text += "＝＝＝＝＝＝＝"
+                            reply_text += task_service.format_task_list(all_tasks)
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text)
