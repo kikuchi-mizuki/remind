@@ -23,6 +23,13 @@ notification_service = NotificationService()
 
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 
+# client_secrets.jsonがなければ環境変数から生成
+if not os.path.exists("client_secrets.json"):
+    secrets = os.environ.get("CLIENT_SECRETS_JSON")
+    if secrets:
+        with open("client_secrets.json", "w") as f:
+            f.write(secrets)
+
 # Google認証済みユーザー管理（本番はDB推奨）
 GOOGLE_AUTH_USERS_FILE = "google_auth_users.json"
 def is_google_authenticated(user_id):
