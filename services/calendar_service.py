@@ -7,6 +7,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import json
+import re
 
 class CalendarService:
     """Googleカレンダー操作サービスクラス"""
@@ -18,36 +19,33 @@ class CalendarService:
 
     def authenticate_user(self, user_id: str) -> bool:
         """ユーザーの認証を行う"""
-        # 実際の実装では、ユーザーごとの認証情報を管理する必要があります
-        # ここでは簡略化のため、環境変数から認証情報を取得
         try:
-            # 認証情報の設定
             creds = None
             token_path = f'tokens/{user_id}_token.json'
-            
             if os.path.exists(token_path):
                 creds = Credentials.from_authorized_user_file(token_path, self.SCOPES)
-            
             if not creds or not creds.valid:
                 if creds and creds.expired and creds.refresh_token:
                     creds.refresh(Request())
                 else:
-                    # 実際の実装では、OAuth2フローを実行する必要があります
-                    # ここでは簡略化のため、環境変数から取得
-                    creds = Credentials.from_authorized_user_info(
-                        json.loads(os.getenv('GOOGLE_CREDENTIALS', '{}')),
-                        self.SCOPES
-                    )
-                
+                    # refresh_tokenが無い場合はLINEに再認証を促す
+                    from linebot import LineBotApi
+                    from linebot.models import TextSendMessage
+                    line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+                    auth_url = self.get_authorization_url(user_id)
+                    msg = f"Googleカレンダー連携のため、再度認証をお願いします:\n{auth_url}"
+                    try:
+                        line_bot_api.push_message(user_id, TextSendMessage(text=msg))
+                    except Exception as e:
+                        print(f"LINE通知エラー: {e}")
+                    return False
                 # トークンを保存
                 os.makedirs('tokens', exist_ok=True)
                 with open(token_path, 'w') as token:
                     token.write(creds.to_json())
-            
             self.credentials = creds
             self.service = build('calendar', 'v3', credentials=creds)
             return True
-            
         except Exception as e:
             print(f"Authentication error: {e}")
             return False
@@ -151,21 +149,25 @@ class CalendarService:
 
     def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> bool:
         """スケジュール提案をカレンダーに反映"""
-        # スケジュール提案からタスクと時間を解析
-        # 実際の実装では、より詳細な解析が必要
         try:
-            # 簡略化のため、提案テキストから時間とタスク名を抽出
             lines = schedule_proposal.split('\n')
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            
+            event_added = False
             for line in lines:
-                if ':' in line and ('分' in line or 'min' in line):
-                    # 時間とタスク名を抽出する処理
-                    # 実際の実装では、より詳細な解析が必要
-                    pass
-            
-            return True
-            
+                # 例: - 08:00 〜 08:30 買い物 (30分)
+                m = re.match(r"-\s*(\d{2}):(\d{2})\s*[〜~\-]\s*(\d{2}):(\d{2})\s*(.+)\((\d+)分\)", line)
+                if m:
+                    start_hour = int(m.group(1))
+                    start_min = int(m.group(2))
+                    end_hour = int(m.group(3))
+                    end_min = int(m.group(4))
+                    task_name = m.group(5).strip()
+                    duration = int(m.group(6))
+                    # 開始日時
+                    start_time = today.replace(hour=start_hour, minute=start_min)
+                    self.add_event_to_calendar(user_id, task_name, start_time, duration)
+                    event_added = True
+            return event_added
         except Exception as e:
             print(f"Error adding events to calendar: {e}")
             return False
@@ -258,7 +260,7 @@ class CalendarService:
         """Google OAuth2認証URLを生成"""
         try:
             flow = InstalledAppFlow.from_client_secrets_file(
-                'client_secrets.json',  # Google Cloud Consoleからダウンロード
+                'client_secrets.json',
                 self.SCOPES
             )
             if redirect_uri:
@@ -269,7 +271,8 @@ class CalendarService:
             auth_url, _ = flow.authorization_url(
                 access_type='offline',
                 include_granted_scopes='true',
-                state=user_id
+                state=user_id,
+                prompt='consent'  # 毎回refresh_tokenを取得
             )
             return auth_url
         except Exception as e:
