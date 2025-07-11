@@ -15,6 +15,7 @@ from googleapiclient.discovery import build
 
 load_dotenv()
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your-default-secret-key")
 
 task_service = TaskService()
 calendar_service = CalendarService()
