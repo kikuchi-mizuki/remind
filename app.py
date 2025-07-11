@@ -387,7 +387,7 @@ def callback():
                             reply_text += task_service.format_task_list(all_tasks)
                             line_bot_api.reply_message(
                                 reply_token,
-                                TextSendMessage(text=reply_text)
+                                TextSendMessage(text=reply_text.strip())
                             )
                             continue
                         except Exception as e:
