@@ -196,25 +196,29 @@ class TaskService:
             return (task.due_date or '9999-12-31', task.name)
         tasks_sorted = sorted(tasks, key=due_date_key)
         # 期日ごとにグループ化
+        from collections import defaultdict
         grouped = defaultdict(list)
         for task in tasks_sorted:
             grouped[task.due_date or '未設定'].append(task)
-        formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝＝\n"
+        formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝\n"
         idx = 1
+        today_str = datetime.now().strftime('%Y-%m-%d')
         for due, group in sorted(grouped.items()):
-            if due != '未設定':
+            if due == today_str:
+                formatted_list += "📌 本日〆切\n"
+            elif due != '未設定':
                 try:
                     y, m, d = due.split('-')
                     due_str = f"{int(m)}/{int(d)}"
                 except Exception:
                     due_str = due
-                formatted_list += f"✅{due_str}〆切\n"
+                formatted_list += f"📌 {due_str}〆切\n"
             else:
-                formatted_list += "✅期日未設定\n"
+                formatted_list += "📌 期日未設定\n"
             for task in group:
-                formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
+                formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分) \n"
                 idx += 1
-        formatted_list += "＝＝＝＝＝＝＝"
+        formatted_list += "＝＝＝＝＝＝\n今日やるタスクを選んでください！\n例：１、３、５"
         return formatted_list
 
     def get_daily_tasks(self, user_id: str) -> List[Task]:
