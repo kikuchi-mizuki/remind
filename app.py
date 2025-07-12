@@ -677,40 +677,18 @@ def callback():
                         # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
                         if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
                             import pytz
-                            from datetime import datetime, timedelta
+                            from datetime import datetime
                             jst = pytz.timezone('Asia/Tokyo')
                             today_str = datetime.now(jst).strftime('%Y-%m-%d')
-                            # 1. DBから今日が〆切のタスク
+                            # 今日が〆切のタスクのみ抽出
                             tasks = task_service.get_user_tasks(user_id)
                             today_tasks = [t for t in tasks if t.due_date == today_str]
-                            # 2. Googleカレンダーから本日の[added_by_bot]イベント
-                            events = calendar_service.get_today_schedule(user_id)
-                            bot_events = [ev for ev in events if '[added_by_bot]' in ev['title']]
-                            # 3. タスク名で重複除去（DB優先）
-                            task_names = set(t.name for t in today_tasks)
-                            for ev in bot_events:
-                                # タイトルから[added_by_bot]や📝を除去
-                                import re
-                                title = ev['title'].replace('📝', '').replace('[added_by_bot]', '').strip()
-                                if title not in task_names:
-                                    # ダミーのTask風オブジェクトを作る
-                                    class DummyTask:
-                                        pass
-                                    dummy = DummyTask()
-                                    dummy.name = title
-                                    dummy.duration_minutes = ''
-                                    today_tasks.append(dummy)
-                                    task_names.add(title)
-                            # 4. 表示
                             if not today_tasks:
                                 reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
                             else:
                                 reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
                                 for idx, t in enumerate(today_tasks, 1):
-                                    reply_text += f"{idx}. {t.name}"
-                                    if hasattr(t, 'duration_minutes') and t.duration_minutes:
-                                        reply_text += f" ({t.duration_minutes}分)"
-                                    reply_text += "\n"
+                                    reply_text += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
                                 reply_text += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
                             line_bot_api.reply_message(
                                 reply_token,
