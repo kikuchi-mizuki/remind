@@ -765,20 +765,52 @@ def callback():
                             )
                             continue
                         except Exception as e:
-                            # タスク登録エラーの場合はガイドメッセージのみ返信
-                            guide_text = (
-                                "🤖 ご利用ありがとうございます！\n\n"
-                                "現在ご利用いただける主な機能は以下の通りです：\n\n"
-                                "【使い方】\n\n"
-                                "📝 タスク登録\n例：「筋トレ 20分 毎日」\n例：「買い物 30分」\n\n"
-                                "📅 スケジュール確認\n毎朝8時に今日のタスク一覧をお送りします\n\n"
-                                "✅ スケジュール承認\n提案されたスケジュールに「承認」と返信\n\n"
-                                "🔄 スケジュール修正\n例：「筋トレを15時に変更して」\n\n"
-                                "何かご質問がございましたら、お気軽にお聞きください！"
-                            )
+                            # タスク登録エラーの場合はFlex Messageメニューを返信
+                            from linebot.models import FlexSendMessage
+                            flex_message = {
+                                "type": "bubble",
+                                "body": {
+                                    "type": "box",
+                                    "layout": "vertical",
+                                    "contents": [
+                                        {"type": "text", "text": "ご利用ありがとうございます！", "weight": "bold", "size": "lg", "margin": "md"},
+                                        {"type": "text", "text": "主な機能は下記のボタンからご利用いただけます。", "size": "md", "margin": "md", "color": "#666666"}
+                                    ]
+                                },
+                                "footer": {
+                                    "type": "box",
+                                    "layout": "vertical",
+                                    "spacing": "sm",
+                                    "contents": [
+                                        {
+                                            "type": "button",
+                                            "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
+                                            "style": "primary"
+                                        },
+                                        {
+                                            "type": "button",
+                                            "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
+                                            "style": "secondary"
+                                        },
+                                        {
+                                            "type": "button",
+                                            "action": {"type": "message", "label": "スケジュール確認", "text": "タスク確認"},
+                                            "style": "secondary"
+                                        },
+                                        {
+                                            "type": "button",
+                                            "action": {"type": "message", "label": "スケジュール修正", "text": "スケジュール修正"},
+                                            "style": "secondary"
+                                        }
+                                    ]
+                                }
+                            }
                             line_bot_api.reply_message(
                                 reply_token,
-                                TextSendMessage(text=guide_text)
+                                FlexSendMessage(
+                                    alt_text="ご利用案内・操作メニュー",
+                                    contents=flex_message
+                                )
                             )
                             continue
                         

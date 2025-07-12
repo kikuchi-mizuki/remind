@@ -88,6 +88,8 @@ class TaskService:
                         print(f"[parse_task_message] 期日抽出: M月D日 → {due_date}")
         # AIで期日抽出（既存ロジックでdue_dateが取れなかった場合のみ）
         ai_date_keywords = ['今日', '明日', '明後日', '今週', '来週', '今週中', '来週中', '今週末', '来週末', '今月末', '来月', '来月末']
+        used_date_keywords = []  # 使用された日付キーワードを記録
+        
         if not due_date:
             try:
                 from services.openai_service import OpenAIService
@@ -96,26 +98,40 @@ class TaskService:
                 if ai_due:
                     due_date = ai_due
                     print(f"[parse_task_message] AI日付抽出: {due_date}")
-                    # AI抽出時も自然言語日付キーワードを除去
+                    # AI抽出時に使用されたキーワードを特定して除去
                     for key in ai_date_keywords:
-                        message = message.replace(key, '')
+                        if key in message:
+                            used_date_keywords.append(key)
+                            message = message.replace(key, '')
             except Exception as e:
                 print(f"[parse_task_message] AI日付抽出エラー: {e}")
         else:
-            # 既存ロジックでdue_dateが取れた場合も念のため除去
+            # 既存ロジックでdue_dateが取れた場合も使用されたキーワードを除去
             for key in ai_date_keywords:
-                message = message.replace(key, '')
+                if key in message:
+                    used_date_keywords.append(key)
+                    message = message.replace(key, '')
         # タスク名の抽出
         task_name = message
         print(f"[parse_task_message] タスク名抽出前: '{task_name}'")
+        
+        # 使用された日付キーワードを除去
+        for keyword in used_date_keywords:
+            task_name = task_name.replace(keyword, '')
+        
         for pattern in time_patterns:
             task_name = re.sub(pattern, '', task_name)
         for keyword in repeat_keywords:
             task_name = task_name.replace(keyword, '')
         task_name = re.sub(r'[\s　]+', ' ', task_name).strip()
         print(f"[parse_task_message] タスク名抽出後: '{task_name}'")
+        
         if not task_name:
             temp_message = message
+            # 使用された日付キーワードを除去
+            for keyword in used_date_keywords:
+                temp_message = temp_message.replace(keyword, '')
+            
             for pattern in time_patterns:
                 temp_message = re.sub(pattern, '', temp_message)
             for keyword in repeat_keywords:
