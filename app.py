@@ -828,8 +828,8 @@ def callback():
                                 "type": "box",
                                 "layout": "vertical",
                                 "contents": [
-                                    {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "lg"},
-                                    {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+                                    {"type": "text", "text": "ご利用ありがとうございます！", "weight": "bold", "size": "lg", "margin": "md"},
+                                    {"type": "text", "text": "主な機能は下記のボタンからご利用いただけます。", "size": "md", "margin": "md", "color": "#666666"}
                                 ]
                             },
                             "footer": {
@@ -846,6 +846,16 @@ def callback():
                                         "type": "button",
                                         "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
                                         "style": "secondary"
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {"type": "message", "label": "スケジュール確認", "text": "タスク確認"},
+                                        "style": "secondary"
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {"type": "message", "label": "スケジュール修正", "text": "スケジュール修正"},
+                                        "style": "secondary"
                                     }
                                 ]
                             }
@@ -853,7 +863,7 @@ def callback():
                         line_bot_api.reply_message(
                             reply_token,
                             FlexSendMessage(
-                                alt_text="タスク管理Botメニュー",
+                                alt_text="ご利用案内・操作メニュー",
                                 contents=flex_message
                             )
                         )
