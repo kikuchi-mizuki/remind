@@ -524,13 +524,14 @@ def callback():
                                         for i, ev in enumerate(events, 1):
                                             # タイトルの装飾（🔥は例示。必要に応じて条件分岐可）
                                             title = ev['title']
+                                            # 📝や余計な記号を除去
+                                            title = title.replace('📝', '').strip()
                                             # 1. 番号付き（1. タイトル🔥）
                                             reply_text += f"{i}. {title}"
                                             if '🔥' not in title:
                                                 reply_text += "🔥"
                                             reply_text += "\n"
-                                            # 2. 時刻（🕐9:00～18:00）
-                                            # ISO8601→時刻部分のみ抽出
+                                            # 2. 時刻（🕐8:00～8:30）
                                             import re
                                             def fmt_time(dtstr):
                                                 m = re.search(r'T(\d{2}):(\d{2})', dtstr)
@@ -540,9 +541,9 @@ def callback():
                                             start = fmt_time(ev['start'])
                                             end = fmt_time(ev['end'])
                                             reply_text += f"🕐{start}～{end}\n\n"
-                                    else:
-                                        reply_text += "本日の予定はありません。\n"
                                     reply_text += "━━━━━━━━━━"
+                                    line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
+                                    continue
                                 else:
                                     reply_text = "❌ カレンダー登録に失敗しました。\n\n"
                                     reply_text += "Google認証に問題がある可能性があります。\n"
