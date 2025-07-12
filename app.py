@@ -541,6 +541,16 @@ def callback():
                                 rich_lines.append("🗓️【本日のスケジュール提案】\n")
                                 if schedule_lines:
                                     rich_lines.extend(schedule_lines)
+                                else:
+                                    # フォールバック: ---や【理由・まとめ】より前の部分を本体として表示
+                                    fallback = []
+                                    for line in proposal_clean.split('\n'):
+                                        if '---' in line or '【理由' in line or '【まとめ' in line:
+                                            break
+                                        if line.strip():
+                                            fallback.append(line.strip())
+                                    if fallback:
+                                        rich_lines.extend(fallback)
                                 # 理由・まとめ
                                 if reason_lines:
                                     rich_lines.append("\n---\n")
