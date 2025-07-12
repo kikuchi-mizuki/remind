@@ -339,6 +339,7 @@ def callback():
                             # 今日が〆切のタスクのみ抽出
                             tasks = task_service.get_user_tasks(user_id)
                             today_tasks = [t for t in tasks if t.due_date == today_str]
+                            print(f"[DEBUG] today_str={today_str}, today_tasks={[{'name': t.name, 'due_date': t.due_date} for t in today_tasks]}")
                             # タスク確認モードフラグを一時ファイルで保存
                             with open(f"task_check_mode_{user_id}.flag", "w") as f:
                                 f.write("1")
@@ -691,6 +692,7 @@ def callback():
                             # 今日が〆切のタスクのみ抽出
                             tasks = task_service.get_user_tasks(user_id)
                             today_tasks = [t for t in tasks if t.due_date == today_str]
+                            print(f"[DEBUG] today_str={today_str}, today_tasks={[{'name': t.name, 'due_date': t.due_date} for t in today_tasks]}")
                             # タスク確認モードフラグを一時ファイルで保存
                             with open(f"task_check_mode_{user_id}.flag", "w") as f:
                                 f.write("1")
