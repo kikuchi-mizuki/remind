@@ -544,7 +544,8 @@ def callback():
                             delete_mode_file = f"delete_mode_{user_id}.json"
                             with open(delete_mode_file, "w") as f:
                                 import json
-                                json.dump({"mode": "delete", "timestamp": datetime.now().isoformat()}, f)
+                                import datetime
+                                json.dump({"mode": "delete", "timestamp": datetime.datetime.now().isoformat()}, f)
                             
                             line_bot_api.reply_message(
                                 reply_token,
