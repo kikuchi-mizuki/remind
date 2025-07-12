@@ -423,11 +423,12 @@ def callback():
                                 import re
                                 from datetime import datetime, timedelta
                                 rich_lines = []
-                                rich_lines.append("🗓️【本日のスケジュール提案】\n")
                                 schedule_lines = []
                                 reason_lines = []
                                 matched = False
                                 in_reason = False
+                                seen_guide = False
+                                seen_reason = False
                                 for line in proposal.split('\n'):
                                     # 1. (所要時間明示あり) 柔軟な正規表現
                                     m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
@@ -456,11 +457,19 @@ def callback():
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
                                         continue
                                     # 理由やまとめの開始を検出
-                                    if re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line):
+                                    if re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line) and not seen_reason:
                                         in_reason = True
+                                        seen_reason = True
+                                        continue
                                     if in_reason and not (m or m2):
                                         reason_lines.append(line)
+                                    # 案内文重複除去
+                                    if ('このスケジュールでよろしければ' in line or '修正する' in line):
+                                        if not seen_guide:
+                                            seen_guide = True
+                                        continue
                                 # スケジュール本体
+                                rich_lines.append("🗓️【本日のスケジュール提案】\n")
                                 if schedule_lines:
                                     rich_lines.extend(schedule_lines)
                                 # 理由・まとめ
@@ -471,6 +480,7 @@ def callback():
                                 # どちらもなければproposal本文をそのまま表示
                                 if not schedule_lines and not reason_lines:
                                     rich_lines.append(proposal)
+                                # 最後に案内文を1回だけ
                                 rich_lines.append("\nこのスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
                                 reply_text = "\n".join(rich_lines)
                                 line_bot_api.reply_message(
