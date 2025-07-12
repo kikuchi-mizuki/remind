@@ -190,7 +190,7 @@ def oauth2callback():
                             reply_token,
                             TextSendMessage(text=reply_text)
                         )
-                        continue
+                        return "OK", 200
                     proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
                     with open(f"schedule_proposal_{user_id}.txt", "w") as f:
                         f.write(proposal)
@@ -200,14 +200,14 @@ def oauth2callback():
                         reply_token,
                         TextSendMessage(text=proposal)
                     )
-                    continue
+                    return "OK", 200
                 else:
                     reply_text = "先に今日やるタスクを選択してください。"
                     line_bot_api.reply_message(
                         reply_token,
                         TextSendMessage(text=reply_text)
                     )
-                    continue
+                    return "OK", 200
             else:
                 from linebot.models import FlexSendMessage
                 flex_message = {
