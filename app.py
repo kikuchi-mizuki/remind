@@ -473,6 +473,11 @@ def callback():
                                         continue
                                 # スケジュール本体
                                 rich_lines.append("🗓️【本日のスケジュール提案}\n")
+                                if not schedule_lines:
+                                    # 🕒や📝で始まる行をAI出力から必ず抽出
+                                    for l in proposal_clean.split('\n'):
+                                        if l.strip().startswith('🕒') or l.strip().startswith('📝'):
+                                            schedule_lines.append(l.strip())
                                 if schedule_lines:
                                     rich_lines.extend(schedule_lines)
                                 # 理由・まとめ
