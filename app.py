@@ -485,7 +485,12 @@ def callback():
                                 # --- リッチテキスト整形 ---
                                 # 1. AI出力から案内文を除去
                                 proposal_clean = regex.sub(r'このスケジュールでよろしければ.*?返信してください。', '', proposal, flags=regex.DOTALL)
-                                # 2. スケジュール本体・理由・まとめ抽出
+                                # 2. 📝を全て削除
+                                proposal_clean = proposal_clean.replace('📝', '')
+                                # 3. 【】で囲まれた見出しが正しく出力されるように補正（例: 半角スペースや改行の直後に【が来る場合も対応）
+                                proposal_clean = regex.sub(r'\n+\s*【', '\n【', proposal_clean)
+                                proposal_clean = regex.sub(r'\s*】', '】', proposal_clean)
+                                # 4. スケジュール本体・理由・まとめ抽出
                                 rich_lines = []
                                 schedule_lines = []
                                 reason_lines = []
@@ -500,7 +505,7 @@ def callback():
                                         matched = True
                                         schedule_lines.append("━━━━━━━━━━━━━━")
                                         schedule_lines.append(f"🕒 {m.group(1)}:{m.group(2)}〜{m.group(3)}:{m.group(4)}")
-                                        schedule_lines.append(f"📝 {m.group(6).strip()}（{m.group(7)}分）")
+                                        schedule_lines.append(f"{m.group(6).strip()}（{m.group(7)}分）")
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
                                         continue
                                     # 2. (所要時間明示なし) 例: - **08:00 - 08:20** 書類作成
@@ -517,7 +522,7 @@ def callback():
                                             duration = "?"
                                         schedule_lines.append("━━━━━━━━━━━━━━")
                                         schedule_lines.append(f"🕒 {m2.group(1)}:{m2.group(2)}〜{m2.group(3)}:{m2.group(4)}")
-                                        schedule_lines.append(f"📝 {m2.group(6).strip()}（{duration}分）")
+                                        schedule_lines.append(f"{m2.group(6).strip()}（{duration}分）")
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
                                         continue
                                     # 理由やまとめの開始を検出
@@ -533,18 +538,13 @@ def callback():
                                             seen_guide = True
                                         continue
                                 # スケジュール本体
-                                rich_lines.append("🗓️【本日のスケジュール提案}\n")
-                                if not schedule_lines:
-                                    # 🕒や📝で始まる行をAI出力から必ず抽出
-                                    for l in proposal_clean.split('\n'):
-                                        if l.strip().startswith('🕒') or l.strip().startswith('📝'):
-                                            schedule_lines.append(l.strip())
+                                rich_lines.append("🗓️【本日のスケジュール提案】\n")
                                 if schedule_lines:
                                     rich_lines.extend(schedule_lines)
                                 # 理由・まとめ
                                 if reason_lines:
                                     rich_lines.append("\n---\n")
-                                    rich_lines.append("📝【理由・まとめ】")
+                                    rich_lines.append("【理由・まとめ】")
                                     rich_lines.extend(reason_lines)
                                 # どちらもなければproposal本文をそのまま表示
                                 if not schedule_lines and not reason_lines:
