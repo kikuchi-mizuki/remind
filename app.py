@@ -539,6 +539,17 @@ def callback():
                             )
                             continue
 
+                        # 「タスク削除」と送信された場合、案内文付きでタスク一覧を表示
+                        if user_message.strip() == "タスク削除":
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                            reply_text += "\n削除するタスクを選んでください！\n例：１、３、５"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
                         guide_text = (
                             "🤖 ご利用ありがとうございます！\n\n"
