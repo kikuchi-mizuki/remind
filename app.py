@@ -711,14 +711,20 @@ def callback():
                             reply_text = ''
                             completed = []
                             carried = []
+                            next_day = (datetime.now(jst) + timedelta(days=1)).strftime('%Y-%m-%d')
                             for idx, t in enumerate(today_tasks):
                                 if idx in selected_indexes:
                                     task_service.update_task_status(t.task_id, 'archived')
                                     completed.append(t)
                                 else:
-                                    next_day = (datetime.now(jst) + timedelta(days=1)).strftime('%Y-%m-%d')
+                                    # 期日を明日にして新規登録、元タスクはアーカイブ
                                     t.due_date = next_day
-                                    task_service.create_task(t)
+                                    task_service.create_task(user_id, {
+                                        'name': t.name,
+                                        'duration_minutes': t.duration_minutes,
+                                        'repeat': t.repeat if hasattr(t, 'repeat') else False,
+                                        'due_date': t.due_date
+                                    })
                                     task_service.update_task_status(t.task_id, 'archived')
                                     carried.append(t)
                             reply_text += f'✅{len(completed)}件のタスクを完了しました。\n'
