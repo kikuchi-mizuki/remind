@@ -68,7 +68,8 @@ class OpenAIService:
                 max_tokens=1000,
                 temperature=0.7
             )
-            return response.choices[0].message.content or ""
+            raw = response.choices[0].message.content or ""
+            return self._format_schedule_output(raw)
         except Exception as e:
             print(f"OpenAI API error: {e}")
             return self._generate_fallback_schedule(tasks) or ""
@@ -246,3 +247,56 @@ class OpenAIService:
         except Exception as e:
             print(f"OpenAI API error: {e}")
             return "タスクの最適化提案を生成できませんでした。" 
+
+    def _format_schedule_output(self, raw: str) -> str:
+        """スケジュール提案の出力を指定フォーマットに整形・補正"""
+        import re
+        lines = [line.strip() for line in raw.split('\n') if line.strip()]
+        result = []
+        # 1. ヘッダー
+        if not any('本日のスケジュール提案' in l for l in lines):
+            result.append('🗓️【本日のスケジュール提案】')
+        # 2. 本文（区切り線・時刻・タスク）
+        in_reason = False
+        for i, line in enumerate(lines):
+            # 理由・まとめ開始検出
+            if re.search(r'(理由|まとめ)', line) and not in_reason:
+                in_reason = True
+                # 区切り線が直前にない場合は追加
+                if result and not re.match(r'^[━―ー=＿_]+$', result[-1]):
+                    result.append('━━━━━━━━━━━━━━')
+                result.append('✅理由・まとめ')
+                continue
+            if in_reason:
+                # 理由・まとめ本文
+                if line not in result:
+                    result.append(line)
+                continue
+            # 区切り線補正
+            if re.match(r'^[━―ー=＿_]+$', line):
+                if result and re.match(r'^[━―ー=＿_]+$', result[-1]):
+                    continue  # 連続区切り線は1つに
+                result.append('━━━━━━━━━━━━━━')
+                continue
+            # 時刻・タスク行補正
+            m = re.match(r'([0-2]?\d)[:：](\d{2})[〜~\-ー―‐–—−﹣－:：]([0-2]?\d)[:：](\d{2})', line)
+            if m:
+                result.append(f'🕒 {m.group(1).zfill(2)}:{m.group(2)}〜{m.group(3).zfill(2)}:{m.group(4)}')
+                continue
+            m2 = re.match(r'(.+)[（(](\d+)分[)）]', line)
+            if m2:
+                result.append(f'📝 {m2.group(1).strip()}（{m2.group(2)}分）')
+                continue
+            # 既に案内文が含まれていればスキップ
+            if 'このスケジュールでよろしければ' in line or '修正する' in line:
+                continue
+            # その他
+            result.append(line)
+        # 3. 理由・まとめがなければ追加
+        if not any('理由・まとめ' in l for l in result):
+            result.append('━━━━━━━━━━━━━━')
+            result.append('✅理由・まとめ')
+            result.append('・なぜこの順序・割り当てにしたかを簡潔に説明してください。')
+        # 4. 最後に案内文
+        result.append('このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。')
+        return '\n'.join(result) 
