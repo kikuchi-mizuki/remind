@@ -483,8 +483,6 @@ def callback():
                                 with open(f"schedule_proposal_{user_id}.txt", "w") as f:
                                     f.write(proposal)
                                 # --- リッチテキスト整形 ---
-                                import re
-                                from datetime import datetime, timedelta
                                 # 1. AI出力から案内文を除去
                                 proposal_clean = re.sub(r'このスケジュールでよろしければ.*?返信してください。', '', proposal, flags=re.DOTALL)
                                 # 2. スケジュール本体・理由・まとめ抽出
@@ -631,7 +629,6 @@ def callback():
                                                 reply_text += "🔥"
                                             reply_text += "\n"
                                             # 2. 時刻（🕐8:00～8:30）
-                                            import re
                                             def fmt_time(dtstr):
                                                 m = re.search(r'T(\d{2}):(\d{2})', dtstr)
                                                 if m:
