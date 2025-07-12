@@ -264,6 +264,23 @@ class Database:
             print(f"Error getting user settings: {e}")
             return None
 
+    def get_all_user_ids(self) -> List[str]:
+        """
+        全ユーザーのuser_id一覧を取得（tasksテーブルから一意に抽出）
+        """
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT DISTINCT user_id FROM tasks
+            ''')
+            user_ids = [row[0] for row in cursor.fetchall()]
+            conn.close()
+            return user_ids
+        except Exception as e:
+            print(f"Error getting all user ids: {e}")
+            return []
+
 # グローバルデータベースインスタンス
 db = Database()
 

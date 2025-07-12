@@ -22,15 +22,54 @@ class NotificationService:
     def send_daily_task_notification(self):
         """毎日のタスク通知を送信"""
         try:
-            # 全ユーザーのタスクを取得（実際の実装では、ユーザー管理が必要）
-            # ここでは簡略化のため、固定のユーザーIDを使用
             user_ids = self._get_active_user_ids()
-            
             for user_id in user_ids:
-                self._send_task_notification_to_user(user_id)
-                
+                if self._is_google_authenticated(user_id):
+                    self._send_task_notification_to_user(user_id)
+                else:
+                    auth_url = self._get_google_auth_url(user_id)
+                    message = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
         except Exception as e:
             print(f"Error sending daily notifications: {e}")
+
+    def _is_google_authenticated(self, user_id):
+        """tokenファイルの存在と有効性をチェック"""
+        token_path = f'tokens/{user_id}_token.json'
+        if not os.path.exists(token_path):
+            return False
+        
+        try:
+            from google.oauth2.credentials import Credentials
+            from google.auth.transport.requests import Request
+            
+            creds = Credentials.from_authorized_user_file(token_path, [
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/drive.file",
+                "https://www.googleapis.com/auth/drive"
+            ])
+            
+            # refresh_tokenが存在し、有効な場合のみTrue
+            if creds and creds.refresh_token:
+                if creds.expired and creds.refresh_token:
+                    try:
+                        creds.refresh(Request())
+                        # 更新されたトークンを保存
+                        with open(token_path, 'w') as token:
+                            token.write(creds.to_json())
+                        return True
+                    except Exception as e:
+                        print(f"Token refresh failed: {e}")
+                        return False
+                return True
+            return False
+        except Exception as e:
+            print(f"Token validation failed: {e}")
+            return False
+
+    def _get_google_auth_url(self, user_id):
+        """Google認証URL生成"""
+        return f"https://web-production-bf2e2.up.railway.app/google_auth?user_id={user_id}"
 
     def _send_task_notification_to_user(self, user_id: str):
         """特定ユーザーにタスク通知を送信"""
@@ -122,13 +161,10 @@ class NotificationService:
             time.sleep(60)  # 1分ごとにチェック
 
     def _get_active_user_ids(self) -> List[str]:
-        """アクティブなユーザーID一覧を取得"""
-        # 実際の実装では、データベースからユーザー一覧を取得
-        # ここでは簡略化のため、環境変数から取得
-        user_ids_str = os.getenv('ACTIVE_USER_IDS', '')
-        if user_ids_str:
-            return user_ids_str.split(',')
-        return []
+        """
+        アクティブなユーザーID一覧を取得（DBから取得）
+        """
+        return db.get_all_user_ids()
 
     def _send_weekly_reports_to_all_users(self):
         """全ユーザーに週次レポートを送信"""
@@ -193,15 +229,17 @@ class NotificationService:
         jst = pytz.timezone('Asia/Tokyo')
         today_str = datetime.now(jst).strftime('%Y-%m-%d')
         for user_id in user_ids:
-            tasks = self.task_service.get_user_tasks(user_id)
-            # 今日が期日のタスクのみ抽出
-            today_tasks = [t for t in tasks if t.due_date == today_str]
-            if not today_tasks:
-                continue
-            # タスク一覧をLINEで送信し、繰り越すかどうかを聞く
-            msg = '🔔 本日分タスクの繰り越し確認\n\n'
-            for i, t in enumerate(today_tasks, 1):
-                msg += f'{i}. {t.name}（{t.duration_minutes}分）\n'
-            msg += '\n明日に繰り越すタスクの番号をカンマ区切りで返信してください。\n（例: 1,3）\n繰り越さない場合は「なし」と返信してください。'
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=msg))
-            # 実際の削除・繰り越し処理はLINE返信の受信時にapp.py側で実装する必要あり 
+            if self._is_google_authenticated(user_id):
+                tasks = self.task_service.get_user_tasks(user_id)
+                today_tasks = [t for t in tasks if t.due_date == today_str]
+                if not today_tasks:
+                    continue
+                msg = '🔔 本日分タスクの繰り越し確認\n\n'
+                for i, t in enumerate(today_tasks, 1):
+                    msg += f'{i}. {t.name}（{t.duration_minutes}分）\n'
+                msg += '\n明日に繰り越すタスクの番号をカンマ区切りで返信してください。\n（例: 1,3）\n繰り越さない場合は「なし」と返信してください。'
+                self.line_bot_api.push_message(user_id, TextSendMessage(text=msg))
+            else:
+                auth_url = self._get_google_auth_url(user_id)
+                message = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                self.line_bot_api.push_message(user_id, TextSendMessage(text=message)) 
