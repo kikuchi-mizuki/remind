@@ -204,6 +204,7 @@ def callback():
                 if event.get("type") == "message" and "replyToken" in event:
                     reply_token = event["replyToken"]
                     user_message = event["message"]["text"]
+                    print(f"[DEBUG] 受信user_message: '{user_message}'", flush=True)
                     user_id = event["source"].get("userId", "")
                     try:
                         # すべてのメッセージで最初にGoogle認証チェック
@@ -533,6 +534,7 @@ def callback():
                             continue
                         
                         # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
+                        print(f"[DEBUG] タスク追加分岐判定: '{user_message.strip()}'", flush=True)
                         if user_message.strip() == "タスク追加":
                             try:
                                 print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
