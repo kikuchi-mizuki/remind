@@ -228,15 +228,54 @@ def callback():
                         # タスク選択（番号のみのメッセージ: 半角/全角数字・カンマ・ピリオド・スペース対応）
                         import re
                         if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
+                            # 削除モードかどうかをチェック
+                            import os
+                            delete_mode_file = f"delete_mode_{user_id}.json"
+                            is_delete_mode = os.path.exists(delete_mode_file)
+                            
                             selected_tasks = task_service.get_selected_tasks(user_id, user_message)
                             if selected_tasks:
-                                with open(f"selected_tasks_{user_id}.json", "w") as f:
-                                    import json
-                                    json.dump([t.task_id for t in selected_tasks], f)
-                                # --- テキストメッセージのみで確認案内 ---
-                                reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
-                                reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
-                                reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
+                                if is_delete_mode:
+                                    # 削除モードの場合
+                                    try:
+                                        # 選択されたタスクを削除
+                                        deleted_count = 0
+                                        for task in selected_tasks:
+                                            if task_service.archive_task(task.task_id):
+                                                deleted_count += 1
+                                        
+                                        # 削除モードファイルを削除
+                                        if os.path.exists(delete_mode_file):
+                                            os.remove(delete_mode_file)
+                                        
+                                        # 削除結果を表示
+                                        reply_text = f"✅ {deleted_count}個のタスクを削除しました！\n\n"
+                                        reply_text += "削除されたタスク：\n"
+                                        for task in selected_tasks:
+                                            reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
+                                        
+                                        # 残りのタスク一覧を表示
+                                        remaining_tasks = task_service.get_user_tasks(user_id)
+                                        if remaining_tasks:
+                                            reply_text += "\n" + task_service.format_task_list(remaining_tasks, show_select_guide=False)
+                                        else:
+                                            reply_text += "\n📋 タスク一覧\n＝＝＝＝＝＝\n登録されているタスクはありません。\n＝＝＝＝＝＝"
+                                        
+                                    except Exception as e:
+                                        reply_text = f"❌ タスク削除中にエラーが発生しました: {e}"
+                                        # 削除モードファイルを削除
+                                        if os.path.exists(delete_mode_file):
+                                            os.remove(delete_mode_file)
+                                else:
+                                    # スケジュール選択モードの場合（既存の処理）
+                                    with open(f"selected_tasks_{user_id}.json", "w") as f:
+                                        import json
+                                        json.dump([t.task_id for t in selected_tasks], f)
+                                    # --- テキストメッセージのみで確認案内 ---
+                                    reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
+                                    reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
+                                    reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
+                                
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
@@ -498,6 +537,14 @@ def callback():
                         if user_message.strip() == "タスク削除":
                             all_tasks = task_service.get_user_tasks(user_id)
                             reply_text = task_service.format_task_list(all_tasks, show_select_guide=False, for_deletion=True)
+                            
+                            # 削除モードファイルを作成
+                            import os
+                            delete_mode_file = f"delete_mode_{user_id}.json"
+                            with open(delete_mode_file, "w") as f:
+                                import json
+                                json.dump({"mode": "delete", "timestamp": datetime.now().isoformat()}, f)
+                            
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text)
