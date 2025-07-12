@@ -20,12 +20,16 @@ class NotificationService:
         self.is_running = False
 
     def send_daily_task_notification(self):
-        """毎日のタスク通知を送信"""
+        """毎日のタスク通知を送信（タスク一覧コマンドと同じ形式）"""
         try:
             user_ids = self._get_active_user_ids()
             for user_id in user_ids:
                 if self._is_google_authenticated(user_id):
-                    self._send_task_notification_to_user(user_id)
+                    # タスク一覧を取得
+                    all_tasks = self.task_service.get_user_tasks(user_id)
+                    # タスク一覧コマンドと同じ形式で出力
+                    message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
+                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
                 else:
                     auth_url = self._get_google_auth_url(user_id)
                     message = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
