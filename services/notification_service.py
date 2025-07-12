@@ -247,33 +247,56 @@ class NotificationService:
             print(f"Error sending error notification: {e}")
 
     def send_help_message(self, user_id: str):
-        """ヘルプメッセージを送信"""
-        help_message = """🤖 LINEタスクスケジューリングBot
-
-【使い方】
-
-📝 タスク登録
-例: 「筋トレ 20分 毎日」
-例: 「買い物 30分」
-
-📅 スケジュール確認
-毎朝8時に今日のタスク一覧をお送りします
-
-✅ スケジュール承認
-提案されたスケジュールに「承認」と返信
-
-🔄 スケジュール修正
-例: 「筋トレを15時に変更して」
-
-📊 週次レポート
-毎週日曜日の20時に週次レポートをお送りします
-
-何かご質問がございましたら、お気軽にお聞きください！"""
-        
+        """ヘルプメッセージをFlex Messageで送信"""
+        from linebot.models import FlexSendMessage
+        flex_message = {
+            "type": "bubble",
+            "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                    {"type": "text", "text": "ご利用ありがとうございます！", "weight": "bold", "size": "lg", "margin": "md"},
+                    {"type": "text", "text": "主な機能は下記のボタンからご利用いただけます。", "size": "md", "margin": "md", "color": "#666666"}
+                ]
+            },
+            "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "spacing": "sm",
+                "contents": [
+                    {
+                        "type": "button",
+                        "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
+                        "style": "primary"
+                    },
+                    {
+                        "type": "button",
+                        "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
+                        "style": "secondary"
+                    },
+                    {
+                        "type": "button",
+                        "action": {"type": "message", "label": "スケジュール確認", "text": "タスク確認"},
+                        "style": "secondary"
+                    },
+                    {
+                        "type": "button",
+                        "action": {"type": "message", "label": "スケジュール修正", "text": "スケジュール修正"},
+                        "style": "secondary"
+                    }
+                ]
+            }
+        }
         try:
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=help_message))
+            self.line_bot_api.push_message(
+                user_id,
+                FlexSendMessage(
+                    alt_text="ご利用案内・操作メニュー",
+                    contents=flex_message
+                )
+            )
         except Exception as e:
-            print(f"Error sending help message: {e}") 
+            print(f"Error sending help message: {e}")
 
     def send_carryover_check(self):
         """毎日21時に今日のタスクのうち明日に繰り越すものを確認し、繰り越さないものは削除"""
