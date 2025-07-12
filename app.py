@@ -146,11 +146,88 @@ def oauth2callback():
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
         print("[oauth2callback] user registered")
-        # LINEにFlex Message（ボタン形式）を送信
-        try:
-            from linebot import LineBotApi
+        # pending_actionがあれば自動実行
+        pending_path = f"pending_actions/pending_action_{user_id}.json"
+        if user_id and os.path.exists(pending_path):
+            import json
+            with open(pending_path, "r") as f:
+                pending_action = json.load(f)
+            os.remove(pending_path)
+            user_message = pending_action.get("user_message", "")
+            reply_token = pending_action.get("reply_token", None)
+            if user_message.strip() == "タスク一覧":
+                all_tasks = task_service.get_user_tasks(str(user_id))
+                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                line_bot_api.push_message(
+                    str(user_id),
+                    TextSendMessage(text=reply_text)
+                )
+            elif user_message.strip() == "はい":
+                import json
+                import pytz
+                from datetime import datetime
+                selected_path = f"selected_tasks_{user_id}.json"
+                if os.path.exists(selected_path):
+                    with open(selected_path, "r") as f:
+                        task_ids = json.load(f)
+                    all_tasks = task_service.get_user_tasks(str(user_id))
+                    selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                    jst = pytz.timezone('Asia/Tokyo')
+                    today = datetime.now(jst)
+                    free_times = calendar_service.get_free_busy_times(str(user_id), today)
+                    proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                    with open(f"schedule_proposal_{user_id}.txt", "w") as f:
+                        f.write(proposal)
+                    reply_text = f"🗓️ スケジュール提案\n\n{proposal}"
+                    line_bot_api.push_message(
+                        str(user_id),
+                        TextSendMessage(text=reply_text)
+                    )
+                else:
+                    reply_text = "先に今日やるタスクを選択してください。"
+                    line_bot_api.push_message(
+                        str(user_id),
+                        TextSendMessage(text=reply_text)
+                    )
+            else:
+                from linebot.models import FlexSendMessage
+                flex_message = {
+                    "type": "bubble",
+                    "body": {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "lg"},
+                            {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+                        ]
+                    },
+                    "footer": {
+                        "type": "box",
+                        "layout": "vertical",
+                        "spacing": "sm",
+                        "contents": [
+                            {
+                                "type": "button",
+                                "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
+                                "style": "primary"
+                            },
+                            {
+                                "type": "button",
+                                "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
+                                "style": "secondary"
+                            }
+                        ]
+                    }
+                }
+                line_bot_api.push_message(
+                    str(user_id),
+                    FlexSendMessage(
+                        alt_text="タスク管理Botメニュー",
+                        contents=flex_message
+                    )
+                )
+        else:
             from linebot.models import FlexSendMessage
-            line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
             flex_message = {
                 "type": "bubble",
                 "body": {
@@ -180,14 +257,12 @@ def oauth2callback():
                 }
             }
             line_bot_api.push_message(
-                user_id,
+                str(user_id),
                 FlexSendMessage(
                     alt_text="タスク管理Botメニュー",
                     contents=flex_message
                 )
             )
-        except Exception as e:
-            print(f"[oauth2callback] LINE通知失敗: {e}")
         return "Google認証が完了しました。LINEに戻って操作を続けてください。"
     except Exception as e:
         import traceback
@@ -210,6 +285,15 @@ def callback():
                     try:
                         # すべてのメッセージで最初にGoogle認証チェック
                         if not is_google_authenticated(user_id):
+                            # 認証が必要な場合、pending_actionファイルに内容を保存
+                            import json, os
+                            pending_action = {
+                                "user_message": user_message,
+                                "reply_token": reply_token
+                            }
+                            os.makedirs("pending_actions", exist_ok=True)
+                            with open(f"pending_actions/pending_action_{user_id}.json", "w") as f:
+                                json.dump(pending_action, f)
                             auth_url = get_google_auth_url(user_id)
                             reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
                             line_bot_api.reply_message(
