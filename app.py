@@ -545,19 +545,24 @@ def callback():
                                     reply_text = "登録されているタスクはありません。"
                                 reply_text += "\n追加するタスク・所要時間・期限を送信してください！\n例：「資料作成　30分　明日」"
                                 print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
+                                print("[DEBUG] LINE API reply_message直前", flush=True)
                                 res = line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
-                                print(f"[DEBUG] LINE API reply_messageレスポンス: {res}", flush=True)
+                                print(f"[DEBUG] LINE API reply_message直後: {res}", flush=True)
                             except Exception as e:
                                 import traceback
                                 print(f"[ERROR] タスク追加分岐: {e}", flush=True)
                                 traceback.print_exc()
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=f"⚠️ タスク一覧の取得に失敗しました: {e}")
-                                )
+                                try:
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=f"⚠️ 内部エラーが発生しました: {e}")
+                                    )
+                                except Exception as ee:
+                                    print(f"[ERROR] LINEへのエラー通知も失敗: {ee}", flush=True)
+                                continue
                             continue
 
                         # 「タスク削除」と送信された場合、案内文付きでタスク一覧を表示
