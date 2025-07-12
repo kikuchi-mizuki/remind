@@ -534,13 +534,19 @@ def callback():
                         
                         # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
                         if user_message.strip() == "タスク追加":
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
-                            reply_text += "\n追加するタスク・所要時間・期限を送信してください！\n例：「資料作成　30分　明日」"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
+                            try:
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                                reply_text += "\n追加するタスク・所要時間・期限を送信してください！\n例：「資料作成　30分　明日」"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            except Exception as e:
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=f"⚠️ タスク一覧の取得に失敗しました: {e}")
+                                )
                             continue
 
                         # 「タスク削除」と送信された場合、案内文付きでタスク一覧を表示
