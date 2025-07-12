@@ -14,7 +14,7 @@ from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from werkzeug.middleware.proxy_fix import ProxyFix
-import re
+import re as regex
 from datetime import datetime, timedelta
 import pytz
 
@@ -356,7 +356,7 @@ def callback():
                             continue
                         # 「タスク確認」後の番号選択で完了/繰り越し処理（タスク確認モードフラグがある場合のみ）
                         import os
-                        if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()) and os.path.exists(f"task_check_mode_{user_id}.flag"):
+                        if regex.fullmatch(r'[\d\s,、.．]+', user_message.strip()) and os.path.exists(f"task_check_mode_{user_id}.flag"):
                             os.remove(f"task_check_mode_{user_id}.flag")
                             import pytz
                             from datetime import datetime, timedelta
@@ -367,7 +367,7 @@ def callback():
                             if not today_tasks:
                                 continue
                             # 番号抽出
-                            nums = re.findall(r'\d+', user_message)
+                            nums = regex.findall(r'\d+', user_message)
                             selected_indexes = set(int(n)-1 for n in nums)
                             reply_text = ''
                             completed = []
@@ -394,7 +394,7 @@ def callback():
                             continue
                         # タスク選択（番号のみのメッセージ: 半角/全角数字・カンマ・ピリオド・スペース対応）
                         import re
-                        if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
+                        if regex.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
                             # 削除モードかどうかをチェック
                             import os
                             delete_mode_file = f"delete_mode_{user_id}.json"
@@ -484,7 +484,7 @@ def callback():
                                     f.write(proposal)
                                 # --- リッチテキスト整形 ---
                                 # 1. AI出力から案内文を除去
-                                proposal_clean = re.sub(r'このスケジュールでよろしければ.*?返信してください。', '', proposal, flags=re.DOTALL)
+                                proposal_clean = regex.sub(r'このスケジュールでよろしければ.*?返信してください。', '', proposal, flags=regex.DOTALL)
                                 # 2. スケジュール本体・理由・まとめ抽出
                                 rich_lines = []
                                 schedule_lines = []
@@ -495,7 +495,7 @@ def callback():
                                 seen_reason = False
                                 for line in proposal_clean.split('\n'):
                                     # 1. (所要時間明示あり) 柔軟な正規表現
-                                    m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
+                                    m = regex.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
                                     if m:
                                         matched = True
                                         schedule_lines.append("━━━━━━━━━━━━━━")
@@ -504,7 +504,7 @@ def callback():
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
                                         continue
                                     # 2. (所要時間明示なし) 例: - **08:00 - 08:20** 書類作成
-                                    m2 = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+)", line)
+                                    m2 = regex.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+)", line)
                                     if m2:
                                         # 所要時間を自動計算
                                         try:
@@ -521,7 +521,7 @@ def callback():
                                         schedule_lines.append("━━━━━━━━━━━━━━\n")
                                         continue
                                     # 理由やまとめの開始を検出
-                                    if re.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line) and not seen_reason:
+                                    if regex.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line) and not seen_reason:
                                         in_reason = True
                                         seen_reason = True
                                         continue
@@ -630,7 +630,7 @@ def callback():
                                             reply_text += "\n"
                                             # 2. 時刻（🕐8:00～8:30）
                                             def fmt_time(dtstr):
-                                                m = re.search(r'T(\d{2}):(\d{2})', dtstr)
+                                                m = regex.search(r'T(\d{2}):(\d{2})', dtstr)
                                                 if m:
                                                     return f"{int(m.group(1))}:{m.group(2)}"
                                                 return dtstr
@@ -791,7 +791,7 @@ def callback():
                             continue
                         
                         # 21時の繰り越し確認への返信処理
-                        if re.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
+                        if regex.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
                             from datetime import datetime, timedelta
                             import pytz
                             jst = pytz.timezone('Asia/Tokyo')
@@ -810,7 +810,7 @@ def callback():
                                 line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                                 continue
                             # 番号抽出
-                            nums = re.findall(r'\d+', user_message)
+                            nums = regex.findall(r'\d+', user_message)
                             carryover_indexes = set(int(n)-1 for n in nums)
                             for idx, t in enumerate(today_tasks):
                                 if idx in carryover_indexes:
