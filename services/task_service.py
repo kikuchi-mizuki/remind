@@ -95,6 +95,9 @@ class TaskService:
                 if ai_due:
                     due_date = ai_due
                     print(f"[parse_task_message] AI日付抽出: {due_date}")
+                    # AI抽出時も自然言語日付キーワードを除去
+                    for key in ['今日', '明日', '明後日', '今週末', '来週', '来週末', '今月末', '来月', '来月末']:
+                        message = message.replace(key, '')
             except Exception as e:
                 print(f"[parse_task_message] AI日付抽出エラー: {e}")
         # タスク名の抽出
