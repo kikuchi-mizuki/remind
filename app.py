@@ -509,9 +509,9 @@ def callback():
                                 print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
                                 all_tasks = task_service.get_user_tasks(user_id)
                                 print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}", flush=True)
-                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                 if not reply_text:
-                                    reply_text = "登録されているタスクはありません。"
+                                    reply_text = "📋 タスク一覧\n＝＝＝＝＝＝\n登録されているタスクはありません。\n＝＝＝＝＝＝"
                                 reply_text += "\n追加するタスク・所要時間・期限を送信してください！\n例：「資料作成　30分　明日」"
                                 print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
                                 print("[DEBUG] LINE API reply_message直前", flush=True)
