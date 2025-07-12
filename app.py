@@ -422,6 +422,9 @@ def callback():
                                 # --- リッチテキスト整形 ---
                                 import re
                                 from datetime import datetime, timedelta
+                                # 1. AI出力から案内文を除去
+                                proposal_clean = re.sub(r'このスケジュールでよろしければ.*?返信してください。', '', proposal, flags=re.DOTALL)
+                                # 2. スケジュール本体・理由・まとめ抽出
                                 rich_lines = []
                                 schedule_lines = []
                                 reason_lines = []
@@ -429,7 +432,7 @@ def callback():
                                 in_reason = False
                                 seen_guide = False
                                 seen_reason = False
-                                for line in proposal.split('\n'):
+                                for line in proposal_clean.split('\n'):
                                     # 1. (所要時間明示あり) 柔軟な正規表現
                                     m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
                                     if m:
@@ -469,7 +472,7 @@ def callback():
                                             seen_guide = True
                                         continue
                                 # スケジュール本体
-                                rich_lines.append("🗓️【本日のスケジュール提案】\n")
+                                rich_lines.append("🗓️【本日のスケジュール提案}\n")
                                 if schedule_lines:
                                     rich_lines.extend(schedule_lines)
                                 # 理由・まとめ
@@ -479,7 +482,7 @@ def callback():
                                     rich_lines.extend(reason_lines)
                                 # どちらもなければproposal本文をそのまま表示
                                 if not schedule_lines and not reason_lines:
-                                    rich_lines.append(proposal)
+                                    rich_lines.append(proposal_clean)
                                 # 最後に案内文を1回だけ
                                 rich_lines.append("\nこのスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
                                 reply_text = "\n".join(rich_lines)
