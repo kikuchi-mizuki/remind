@@ -327,3 +327,43 @@ class OpenAIService:
         # 5. 最後に案内文を1回だけ
         result.append('このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。')
         return '\n'.join(result) 
+
+    def extract_due_date_from_text(self, text: str) -> Optional[str]:
+        """自然言語テキストから期日を抽出し、YYYY-MM-DD形式で返す（JST基準）"""
+        import pytz
+        from datetime import datetime
+        jst = pytz.timezone('Asia/Tokyo')
+        now_jst = datetime.now(jst)
+        now_str = now_jst.strftime("%Y-%m-%dT%H:%M:%S%z")
+        now_str = now_str[:-2] + ":" + now_str[-2:]
+        prompt = f"""
+現在の日時（日本時間）は {now_str} です。
+以下のテキストから「期日」「締切日」「日付」「いつやるか」などを厳密に抽出し、YYYY-MM-DD形式で1つだけ返してください。
+
+テキスト: {text}
+
+出力例:
+2025-07-13
+
+出力は日付のみ、余計な説明や記号は一切不要です。
+"""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "あなたは日本語の自然言語日付抽出の専門家です。"},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=20,
+                temperature=0.0
+            )
+            raw = response.choices[0].message.content or ""
+            # 日付形式だけ抽出
+            import re
+            m = re.search(r'(\d{4}-\d{2}-\d{2})', raw)
+            if m:
+                return m.group(1)
+            return None
+        except Exception as e:
+            print(f"OpenAI API error (extract_due_date): {e}")
+            return None 
