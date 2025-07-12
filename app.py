@@ -849,8 +849,8 @@ def get_simple_flex_menu():
             "type": "box",
             "layout": "vertical",
             "contents": [
-                {"type": "text", "text": "ご利用ありがとうございます！", "weight": "bold", "size": "lg", "margin": "md"},
-                {"type": "text", "text": "主な機能は下記のボタンからご利用いただけます。", "size": "md", "margin": "md", "color": "#666666"}
+                {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "xl"},
+                {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
             ]
         },
         "footer": {
