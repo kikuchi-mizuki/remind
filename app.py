@@ -491,17 +491,14 @@ def callback():
                                 proposal_clean = regex.sub(r'\n+\s*【', '\n【', proposal_clean)
                                 proposal_clean = regex.sub(r'\s*】', '】', proposal_clean)
                                 # 4. スケジュール本体・理由・まとめ抽出
-                                rich_lines = []
-                                rich_lines.append("🗓️【本日のスケジュール提案】\n")
                                 fallback = []
                                 for line in proposal_clean.split('\n'):
                                     if '---' in line or '【理由' in line or '【まとめ' in line:
                                         break
                                     if line.strip():
                                         fallback.append(line.strip())
-                                if fallback:
-                                    rich_lines.extend(fallback)
-                                reply_text = "\n".join(rich_lines)
+                                reply_text = "\n".join(fallback)
+                                reply_text += "\n\nこのスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
