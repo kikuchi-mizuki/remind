@@ -492,75 +492,15 @@ def callback():
                                 proposal_clean = regex.sub(r'\s*】', '】', proposal_clean)
                                 # 4. スケジュール本体・理由・まとめ抽出
                                 rich_lines = []
-                                schedule_lines = []
-                                reason_lines = []
-                                matched = False
-                                in_reason = False
-                                seen_guide = False
-                                seen_reason = False
-                                for line in proposal_clean.split('\n'):
-                                    # 1. (所要時間明示あり) 柔軟な正規表現
-                                    m = regex.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
-                                    if m:
-                                        matched = True
-                                        schedule_lines.append("━━━━━━━━━━━━━━")
-                                        schedule_lines.append(f"🕒 {m.group(1)}:{m.group(2)}〜{m.group(3)}:{m.group(4)}")
-                                        schedule_lines.append(f"{m.group(6).strip()}（{m.group(7)}分）")
-                                        schedule_lines.append("━━━━━━━━━━━━━━\n")
-                                        continue
-                                    # 2. (所要時間明示なし) 例: - **08:00 - 08:20** 書類作成
-                                    m2 = regex.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+)", line)
-                                    if m2:
-                                        # 所要時間を自動計算
-                                        try:
-                                            start = datetime(2000,1,1,int(m2.group(1)),int(m2.group(2)))
-                                            end = datetime(2000,1,1,int(m2.group(3)),int(m2.group(4)))
-                                            if end <= start:
-                                                end += timedelta(days=1)
-                                            duration = int((end-start).total_seconds()//60)
-                                        except Exception:
-                                            duration = "?"
-                                        schedule_lines.append("━━━━━━━━━━━━━━")
-                                        schedule_lines.append(f"🕒 {m2.group(1)}:{m2.group(2)}〜{m2.group(3)}:{m2.group(4)}")
-                                        schedule_lines.append(f"{m2.group(6).strip()}（{duration}分）")
-                                        schedule_lines.append("━━━━━━━━━━━━━━\n")
-                                        continue
-                                    # 理由やまとめの開始を検出
-                                    if regex.search(r'(理由|まとめ|説明|ポイント|このスケジュールにより|このスケジュールで)', line) and not seen_reason:
-                                        in_reason = True
-                                        seen_reason = True
-                                        continue
-                                    if in_reason and not (m or m2):
-                                        reason_lines.append(line)
-                                    # 案内文重複除去
-                                    if ('このスケジュールでよろしければ' in line or '修正する' in line):
-                                        if not seen_guide:
-                                            seen_guide = True
-                                        continue
-                                # スケジュール本体
                                 rich_lines.append("🗓️【本日のスケジュール提案】\n")
-                                if schedule_lines:
-                                    rich_lines.extend(schedule_lines)
-                                else:
-                                    # フォールバック: ---や【理由・まとめ】より前の部分を本体として表示
-                                    fallback = []
-                                    for line in proposal_clean.split('\n'):
-                                        if '---' in line or '【理由' in line or '【まとめ' in line:
-                                            break
-                                        if line.strip():
-                                            fallback.append(line.strip())
-                                    if fallback:
-                                        rich_lines.extend(fallback)
-                                # 理由・まとめ
-                                if reason_lines:
-                                    rich_lines.append("\n---\n")
-                                    rich_lines.append("【理由・まとめ】")
-                                    rich_lines.extend(reason_lines)
-                                # どちらもなければproposal本文をそのまま表示
-                                if not schedule_lines and not reason_lines:
-                                    rich_lines.append(proposal_clean)
-                                # 最後に案内文を1回だけ
-                                rich_lines.append("\nこのスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
+                                fallback = []
+                                for line in proposal_clean.split('\n'):
+                                    if '---' in line or '【理由' in line or '【まとめ' in line:
+                                        break
+                                    if line.strip():
+                                        fallback.append(line.strip())
+                                if fallback:
+                                    rich_lines.extend(fallback)
                                 reply_text = "\n".join(rich_lines)
                                 line_bot_api.reply_message(
                                     reply_token,
