@@ -145,19 +145,44 @@ def oauth2callback():
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
         print("[oauth2callback] user registered")
-        # LINEにクイックリプライを送信
+        # LINEにFlex Message（ボタン形式）を送信
         try:
             from linebot import LineBotApi
-            from linebot.models import TextSendMessage, QuickReply, QuickReplyButton, MessageAction
+            from linebot.models import FlexSendMessage
             line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+            flex_message = {
+                "type": "bubble",
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "lg"},
+                        {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+                    ]
+                },
+                "footer": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "spacing": "sm",
+                    "contents": [
+                        {
+                            "type": "button",
+                            "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
+                            "style": "primary"
+                        },
+                        {
+                            "type": "button",
+                            "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
+                            "style": "secondary"
+                        }
+                    ]
+                }
+            }
             line_bot_api.push_message(
                 user_id,
-                TextSendMessage(
-                    text="Google認証が完了しました！次の操作を選んでください。",
-                    quick_reply=QuickReply(items=[
-                        QuickReplyButton(action=MessageAction(label="タスクを追加する", text="タスク追加")),
-                        QuickReplyButton(action=MessageAction(label="タスクを削除する", text="タスク削除")),
-                    ])
+                FlexSendMessage(
+                    alt_text="タスク管理Botメニュー",
+                    contents=flex_message
                 )
             )
         except Exception as e:
