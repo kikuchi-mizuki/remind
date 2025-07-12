@@ -678,11 +678,15 @@ def callback():
                         if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
                             import pytz
                             from datetime import datetime
+                            import os
                             jst = pytz.timezone('Asia/Tokyo')
                             today_str = datetime.now(jst).strftime('%Y-%m-%d')
                             # 今日が〆切のタスクのみ抽出
                             tasks = task_service.get_user_tasks(user_id)
                             today_tasks = [t for t in tasks if t.due_date == today_str]
+                            # タスク確認モードフラグを一時ファイルで保存
+                            with open(f"task_check_mode_{user_id}.flag", "w") as f:
+                                f.write("1")
                             if not today_tasks:
                                 reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
                             else:
@@ -695,8 +699,10 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-                        # 「タスク確認」後の番号選択で完了/繰り越し処理
-                        if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
+                        # 「タスク確認」後の番号選択で完了/繰り越し処理（タスク確認モードフラグがある場合のみ）
+                        import os
+                        if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()) and os.path.exists(f"task_check_mode_{user_id}.flag"):
+                            os.remove(f"task_check_mode_{user_id}.flag")
                             import pytz
                             from datetime import datetime, timedelta
                             jst = pytz.timezone('Asia/Tokyo')
@@ -727,13 +733,8 @@ def callback():
                                     })
                                     task_service.update_task_status(t.task_id, 'archived')
                                     carried.append(t)
-                            reply_text += f'✅{len(completed)}件のタスクを完了しました。\n'
-                            if carried:
-                                reply_text += f'{len(carried)}件のタスクを明日に繰り越しました。\n'
-                            # 最新のタスク一覧も表示
-                            all_tasks = task_service.get_user_tasks(user_id)
                             reply_text = '✅タスクを更新しました！\n\n'
-                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                            reply_text += task_service.format_task_list(task_service.get_user_tasks(user_id), show_select_guide=False)
                             line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                             continue
 
