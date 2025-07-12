@@ -75,12 +75,19 @@ class NotificationService:
         """特定ユーザーにタスク通知を送信"""
         try:
             # ユーザーのタスク一覧を取得
-            tasks = self.task_service.get_user_tasks(user_id)
+            all_tasks = self.task_service.get_user_tasks(user_id)
             
-            if not tasks:
-                message = "📋 今日のタスク\n\n登録されているタスクはありません。\n\n新しいタスクを登録してください！\n例: 「筋トレ 20分 毎日」"
+            # JSTで今日の日付を取得
+            jst = pytz.timezone('Asia/Tokyo')
+            today_str = datetime.now(jst).strftime('%Y-%m-%d')
+            
+            # 今日が期日のタスクのみ抽出
+            today_tasks = [t for t in all_tasks if t.due_date == today_str]
+            
+            if not today_tasks:
+                message = "📋 今日のタスク\n\n本日分のタスクはありません。\n\n新しいタスクを登録してください！\n例: 「筋トレ 20分 明日」"
             else:
-                message = self.task_service.format_task_list(tasks)
+                message = self.task_service.format_task_list(today_tasks, show_select_guide=False)
             
             # LINEでメッセージを送信
             self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
@@ -137,12 +144,14 @@ class NotificationService:
         if self.is_running:
             return
         self.is_running = True
-        # 毎朝8時にタスク通知
+        
+        # 毎朝8時にタスク通知（サーバー時間で8:00、JSTでの計算は関数内で行う）
         schedule.every().day.at("08:00").do(self.send_daily_task_notification)
         # 毎週日曜日の20時に週次レポート
         schedule.every().sunday.at("20:00").do(self._send_weekly_reports_to_all_users)
         # 毎日21時に繰り越し確認
         schedule.every().day.at("21:00").do(self.send_carryover_check)
+        
         # スケジューラーを別スレッドで実行
         self.scheduler_thread = threading.Thread(target=self._run_scheduler)
         self.scheduler_thread.daemon = True
