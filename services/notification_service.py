@@ -71,9 +71,49 @@ class NotificationService:
         """Google認証URL生成"""
         return f"https://web-production-bf2e2.up.railway.app/google_auth?user_id={user_id}"
 
+    def _move_overdue_tasks_to_today(self, user_id: str):
+        """昨日の日付より前のタスクを今日の日付に移動"""
+        try:
+            # JSTで今日の日付を取得
+            jst = pytz.timezone('Asia/Tokyo')
+            today_str = datetime.now(jst).strftime('%Y-%m-%d')
+            
+            # ユーザーの全タスクを取得
+            all_tasks = self.task_service.get_user_tasks(user_id)
+            
+            # 昨日より前のタスクを抽出
+            overdue_tasks = []
+            for task in all_tasks:
+                if task.due_date and task.due_date < today_str:
+                    overdue_tasks.append(task)
+            
+            # 期限切れタスクを今日の日付に更新
+            for task in overdue_tasks:
+                # 元のタスクをアーカイブ
+                self.task_service.archive_task(task.task_id)
+                # 今日の日付で新しいタスクを作成
+                self.task_service.create_task(user_id, {
+                    'name': task.name,
+                    'duration_minutes': task.duration_minutes,
+                    'repeat': task.repeat,
+                    'due_date': today_str
+                })
+            
+            if overdue_tasks:
+                print(f"[{user_id}] {len(overdue_tasks)}個の期限切れタスクを今日に移動しました")
+                return len(overdue_tasks)
+            return 0
+            
+        except Exception as e:
+            print(f"Error moving overdue tasks for user {user_id}: {e}")
+            return 0
+
     def _send_task_notification_to_user(self, user_id: str):
         """特定ユーザーにタスク通知を送信"""
         try:
+            # 期限切れタスクを今日に移動
+            moved_count = self._move_overdue_tasks_to_today(user_id)
+            
             # ユーザーのタスク一覧を取得
             all_tasks = self.task_service.get_user_tasks(user_id)
             
@@ -88,6 +128,10 @@ class NotificationService:
                 message = "📋 今日のタスク\n\n本日分のタスクはありません。\n\n新しいタスクを登録してください！\n例: 「筋トレ 20分 明日」"
             else:
                 message = self.task_service.format_task_list(today_tasks, show_select_guide=False)
+                
+                # 期限切れタスクが移動された場合は通知を追加
+                if moved_count > 0:
+                    message = f"📋 今日のタスク\n\n⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
             
             # LINEでメッセージを送信
             self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
