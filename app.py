@@ -463,6 +463,7 @@ def callback():
                             continue
 
 
+
                         # タスク登録メッセージか判定してDB保存
                         try:
                             task_info = task_service.parse_task_message(user_message)
