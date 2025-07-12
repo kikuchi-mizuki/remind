@@ -87,6 +87,7 @@ class TaskService:
                         message = message.replace(m3.group(0), '')
                         print(f"[parse_task_message] 期日抽出: M月D日 → {due_date}")
         # AIで期日抽出（既存ロジックでdue_dateが取れなかった場合のみ）
+        ai_date_keywords = ['今日', '明日', '明後日', '今週', '来週', '今週中', '来週中', '今週末', '来週末', '今月末', '来月', '来月末']
         if not due_date:
             try:
                 from services.openai_service import OpenAIService
@@ -96,10 +97,14 @@ class TaskService:
                     due_date = ai_due
                     print(f"[parse_task_message] AI日付抽出: {due_date}")
                     # AI抽出時も自然言語日付キーワードを除去
-                    for key in ['今日', '明日', '明後日', '今週末', '来週', '来週末', '今月末', '来月', '来月末']:
+                    for key in ai_date_keywords:
                         message = message.replace(key, '')
             except Exception as e:
                 print(f"[parse_task_message] AI日付抽出エラー: {e}")
+        else:
+            # 既存ロジックでdue_dateが取れた場合も念のため除去
+            for key in ai_date_keywords:
+                message = message.replace(key, '')
         # タスク名の抽出
         task_name = message
         print(f"[parse_task_message] タスク名抽出前: '{task_name}'")
