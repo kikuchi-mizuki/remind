@@ -145,6 +145,23 @@ def oauth2callback():
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
         print("[oauth2callback] user registered")
+        # LINEにクイックリプライを送信
+        try:
+            from linebot import LineBotApi
+            from linebot.models import TextSendMessage, QuickReply, QuickReplyButton, MessageAction
+            line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+            line_bot_api.push_message(
+                user_id,
+                TextSendMessage(
+                    text="Google認証が完了しました！次の操作を選んでください。",
+                    quick_reply=QuickReply(items=[
+                        QuickReplyButton(action=MessageAction(label="タスクを追加する", text="タスク追加")),
+                        QuickReplyButton(action=MessageAction(label="タスクを削除する", text="タスク削除")),
+                    ])
+                )
+            )
+        except Exception as e:
+            print(f"[oauth2callback] LINE通知失敗: {e}")
         return "Google認証が完了しました。LINEに戻って操作を続けてください。"
     except Exception as e:
         import traceback
