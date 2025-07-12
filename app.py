@@ -535,14 +535,20 @@ def callback():
                         # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
                         if user_message.strip() == "タスク追加":
                             try:
+                                print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し")
                                 all_tasks = task_service.get_user_tasks(user_id)
+                                print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}")
                                 reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                                if not reply_text:
+                                    reply_text = "登録されているタスクはありません。"
                                 reply_text += "\n追加するタスク・所要時間・期限を送信してください！\n例：「資料作成　30分　明日」"
+                                print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}")
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
                             except Exception as e:
+                                print(f"[ERROR] タスク追加分岐: {e}")
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=f"⚠️ タスク一覧の取得に失敗しました: {e}")
