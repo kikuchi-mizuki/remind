@@ -320,6 +320,35 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
+                        
+                        # 「キャンセル」コマンドの処理
+                        if user_message.strip() == "キャンセル":
+                            import os
+                            # すべての操作モードファイルを削除
+                            files_to_remove = [
+                                f"task_check_mode_{user_id}.flag",
+                                f"delete_mode_{user_id}.json",
+                                f"selected_tasks_{user_id}.json",
+                                f"schedule_proposal_{user_id}.txt"
+                            ]
+                            
+                            for file_path in files_to_remove:
+                                if os.path.exists(file_path):
+                                    os.remove(file_path)
+                            
+                            # pending_actionsディレクトリ内のファイルも削除
+                            pending_dir = "pending_actions"
+                            if os.path.exists(pending_dir):
+                                pending_file = f"{pending_dir}/pending_action_{user_id}.json"
+                                if os.path.exists(pending_file):
+                                    os.remove(pending_file)
+                            
+                            reply_text = "✅操作をキャンセルしました"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
