@@ -522,13 +522,12 @@ def callback():
                                     reply_text += "━━━━━━━━━━\n"
                                     if events:
                                         for i, ev in enumerate(events, 1):
-                                            # タイトルの装飾（🔥は例示。必要に応じて条件分岐可）
                                             title = ev['title']
                                             # 📝や余計な記号を除去
-                                            title = title.replace('📝', '').strip()
+                                            title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
                                             # 1. 番号付き（1. タイトル🔥）
-                                            reply_text += f"{i}. {title}"
-                                            if '🔥' not in title:
+                                            reply_text += f"{i}. {title_clean}"
+                                            if '[added_by_bot]' in title:
                                                 reply_text += "🔥"
                                             reply_text += "\n"
                                             # 2. 時刻（🕐8:00～8:30）

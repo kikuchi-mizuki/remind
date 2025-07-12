@@ -110,15 +110,13 @@ class CalendarService:
 
     def add_event_to_calendar(self, user_id: str, task_name: str, start_time: datetime, 
                             duration_minutes: int, description: str = "") -> bool:
-        """カレンダーにイベントを追加"""
+        """カレンダーにイベントを追加（bot追加分はsummaryに[added_by_bot]を付与）"""
         if not self.authenticate_user(user_id):
             return False
-        
         try:
             end_time = start_time + timedelta(minutes=duration_minutes)
-            
             event = {
-                'summary': f'📝 {task_name}',
+                'summary': f'📝 {task_name} [added_by_bot]',
                 'description': description,
                 'start': {
                     'dateTime': start_time.isoformat(),
@@ -135,15 +133,12 @@ class CalendarService:
                     ],
                 },
             }
-            
             event = self.service.events().insert(
                 calendarId='primary',
                 body=event
             ).execute()
-            
             print(f'Event created: {event.get("htmlLink")}')
             return True
-            
         except HttpError as error:
             print(f'Calendar API error: {error}')
             return False
