@@ -706,8 +706,8 @@ def callback():
                             line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                             continue
                         
-                        # 「タスク確認」コマンド
-                        if user_message.strip() == "タスク確認":
+                        # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
+                        if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
                             import pytz
                             from datetime import datetime, timedelta
                             jst = pytz.timezone('Asia/Tokyo')
