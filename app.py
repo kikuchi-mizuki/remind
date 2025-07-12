@@ -528,7 +528,7 @@ def callback():
                                     if line.strip():
                                         fallback.append(line.strip())
                                 reply_text = "\n".join(fallback)
-                                reply_text += "\n\nこのスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。"
+                                reply_text += "\n\nこのスケジュールでよろしければ「承認する」、追加しない場合は「キャンセル」と返信してください。"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
