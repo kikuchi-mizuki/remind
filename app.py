@@ -638,6 +638,61 @@ def callback():
                             )
                             continue
 
+                        # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
+                        if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
+                            import pytz
+                            from datetime import datetime, timedelta
+                            jst = pytz.timezone('Asia/Tokyo')
+                            today_str = datetime.now(jst).strftime('%Y-%m-%d')
+                            tasks = task_service.get_user_tasks(user_id)
+                            today_tasks = [t for t in tasks if t.due_date == today_str]
+                            if not today_tasks:
+                                reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
+                            else:
+                                reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
+                                for idx, t in enumerate(today_tasks, 1):
+                                    reply_text += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
+                                reply_text += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+                        # 「タスク確認」後の番号選択で完了/繰り越し処理
+                        if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
+                            import pytz
+                            from datetime import datetime, timedelta
+                            jst = pytz.timezone('Asia/Tokyo')
+                            today_str = datetime.now(jst).strftime('%Y-%m-%d')
+                            tasks = task_service.get_user_tasks(user_id)
+                            today_tasks = [t for t in tasks if t.due_date == today_str]
+                            if not today_tasks:
+                                continue
+                            # 番号抽出
+                            nums = re.findall(r'\d+', user_message)
+                            selected_indexes = set(int(n)-1 for n in nums)
+                            reply_text = ''
+                            completed = []
+                            carried = []
+                            for idx, t in enumerate(today_tasks):
+                                if idx in selected_indexes:
+                                    task_service.update_task_status(t.task_id, 'archived')
+                                    completed.append(t)
+                                else:
+                                    next_day = (datetime.now(jst) + timedelta(days=1)).strftime('%Y-%m-%d')
+                                    t.due_date = next_day
+                                    task_service.create_task(t)
+                                    task_service.update_task_status(t.task_id, 'archived')
+                                    carried.append(t)
+                            reply_text += f'✅{len(completed)}件のタスクを完了しました。\n'
+                            if carried:
+                                reply_text += f'{len(carried)}件のタスクを明日に繰り越しました。\n'
+                            # 最新のタスク一覧も表示
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                            line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
+                            continue
+
                         # タスク登録メッセージか判定してDB保存
                         try:
                             task_info = task_service.parse_task_message(user_message)
@@ -703,61 +758,6 @@ def callback():
                                 else:
                                     task_service.update_task_status(t.task_id, 'archived')
                             reply_text = '指定されたタスクを明日に繰り越し、それ以外は削除しました。'
-                            line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
-                            continue
-                        
-                        # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
-                        if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
-                            import pytz
-                            from datetime import datetime, timedelta
-                            jst = pytz.timezone('Asia/Tokyo')
-                            today_str = datetime.now(jst).strftime('%Y-%m-%d')
-                            tasks = task_service.get_user_tasks(user_id)
-                            today_tasks = [t for t in tasks if t.due_date == today_str]
-                            if not today_tasks:
-                                reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
-                            else:
-                                reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
-                                for idx, t in enumerate(today_tasks, 1):
-                                    reply_text += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
-                                reply_text += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            continue
-                        # 「タスク確認」後の番号選択で完了/繰り越し処理
-                        if re.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
-                            import pytz
-                            from datetime import datetime, timedelta
-                            jst = pytz.timezone('Asia/Tokyo')
-                            today_str = datetime.now(jst).strftime('%Y-%m-%d')
-                            tasks = task_service.get_user_tasks(user_id)
-                            today_tasks = [t for t in tasks if t.due_date == today_str]
-                            if not today_tasks:
-                                continue
-                            # 番号抽出
-                            nums = re.findall(r'\d+', user_message)
-                            selected_indexes = set(int(n)-1 for n in nums)
-                            reply_text = ''
-                            completed = []
-                            carried = []
-                            for idx, t in enumerate(today_tasks):
-                                if idx in selected_indexes:
-                                    task_service.update_task_status(t.task_id, 'archived')
-                                    completed.append(t)
-                                else:
-                                    next_day = (datetime.now(jst) + timedelta(days=1)).strftime('%Y-%m-%d')
-                                    t.due_date = next_day
-                                    task_service.create_task(t)
-                                    task_service.update_task_status(t.task_id, 'archived')
-                                    carried.append(t)
-                            reply_text += f'✅{len(completed)}件のタスクを完了しました。\n'
-                            if carried:
-                                reply_text += f'{len(carried)}件のタスクを明日に繰り越しました。\n'
-                            # 最新のタスク一覧も表示
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
                             line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                             continue
 
