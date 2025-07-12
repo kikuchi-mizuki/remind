@@ -198,9 +198,10 @@ class TaskService:
             'new_time': time_modification
         }
 
-    def format_task_list(self, tasks: List[Task], show_select_guide: bool = True) -> str:
+    def format_task_list(self, tasks: List[Task], show_select_guide: bool = True, for_deletion: bool = False) -> str:
         """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化、M/D〆切形式）
         show_select_guide: 末尾の案内文を表示するかどうか
+        for_deletion: タスク削除用の案内文を表示するかどうか
         """
         if not tasks:
             return "登録されているタスクはありません。"
@@ -234,7 +235,9 @@ class TaskService:
                 formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
                 idx += 1
         formatted_list += "＝＝＝＝＝＝"
-        if show_select_guide:
+        if for_deletion:
+            formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５"
+        elif show_select_guide:
             formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５"
         return formatted_list
 
