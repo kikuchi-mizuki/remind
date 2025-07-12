@@ -778,13 +778,41 @@ def callback():
 
 
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
-                        # 画像のURLを指定（例: static/guide.png をサーバーで公開している場合）
-                        image_url = "https://YOUR_DOMAIN/static/guide.png"  # ←ここを実際のURLに変更してください
+                        from linebot.models import FlexSendMessage
+                        flex_message = {
+                            "type": "bubble",
+                            "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "lg"},
+                                    {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+                                ]
+                            },
+                            "footer": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "spacing": "sm",
+                                "contents": [
+                                    {
+                                        "type": "button",
+                                        "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
+                                        "style": "primary"
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
+                                        "style": "secondary"
+                                    }
+                                ]
+                            }
+                        }
                         line_bot_api.reply_message(
                             reply_token,
-                            [
-                                ImageSendMessage(original_content_url=image_url, preview_image_url=image_url)
-                            ]
+                            FlexSendMessage(
+                                alt_text="タスク管理Botメニュー",
+                                contents=flex_message
+                            )
                         )
                         continue
                     except Exception as e:
