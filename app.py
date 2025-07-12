@@ -461,9 +461,7 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-                        # コマンドワードはタスク登録判定に通さない
-                        if user_message.strip() in ["タスク追加", "タスク削除"]:
-                            continue
+
 
                         # タスク登録メッセージか判定してDB保存
                         try:
