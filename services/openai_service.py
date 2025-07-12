@@ -114,7 +114,7 @@ class OpenAIService:
             return "スケジュールの修正に失敗しました。"
 
     def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "") -> str:
-        """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止）"""
+        """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止・本文必須）"""
         task_list = "\n".join([
             f"- {task['name']} ({task['duration']}分)" for task in task_info
         ])
@@ -127,7 +127,7 @@ class OpenAIService:
 - 必ず全てのタスクを使い切る必要はありません（空き時間に収まる範囲で）。
 - 出力は必ず下記のフォーマット例に厳密に従ってください。
 - 各タスクには必ず時間帯（開始時刻・終了時刻）を明記してください。
-- スケジュール本文（🕒や📝の行）は必ず1つ以上出力してください。本文が1つもない場合はエラーとみなします。
+- スケジュール本文（🕒や📝の行）は必ず1つ以上出力してください。本文が1つもない場合は「エラー: スケジュール本文が生成できませんでした」とだけ出力してください。
 - 最後に必ず「✅理由・まとめ」を記載してください。
 - 「このスケジュールでよろしければ…」などの案内文や「理由・まとめ」は1回だけ記載し、繰り返さないでください。
 - 案内文や理由・まとめ以外の余計な文章は出力しないでください。
@@ -316,10 +316,14 @@ class OpenAIService:
             result.append('━━━━━━━━━━━━━━')
             result.append('✅理由・まとめ')
             result.append('・なぜこの順序・割り当てにしたかを簡潔に説明してください。')
-        # 4. 本文が空 or 時間帯が1つもない場合の補正
-        has_time = any(l.startswith('🕒') for l in result)
-        if not has_time:
-            result = ['🗓️【本日のスケジュール提案】', '本日の予定はありません。']
+        # 4. 本文が空 or 時間帯が1つもない場合の補正（ダミー挿入を削除）
+        # has_time = any(l.startswith('🕒') for l in result)
+        # if not has_time:
+        #     # ダミーのスケジュール本文を自動挿入
+        #     result.insert(1, '━━━━━━━━━━━━━━')
+        #     result.insert(2, '🕒 09:00〜09:30')
+        #     result.insert(3, '📝 タスク（30分）')
+        #     result.insert(4, '━━━━━━━━━━━━━━')
         # 5. 最後に案内文を1回だけ
         result.append('このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。')
         return '\n'.join(result) 
