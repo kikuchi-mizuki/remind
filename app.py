@@ -535,7 +535,7 @@ def callback():
                         
                         # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
                         print(f"[DEBUG] タスク追加分岐判定: '{user_message.strip()}'", flush=True)
-                        if user_message.strip() == "タスク追加":
+                        if "タスク追加" in user_message.replace(' ', '').replace('　', ''):
                             try:
                                 print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
                                 all_tasks = task_service.get_user_tasks(user_id)
