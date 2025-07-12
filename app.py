@@ -163,9 +163,11 @@ def oauth2callback():
                     TextSendMessage(text=reply_text)
                 )
             elif user_message.strip() == "はい":
+                import os
                 import json
-                import pytz
+                import re
                 from datetime import datetime
+                import pytz
                 selected_path = f"selected_tasks_{user_id}.json"
                 if os.path.exists(selected_path):
                     with open(selected_path, "r") as f:
@@ -175,20 +177,37 @@ def oauth2callback():
                     jst = pytz.timezone('Asia/Tokyo')
                     today = datetime.now(jst)
                     free_times = calendar_service.get_free_busy_times(str(user_id), today)
+                    if not free_times and len(free_times) == 0:
+                        # Google認証エラーの可能性
+                        reply_text = "❌ Googleカレンダーへのアクセスに失敗しました。\n\n"
+                        reply_text += "以下の手順で再認証をお願いします：\n"
+                        reply_text += "1. 下記のリンクからGoogle認証を実行\n"
+                        reply_text += "2. 認証時は必ずアカウント選択画面でアカウントを選び直してください\n"
+                        reply_text += "3. 認証完了後、再度「はい」と送信してください\n\n"
+                        auth_url = get_google_auth_url(user_id)
+                        reply_text += f"🔗 {auth_url}"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
                     proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
                     with open(f"schedule_proposal_{user_id}.txt", "w") as f:
                         f.write(proposal)
-                    reply_text = f"🗓️ スケジュール提案\n\n{proposal}"
-                    line_bot_api.push_message(
-                        str(user_id),
-                        TextSendMessage(text=reply_text)
+                    # ここでproposalをそのまま送信
+                    print('[LINE送信直前 proposal]', proposal)
+                    line_bot_api.reply_message(
+                        reply_token,
+                        TextSendMessage(text=proposal)
                     )
+                    continue
                 else:
                     reply_text = "先に今日やるタスクを選択してください。"
-                    line_bot_api.push_message(
-                        str(user_id),
+                    line_bot_api.reply_message(
+                        reply_token,
                         TextSendMessage(text=reply_text)
                     )
+                    continue
             else:
                 from linebot.models import FlexSendMessage
                 flex_message = {
