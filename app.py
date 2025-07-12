@@ -346,14 +346,33 @@ def callback():
                                     success = False
                                 if success:
                                     # 今日のスケジュール一覧を取得
-                                    today = datetime.now()
+                                    import pytz
+                                    jst = pytz.timezone('Asia/Tokyo')
+                                    today = datetime.now(jst)
                                     events = calendar_service.get_today_schedule(user_id)
                                     reply_text = "✅本日のスケジュールです！\n\n"
                                     reply_text += f"📅 {today.strftime('%Y/%m/%d (%a)')}\n"
                                     reply_text += "━━━━━━━━━━\n"
                                     if events:
                                         for i, ev in enumerate(events, 1):
-                                            reply_text += f"{i}. {ev['title']}\n⏰ {ev['start']}～{ev['end']}\n\n"
+                                            # タイトルの装飾（🔥は例示。必要に応じて条件分岐可）
+                                            title = ev['title']
+                                            # 1. 番号付き（1. タイトル🔥）
+                                            reply_text += f"{i}. {title}"
+                                            if '🔥' not in title:
+                                                reply_text += "🔥"
+                                            reply_text += "\n"
+                                            # 2. 時刻（🕐9:00～18:00）
+                                            # ISO8601→時刻部分のみ抽出
+                                            import re
+                                            def fmt_time(dtstr):
+                                                m = re.search(r'T(\d{2}):(\d{2})', dtstr)
+                                                if m:
+                                                    return f"{int(m.group(1))}:{m.group(2)}"
+                                                return dtstr
+                                            start = fmt_time(ev['start'])
+                                            end = fmt_time(ev['end'])
+                                            reply_text += f"🕐{start}～{end}\n\n"
                                     else:
                                         reply_text += "本日の予定はありません。\n"
                                     reply_text += "━━━━━━━━━━"
