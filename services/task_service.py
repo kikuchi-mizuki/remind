@@ -24,7 +24,6 @@ class TaskService:
             r'(\d+)\s*h',
             r'(\d+)\s*m'
         ]
-        
         duration_minutes = None
         for pattern in time_patterns:
             match = re.search(pattern, message)
@@ -87,6 +86,17 @@ class TaskService:
                         due_date = f"{year}-{int(m3.group(1)):02d}-{int(m3.group(2)):02d}"
                         message = message.replace(m3.group(0), '')
                         print(f"[parse_task_message] 期日抽出: M月D日 → {due_date}")
+        # AIで期日抽出（既存ロジックでdue_dateが取れなかった場合のみ）
+        if not due_date:
+            try:
+                from services.openai_service import OpenAIService
+                ai_service = OpenAIService()
+                ai_due = ai_service.extract_due_date_from_text(message)
+                if ai_due:
+                    due_date = ai_due
+                    print(f"[parse_task_message] AI日付抽出: {due_date}")
+            except Exception as e:
+                print(f"[parse_task_message] AI日付抽出エラー: {e}")
         # タスク名の抽出
         task_name = message
         print(f"[parse_task_message] タスク名抽出前: '{task_name}'")
@@ -232,7 +242,11 @@ class TaskService:
             else:
                 formatted_list += "📌 期日未設定\n"
             for task in group:
-                formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
+                # 期日未設定かつタスク名に「今日」など自然言語が含まれる場合は明示
+                name = task.name
+                if due == '未設定' and ('今日' in name or '明日' in name):
+                    name += f" {due}"
+                formatted_list += f"{idx}. {name} ({task.duration_minutes}分)\n"
                 idx += 1
         formatted_list += "＝＝＝＝＝＝"
         if for_deletion:
