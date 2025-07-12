@@ -541,6 +541,20 @@ def callback():
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
+                        # 「修正する」と返信された場合はタスク選択の最初に戻る
+                        if user_message.strip() == "修正する":
+                            import os
+                            selected_path = f"selected_tasks_{user_id}.json"
+                            if os.path.exists(selected_path):
+                                os.remove(selected_path)
+                            # タスク一覧を再表示
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
                         # スケジュール提案コマンド
                         if user_message.strip() in ["スケジュール提案", "提案して"]:
                             import json
