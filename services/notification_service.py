@@ -236,11 +236,14 @@ class NotificationService:
         return []
 
     def send_custom_notification(self, user_id: str, message: str):
-        """カスタム通知を送信"""
+        """カスタム通知を送信（APIレスポンスをprint）"""
         try:
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            res = self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            print(f"[send_custom_notification] push_message response: {res}")
         except Exception as e:
             print(f"Error sending custom notification: {e}")
+            import traceback
+            traceback.print_exc()
 
     def send_error_notification(self, user_id: str, error_message: str):
         """エラー通知を送信"""
@@ -323,3 +326,13 @@ class NotificationService:
                 auth_url = self._get_google_auth_url(user_id)
                 message = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
                 self.line_bot_api.push_message(user_id, TextSendMessage(text=message)) 
+
+if __name__ == "__main__":
+    from models.database import init_db
+    init_db()
+    n = NotificationService()
+    n.start_scheduler()
+    print("通知スケジューラーを起動しました")
+    import time
+    while True:
+        time.sleep(60) 
