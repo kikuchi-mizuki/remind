@@ -15,8 +15,16 @@ class TaskService:
     def parse_task_message(self, message: str) -> Dict:
         """LINEメッセージからタスク情報を解析"""
         print(f"[parse_task_message] 入力: '{message}'")
-        # 時間の抽出（分、時間、min、hour、h、m）
-        time_patterns = [
+        
+        # 時間パターンの定義
+        complex_time_patterns = [
+            r'(\d+)\s*時間\s*半',  # 1時間半
+            r'(\d+)\s*時間\s*(\d+)\s*分',  # 1時間30分
+            r'(\d+)\s*hour\s*(\d+)\s*min',  # 1hour 30min
+            r'(\d+)\s*h\s*(\d+)\s*m',  # 1h 30m
+        ]
+        
+        simple_time_patterns = [
             r'(\d+)\s*分',
             r'(\d+)\s*時間',
             r'(\d+)\s*min',
@@ -24,19 +32,43 @@ class TaskService:
             r'(\d+)\s*h',
             r'(\d+)\s*m'
         ]
+        
+        # 時間の抽出（複合時間表現に対応）
         duration_minutes = None
-        for pattern in time_patterns:
+        
+        # 複合時間表現を先にチェック
+        for pattern in complex_time_patterns:
             match = re.search(pattern, message)
             if match:
-                duration_minutes = int(match.group(1))
-                print(f"[parse_task_message] 時間抽出: {duration_minutes} (pattern: {pattern})")
-                # 時間の場合は分に変換
-                if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
-                    duration_minutes *= 60
-                    print(f"[parse_task_message] 時間→分変換: {duration_minutes}")
+                if '半' in pattern:
+                    # 1時間半の場合
+                    hours = int(match.group(1))
+                    duration_minutes = hours * 60 + 30
+                    print(f"[parse_task_message] 複合時間抽出: {hours}時間半 → {duration_minutes}分")
+                else:
+                    # 1時間30分の場合
+                    hours = int(match.group(1))
+                    minutes = int(match.group(2))
+                    duration_minutes = hours * 60 + minutes
+                    print(f"[parse_task_message] 複合時間抽出: {hours}時間{minutes}分 → {duration_minutes}分")
                 message = re.sub(pattern, '', message)
-                print(f"[parse_task_message] 時間除去後: '{message}'")
+                print(f"[parse_task_message] 複合時間除去後: '{message}'")
                 break
+        
+        # 単純な時間表現のパターン
+        if not duration_minutes:
+            for pattern in simple_time_patterns:
+                match = re.search(pattern, message)
+                if match:
+                    duration_minutes = int(match.group(1))
+                    print(f"[parse_task_message] 単純時間抽出: {duration_minutes} (pattern: {pattern})")
+                    # 時間の場合は分に変換
+                    if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
+                        duration_minutes *= 60
+                        print(f"[parse_task_message] 時間→分変換: {duration_minutes}")
+                    message = re.sub(pattern, '', message)
+                    print(f"[parse_task_message] 単純時間除去後: '{message}'")
+                    break
         if not duration_minutes:
             print("[parse_task_message] 所要時間が見つかりませんでした")
             raise ValueError("所要時間が見つかりませんでした")
@@ -120,7 +152,7 @@ class TaskService:
         for keyword in used_date_keywords:
             task_name = task_name.replace(keyword, '')
         
-        for pattern in time_patterns:
+        for pattern in simple_time_patterns:
             task_name = re.sub(pattern, '', task_name)
         for keyword in repeat_keywords:
             task_name = task_name.replace(keyword, '')
@@ -133,7 +165,7 @@ class TaskService:
             for keyword in used_date_keywords:
                 temp_message = temp_message.replace(keyword, '')
             
-            for pattern in time_patterns:
+            for pattern in simple_time_patterns:
                 temp_message = re.sub(pattern, '', temp_message)
             for keyword in repeat_keywords:
                 temp_message = temp_message.replace(keyword, '')
