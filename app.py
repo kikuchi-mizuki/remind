@@ -139,7 +139,11 @@ def oauth2callback():
             if not user_id:
                 print(f"[oauth2callback] ERROR: user_id is None, token保存スキップ")
             else:
-                db.save_token(str(user_id), creds.to_json())
+                token_json = creds.to_json()
+                db_path = os.path.abspath('tasks.db')
+                print(f"[oauth2callback] save_token呼び出し: user_id={user_id}, token_json先頭100={token_json[:100]}")
+                print(f"[oauth2callback] DBファイルパス: {db_path}")
+                db.save_token(str(user_id), token_json)
                 print(f"[oauth2callback] token saved to DB for user: {user_id}")
         except Exception as e:
             print(f"[oauth2callback] token保存エラー: {e}")
