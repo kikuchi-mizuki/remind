@@ -137,11 +137,17 @@ def oauth2callback():
         
         # ユーザーごとにトークンを保存
         import os
-        os.makedirs('tokens', exist_ok=True)
-        token_path = f'tokens/{user_id}_token.json'
-        with open(token_path, 'w') as token:
-            token.write(creds.to_json())
-        print(f"[oauth2callback] token saved: {token_path}")
+        try:
+            os.makedirs('tokens', exist_ok=True)
+            print(f"[oauth2callback] tokensディレクトリ作成/存在確認済み")
+            token_path = f'tokens/{user_id}_token.json'
+            with open(token_path, 'w') as token:
+                token.write(creds.to_json())
+            print(f"[oauth2callback] token saved: {token_path}")
+        except Exception as e:
+            print(f"[oauth2callback] token保存エラー: {e}")
+            import traceback
+            traceback.print_exc()
         
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
