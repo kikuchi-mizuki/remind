@@ -771,6 +771,7 @@ def callback():
                             
                             # 緊急タスク追加モードファイルを作成
                             import os
+                            from datetime import datetime
                             urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                             with open(urgent_mode_file, "w") as f:
                                 import json
@@ -846,6 +847,7 @@ def callback():
                             
                             # 緊急タスク追加モードファイルを作成
                             import os
+                            from datetime import datetime
                             urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                             with open(urgent_mode_file, "w") as f:
                                 import json
@@ -890,6 +892,7 @@ def callback():
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                         if os.path.exists(urgent_mode_file):
                             try:
+                                from datetime import datetime
                                 # 緊急タスク用の簡易パース（期日は今日固定）
                                 task_name = None
                                 duration_minutes = None
@@ -955,6 +958,7 @@ def callback():
                                     continue
                                 
                                 # 今日の日付を取得
+                                from datetime import datetime
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
                                 today_str = today.strftime('%Y-%m-%d')
