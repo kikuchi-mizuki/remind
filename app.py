@@ -246,25 +246,9 @@ def oauth2callback():
                     )
                     return "OK", 200
             else:
-                from linebot.models import FlexSendMessage
-                flex_message = get_simple_flex_menu(user_id)
-                line_bot_api.push_message(
-                    str(user_id),
-                    FlexSendMessage(
-                        alt_text="タスク管理Botメニュー",
-                        contents=flex_message
-                    )
-                )
-        else:
-            from linebot.models import FlexSendMessage
-            flex_message = get_simple_flex_menu(user_id)
-            line_bot_api.push_message(
-                str(user_id),
-                FlexSendMessage(
-                    alt_text="タスク管理Botメニュー",
-                    contents=flex_message
-                )
-            )
+                # pending_actionがある場合は処理済みなので、追加のメニュー送信は不要
+                pass
+        # pending_actionがない場合は、最初に送信済みのメニューで十分
         return """
         <html>
         <head>
