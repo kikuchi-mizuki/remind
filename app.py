@@ -1232,5 +1232,18 @@ def get_simple_flex_menu(user_id=None):
 
 if __name__ == "__main__":
     init_db()
-    notification_service.start_scheduler()
-    app.run(debug=True, host='0.0.0.0', port=int(os.getenv('PORT', 5000))) 
+    print(f"[app.py] データベース初期化完了: {datetime.now()}")
+    
+    # スケジューラーを確実に開始
+    try:
+        notification_service.start_scheduler()
+        print(f"[app.py] スケジューラー開始完了: {datetime.now()}")
+    except Exception as e:
+        print(f"[app.py] スケジューラー開始エラー: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    # アプリケーション起動
+    port = int(os.getenv('PORT', 5000))
+    print(f"[app.py] Flaskアプリケーション起動: port={port}, time={datetime.now()}")
+    app.run(debug=True, host='0.0.0.0', port=port) 

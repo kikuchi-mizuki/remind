@@ -210,6 +210,25 @@ class NotificationService:
         print(f"[start_scheduler] - 毎日 12:00 UTC (JST 21:00): タスク確認通知")
         print(f"[start_scheduler] - 日曜 11:00 UTC (JST 20:00): 週次レポート")
         
+        # 現在時刻と次の実行時刻を表示
+        import pytz
+        utc_now = datetime.now(pytz.UTC)
+        jst_now = datetime.now(pytz.timezone('Asia/Tokyo'))
+        print(f"[start_scheduler] 現在時刻 - UTC: {utc_now.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[start_scheduler] 現在時刻 - JST: {jst_now.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # 次の実行時刻を計算
+        next_8am_jst = jst_now.replace(hour=8, minute=0, second=0, microsecond=0)
+        if jst_now.hour >= 8:
+            next_8am_jst += timedelta(days=1)
+        
+        next_9pm_jst = jst_now.replace(hour=21, minute=0, second=0, microsecond=0)
+        if jst_now.hour >= 21:
+            next_9pm_jst += timedelta(days=1)
+        
+        print(f"[start_scheduler] 次回8時通知予定: {next_8am_jst.strftime('%Y-%m-%d %H:%M:%S')} JST")
+        print(f"[start_scheduler] 次回21時通知予定: {next_9pm_jst.strftime('%Y-%m-%d %H:%M:%S')} JST")
+        
         # スケジューラーを別スレッドで実行
         self.scheduler_thread = threading.Thread(target=self._run_scheduler)
         self.scheduler_thread.daemon = True
@@ -225,8 +244,13 @@ class NotificationService:
     def _run_scheduler(self):
         """スケジューラーの実行"""
         print(f"[_run_scheduler] スケジューラーループ開始: {datetime.now()}")
+        check_count = 0
         while self.is_running:
             try:
+                check_count += 1
+                if check_count % 10 == 0:  # 10分ごとにログ出力
+                    print(f"[_run_scheduler] スケジューラー動作中: {datetime.now()}, チェック回数: {check_count}")
+                
                 schedule.run_pending()
                 time.sleep(60)  # 1分ごとにチェック
             except Exception as e:
