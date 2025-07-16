@@ -184,15 +184,23 @@ class NotificationService:
             return
         self.is_running = True
         
+        print(f"[start_scheduler] スケジューラー開始: {datetime.now()}")
+        
         # Railway等UTCサーバーの場合、JST 8:00 = UTC 23:00、JST 21:00 = UTC 12:00
         schedule.every().day.at("23:00").do(self.send_daily_task_notification)  # JST 8:00
         schedule.every().sunday.at("11:00").do(self._send_weekly_reports_to_all_users)  # JST 20:00→UTC 11:00
         schedule.every().day.at("12:00").do(self.send_carryover_check)  # JST 21:00
         
+        print(f"[start_scheduler] スケジュール設定完了:")
+        print(f"[start_scheduler] - 毎日 23:00 UTC (JST 8:00): タスク一覧通知")
+        print(f"[start_scheduler] - 毎日 12:00 UTC (JST 21:00): タスク確認通知")
+        print(f"[start_scheduler] - 日曜 11:00 UTC (JST 20:00): 週次レポート")
+        
         # スケジューラーを別スレッドで実行
         self.scheduler_thread = threading.Thread(target=self._run_scheduler)
         self.scheduler_thread.daemon = True
         self.scheduler_thread.start()
+        print(f"[start_scheduler] スケジューラースレッド開始完了")
 
     def stop_scheduler(self):
         """スケジューラーを停止"""
@@ -202,9 +210,17 @@ class NotificationService:
 
     def _run_scheduler(self):
         """スケジューラーの実行"""
+        print(f"[_run_scheduler] スケジューラーループ開始: {datetime.now()}")
         while self.is_running:
-            schedule.run_pending()
-            time.sleep(60)  # 1分ごとにチェック
+            try:
+                schedule.run_pending()
+                time.sleep(60)  # 1分ごとにチェック
+            except Exception as e:
+                print(f"[_run_scheduler] スケジューラーエラー: {e}")
+                import traceback
+                traceback.print_exc()
+                time.sleep(60)  # エラーが発生しても1分後に再試行
+        print(f"[_run_scheduler] スケジューラーループ終了: {datetime.now()}")
 
     def _get_active_user_ids(self) -> List[str]:
         """
@@ -296,21 +312,34 @@ class NotificationService:
 
     def send_carryover_check(self):
         """毎日21時に今日のタスク確認（タスク確認コマンドと同じ形式）"""
+        print(f"[send_carryover_check] 開始: {datetime.now()}")
         import pytz
         user_ids = self._get_active_user_ids()
+        print(f"[send_carryover_check] ユーザー数: {len(user_ids)}")
         jst = pytz.timezone('Asia/Tokyo')
         today_str = datetime.now(jst).strftime('%Y-%m-%d')
+        print(f"[send_carryover_check] 今日の日付: {today_str}")
         for user_id in user_ids:
-            tasks = self.task_service.get_user_tasks(user_id)
-            today_tasks = [t for t in tasks if t.due_date == today_str]
-            if not today_tasks:
-                msg = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
-            else:
-                msg = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
-                for idx, t in enumerate(today_tasks, 1):
-                    msg += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
-                msg += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=msg)) 
+            try:
+                print(f"[send_carryover_check] ユーザー {user_id} に送信中...")
+                tasks = self.task_service.get_user_tasks(user_id)
+                today_tasks = [t for t in tasks if t.due_date == today_str]
+                print(f"[send_carryover_check] 今日のタスク数: {len(today_tasks)}")
+                if not today_tasks:
+                    msg = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
+                else:
+                    msg = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
+                    for idx, t in enumerate(today_tasks, 1):
+                        msg += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
+                    msg += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
+                print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
+                self.line_bot_api.push_message(user_id, TextSendMessage(text=msg))
+                print(f"[send_carryover_check] ユーザー {user_id} に送信完了")
+            except Exception as e:
+                print(f"[send_carryover_check] ユーザー {user_id} への送信エラー: {e}")
+                import traceback
+                traceback.print_exc()
+        print(f"[send_carryover_check] 完了: {datetime.now()}") 
 
 if __name__ == "__main__":
     from models.database import init_db

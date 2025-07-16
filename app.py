@@ -315,6 +315,16 @@ def callback():
                             )
                             continue
 
+                        # 21時通知テストコマンド（デバッグ用）
+                        if user_message.strip() == "21時テスト":
+                            notification_service.send_carryover_check()
+                            reply_text = "✅ 21時通知を手動実行しました"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
