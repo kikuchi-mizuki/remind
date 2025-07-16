@@ -41,31 +41,45 @@ if not os.path.exists("client_secrets.json"):
 def is_google_authenticated(user_id):
     """tokenの存在と有効性をDBでチェック"""
     from models.database import db
+    import os
+    db_path = os.path.abspath('tasks.db')
+    print(f"[is_google_authenticated] DBファイルパス: {db_path}")
+    print(f"[is_google_authenticated] 開始: user_id={user_id}")
     token_json = db.get_token(user_id)
+    print(f"[is_google_authenticated] DBから取得: token_json={token_json[:100] if token_json else 'None'}")
     if not token_json:
+        print(f"[is_google_authenticated] トークンが存在しません")
         return False
     try:
         from google.oauth2.credentials import Credentials
         import json
+        print(f"[is_google_authenticated] JSONパース開始")
         creds = Credentials.from_authorized_user_info(json.loads(token_json), [
             "https://www.googleapis.com/auth/calendar",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/drive"
         ])
+        print(f"[is_google_authenticated] Credentials作成成功: refresh_token={getattr(creds, 'refresh_token', None) is not None}")
         if creds and creds.refresh_token:
             if creds.expired and creds.refresh_token:
                 try:
                     from google.auth.transport.requests import Request
+                    print(f"[is_google_authenticated] トークン更新開始")
                     creds.refresh(Request())
                     db.save_token(user_id, creds.to_json())
+                    print(f"[is_google_authenticated] トークン更新成功")
                     return True
                 except Exception as e:
-                    print(f"Token refresh failed: {e}")
+                    print(f"[is_google_authenticated] Token refresh failed: {e}")
                     return False
+            print(f"[is_google_authenticated] 認証成功（更新不要）")
             return True
+        print(f"[is_google_authenticated] refresh_tokenが存在しません")
         return False
     except Exception as e:
-        print(f"Token validation failed: {e}")
+        print(f"[is_google_authenticated] Token validation failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def add_google_authenticated_user(user_id):
