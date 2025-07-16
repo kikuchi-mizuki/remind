@@ -295,7 +295,7 @@ class NotificationService:
             print(f"Error sending help message: {e}")
 
     def send_carryover_check(self):
-        """毎日21時に今日のタスクのうち明日に繰り越すものを確認し、繰り越さないものは削除"""
+        """毎日21時に今日のタスク確認（タスク確認コマンドと同じ形式）"""
         import pytz
         user_ids = self._get_active_user_ids()
         jst = pytz.timezone('Asia/Tokyo')
@@ -304,11 +304,12 @@ class NotificationService:
             tasks = self.task_service.get_user_tasks(user_id)
             today_tasks = [t for t in tasks if t.due_date == today_str]
             if not today_tasks:
-                continue
-            msg = '🔔 本日分タスクの繰り越し確認\n\n'
-            for i, t in enumerate(today_tasks, 1):
-                msg += f'{i}. {t.name}（{t.duration_minutes}分）\n'
-            msg += '\n明日に繰り越すタスクの番号をカンマ区切りで返信してください。\n（例: 1,3）\n繰り越さない場合は「なし」と返信してください。'
+                msg = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
+            else:
+                msg = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
+                for idx, t in enumerate(today_tasks, 1):
+                    msg += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
+                msg += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
             self.line_bot_api.push_message(user_id, TextSendMessage(text=msg)) 
 
 if __name__ == "__main__":
