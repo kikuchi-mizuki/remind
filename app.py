@@ -30,14 +30,17 @@ notification_service = NotificationService()
 
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 
-# スケジューラーを確実に開始
-try:
-    notification_service.start_scheduler()
-    print(f"[app.py] スケジューラー開始完了: {datetime.now()}")
-except Exception as e:
-    print(f"[app.py] スケジューラー開始エラー: {e}")
-    import traceback
-    traceback.print_exc()
+# スケジューラーを確実に開始（重複開始を防ぐ）
+if not notification_service.is_running:
+    try:
+        notification_service.start_scheduler()
+        print(f"[app.py] スケジューラー開始完了: {datetime.now()}")
+    except Exception as e:
+        print(f"[app.py] スケジューラー開始エラー: {e}")
+        import traceback
+        traceback.print_exc()
+else:
+    print(f"[app.py] スケジューラーは既に動作中: {datetime.now()}")
 
 # client_secrets.jsonがなければ環境変数から生成
 if not os.path.exists("client_secrets.json"):

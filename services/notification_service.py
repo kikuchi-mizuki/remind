@@ -195,6 +195,7 @@ class NotificationService:
     def start_scheduler(self):
         """スケジューラーを開始"""
         if self.is_running:
+            print(f"[start_scheduler] スケジューラーは既に動作中: {datetime.now()}")
             return
         self.is_running = True
         
