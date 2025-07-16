@@ -348,6 +348,23 @@ def callback():
                             )
                             continue
 
+                        # データベース確認コマンド（デバッグ用）
+                        if user_message.strip() == "DB確認":
+                            from models.database import db
+                            reply_text = f"🔍 データベース確認\n\n"
+                            reply_text += f"DBファイルパス: {db.db_path}\n"
+                            user_ids = db.get_all_user_ids()
+                            reply_text += f"登録ユーザー数: {len(user_ids)}\n"
+                            if user_ids:
+                                reply_text += f"ユーザーID: {user_ids}\n"
+                            token = db.get_token(user_id)
+                            reply_text += f"トークン存在: {'✅' if token else '❌'}\n"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # 21時通知テストコマンド（デバッグ用）
                         if user_message.strip() == "21時テスト":
                             notification_service.send_carryover_check()
