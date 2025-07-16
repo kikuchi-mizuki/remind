@@ -381,10 +381,14 @@ class Database:
             return None
 
 # グローバルデータベースインスタンス
-db = Database()
+db = None
 
 def init_db():
     """データベースの初期化"""
     global db
-    # 既存のインスタンスを再利用（新しく作成しない）
+    if db is None:
+        db = Database()
+        print(f"[init_db] 新しいデータベースインスタンスを作成: {db.db_path}")
+    else:
+        print(f"[init_db] 既存のデータベースインスタンスを再利用: {db.db_path}")
     return db 

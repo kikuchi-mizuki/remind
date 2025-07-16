@@ -23,6 +23,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your-default-secret-key")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
+# データベースを最初に初期化
+init_db()
+print(f"[app.py] データベース初期化完了: {datetime.now()}")
+
 task_service = TaskService()
 calendar_service = CalendarService()
 openai_service = OpenAIService()
@@ -1242,9 +1246,6 @@ def get_simple_flex_menu(user_id=None):
     }
 
 if __name__ == "__main__":
-    init_db()
-    print(f"[app.py] データベース初期化完了: {datetime.now()}")
-    
     # アプリケーション起動
     port = int(os.getenv('PORT', 5000))
     print(f"[app.py] Flaskアプリケーション起動: port={port}, time={datetime.now()}")
