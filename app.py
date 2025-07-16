@@ -893,7 +893,7 @@ def callback():
                         if os.path.exists(urgent_mode_file):
                             try:
                                 import pytz
-                                from datetime import datetime
+                                from datetime import datetime, timedelta
                                 # 緊急タスク用の簡易パース（期日は今日固定）
                                 task_name = None
                                 duration_minutes = None
@@ -960,7 +960,7 @@ def callback():
                                 
                                 # 今日の日付を取得
                                 import pytz
-                                from datetime import datetime
+                                from datetime import datetime, timedelta
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
                                 today_str = today.strftime('%Y-%m-%d')
