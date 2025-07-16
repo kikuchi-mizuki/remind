@@ -29,7 +29,15 @@ class ScheduleProposal:
 class Database:
     """データベース操作クラス"""
     def __init__(self, db_path: str = "tasks.db"):
-        self.db_path = db_path
+        if db_path == "tasks.db":
+            # Railway環境では絶対パスを使用
+            import os
+            if os.path.exists('/app'):
+                self.db_path = "/app/tasks.db"
+            else:
+                self.db_path = "tasks.db"
+        else:
+            self.db_path = db_path
         self.init_database()
 
     def init_database(self):

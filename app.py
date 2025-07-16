@@ -30,6 +30,15 @@ notification_service = NotificationService()
 
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 
+# スケジューラーを確実に開始
+try:
+    notification_service.start_scheduler()
+    print(f"[app.py] スケジューラー開始完了: {datetime.now()}")
+except Exception as e:
+    print(f"[app.py] スケジューラー開始エラー: {e}")
+    import traceback
+    traceback.print_exc()
+
 # client_secrets.jsonがなければ環境変数から生成
 if not os.path.exists("client_secrets.json"):
     secrets = os.environ.get("CLIENT_SECRETS_JSON")
@@ -41,10 +50,8 @@ if not os.path.exists("client_secrets.json"):
 def is_google_authenticated(user_id):
     """tokenの存在と有効性をDBでチェック"""
     from models.database import db
-    import os
-    db_path = os.path.abspath('tasks.db')
-    print(f"[is_google_authenticated] DBファイルパス: {db_path}")
     print(f"[is_google_authenticated] 開始: user_id={user_id}")
+    print(f"[is_google_authenticated] DBファイルパス: {db.db_path}")
     token_json = db.get_token(user_id)
     print(f"[is_google_authenticated] DBから取得: token_json={token_json[:100] if token_json else 'None'}")
     if not token_json:
@@ -154,9 +161,8 @@ def oauth2callback():
                 print(f"[oauth2callback] ERROR: user_id is None, token保存スキップ")
             else:
                 token_json = creds.to_json()
-                db_path = os.path.abspath('tasks.db')
                 print(f"[oauth2callback] save_token呼び出し: user_id={user_id}, token_json先頭100={token_json[:100]}")
-                print(f"[oauth2callback] DBファイルパス: {db_path}")
+                print(f"[oauth2callback] DBファイルパス: {db.db_path}")
                 db.save_token(str(user_id), token_json)
                 print(f"[oauth2callback] token saved to DB for user: {user_id}")
         except Exception as e:
@@ -1218,15 +1224,6 @@ def get_simple_flex_menu(user_id=None):
 if __name__ == "__main__":
     init_db()
     print(f"[app.py] データベース初期化完了: {datetime.now()}")
-    
-    # スケジューラーを確実に開始
-    try:
-        notification_service.start_scheduler()
-        print(f"[app.py] スケジューラー開始完了: {datetime.now()}")
-    except Exception as e:
-        print(f"[app.py] スケジューラー開始エラー: {e}")
-        import traceback
-        traceback.print_exc()
     
     # アプリケーション起動
     port = int(os.getenv('PORT', 5000))
