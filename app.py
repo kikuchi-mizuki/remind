@@ -231,7 +231,7 @@ def oauth2callback():
                     return "OK", 200
             else:
                 from linebot.models import FlexSendMessage
-                flex_message = get_simple_flex_menu()
+                flex_message = get_simple_flex_menu(user_id)
                 line_bot_api.push_message(
                     str(user_id),
                     FlexSendMessage(
@@ -241,7 +241,7 @@ def oauth2callback():
                 )
         else:
             from linebot.models import FlexSendMessage
-            flex_message = get_simple_flex_menu()
+            flex_message = get_simple_flex_menu(user_id)
             line_bot_api.push_message(
                 str(user_id),
                 FlexSendMessage(
@@ -1010,7 +1010,7 @@ def callback():
                         except Exception as e:
                             # タスク登録エラーの場合はFlex Messageメニューを返信
                             from linebot.models import FlexSendMessage
-                            flex_message = get_simple_flex_menu()
+                            flex_message = get_simple_flex_menu(user_id)
                             line_bot_api.reply_message(
                                 reply_token,
                                 FlexSendMessage(
@@ -1060,7 +1060,7 @@ def callback():
 
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
                         from linebot.models import FlexSendMessage
-                        flex_message = get_simple_flex_menu()
+                        flex_message = get_simple_flex_menu(user_id)
                         line_bot_api.reply_message(
                             reply_token,
                             FlexSendMessage(
@@ -1084,8 +1084,34 @@ def callback():
         print("エラー:", e)
     return "OK", 200
 
-# --- Flex Message 2ボタン定義 ---
-def get_simple_flex_menu():
+# --- Flex Message メニュー定義 ---
+def get_simple_flex_menu(user_id=None):
+    """認証状態に応じてメニューを動的に生成"""
+    # 基本のボタン（認証不要）
+    basic_buttons = [
+        {
+            "type": "button",
+            "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
+            "style": "primary"
+        },
+        {
+            "type": "button",
+            "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
+            "style": "secondary"
+        }
+    ]
+    
+    # 認証済みの場合のみ緊急タスクボタンを追加
+    if user_id and is_google_authenticated(user_id):
+        # 緊急タスクボタンを2番目に挿入
+        urgent_button = {
+            "type": "button",
+            "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
+            "style": "primary",
+            "color": "#FF6B6B"
+        }
+        basic_buttons.insert(1, urgent_button)
+    
     return {
         "type": "bubble",
         "body": {
@@ -1100,24 +1126,7 @@ def get_simple_flex_menu():
             "type": "box",
             "layout": "vertical",
             "spacing": "sm",
-            "contents": [
-                {
-                    "type": "button",
-                    "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
-                    "style": "primary"
-                },
-                {
-                    "type": "button",
-                    "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
-                    "style": "primary",
-                    "color": "#FF6B6B"
-                },
-                {
-                    "type": "button",
-                    "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
-                    "style": "secondary"
-                }
-            ]
+            "contents": basic_buttons
         }
     }
 
