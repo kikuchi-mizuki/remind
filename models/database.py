@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, Text
 class Task:
     """タスクモデルクラス"""
     def __init__(self, task_id: str, user_id: str, name: str, duration_minutes: int, 
-                 repeat: bool, status: str = "active", created_at: Optional[datetime] = None, due_date: Optional[str] = None):
+                 repeat: bool, status: str = "active", created_at: Optional[datetime] = None, due_date: Optional[str] = None, priority: str = "normal"):
         self.task_id = task_id
         self.user_id = user_id
         self.name = name
@@ -17,6 +17,7 @@ class Task:
         self.status = status
         self.created_at = created_at or datetime.now()
         self.due_date = due_date  # 期日（YYYY-MM-DD 形式の文字列）
+        self.priority = priority  # 優先度: "urgent_important", "not_urgent_important", "urgent_not_important", "normal"
 
 class ScheduleProposal:
     """スケジュール提案モデルクラス"""
@@ -46,7 +47,8 @@ class Database:
                 repeat BOOLEAN NOT NULL,
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                due_date TEXT
+                due_date TEXT,
+                priority TEXT DEFAULT 'normal'
             )
         ''')
         
@@ -85,14 +87,14 @@ class Database:
     def create_task(self, task: Task) -> bool:
         """タスクを作成"""
         try:
-            print(f"[create_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, repeat={task.repeat}, status={task.status}, created_at={task.created_at}, due_date={task.due_date}")
+            print(f"[create_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, repeat={task.repeat}, status={task.status}, created_at={task.created_at}, due_date={task.due_date}, priority={task.priority}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
-                  task.repeat, task.status, task.created_at, task.due_date))
+                  task.repeat, task.status, task.created_at, task.due_date, task.priority))
             conn.commit()
             conn.close()
             return True
@@ -107,7 +109,7 @@ class Database:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date
+                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority
                 FROM tasks
                 WHERE user_id = ? AND status = ?
                 ORDER BY created_at DESC
@@ -123,7 +125,8 @@ class Database:
                     repeat=bool(row[4]),
                     status=row[5],
                     created_at=datetime.fromisoformat(row[6]),
-                    due_date=row[7]
+                    due_date=row[7],
+                    priority=row[8] if row[8] else "normal"
                 )
                 tasks.append(task)
             
@@ -140,7 +143,7 @@ class Database:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date
+                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority
                 FROM tasks
                 WHERE task_id = ?
             ''', (task_id,))
@@ -157,7 +160,8 @@ class Database:
                     repeat=bool(row[4]),
                     status=row[5],
                     created_at=datetime.fromisoformat(row[6]),
-                    due_date=row[7]
+                    due_date=row[7],
+                    priority=row[8] if row[8] else "normal"
                 )
             return None
         except Exception as e:

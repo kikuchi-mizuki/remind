@@ -174,6 +174,30 @@ class OpenAIService:
         schedule += "\n承認する場合は「承認」と返信してください。"
         return schedule
 
+    def get_priority_classification(self, prompt: str) -> str:
+        """タスクの優先度を分類"""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "あなたはタスク管理の専門家です。与えられたタスクの緊急度と重要度を分析し、適切な優先度カテゴリを選択してください。"
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                max_tokens=50,
+                temperature=0.3
+            )
+            result = response.choices[0].message.content or "normal"
+            return result.strip()
+        except Exception as e:
+            print(f"OpenAI API error in priority classification: {e}")
+            return "normal"
+
     def analyze_task_priority(self, task_name: str, duration: int) -> str:
         """タスクの優先度を分析"""
         prompt = f"""

@@ -178,13 +178,102 @@ class TaskService:
         if not task_name:
             print("[parse_task_message] タスク名が見つかりませんでした")
             raise ValueError("タスク名が見つかりませんでした")
-        print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}")
+        # 優先度の判定（AIを使用）
+        priority = self._determine_priority(task_name, due_date or "", duration_minutes)
+        
+        print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}, priority={priority}")
         return {
             'name': task_name,
             'duration_minutes': duration_minutes,
             'repeat': repeat,
-            'due_date': due_date
+            'due_date': due_date,
+            'priority': priority
         }
+
+    def _determine_priority(self, task_name: str, due_date: str, duration_minutes: int) -> str:
+        """タスクの優先度を判定（AIを使用）"""
+        try:
+            from services.openai_service import OpenAIService
+            ai_service = OpenAIService()
+            
+            # 現在の日付を取得
+            jst = pytz.timezone('Asia/Tokyo')
+            today = datetime.now(jst)
+            today_str = today.strftime('%Y-%m-%d')
+            
+            # 期日までの日数を計算
+            if due_date:
+                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
+                days_until_due = (due_date_obj - today).days
+            else:
+                days_until_due = 7  # 期日がない場合は7日後と仮定
+            
+            # AIに優先度判定を依頼
+            prompt = f"""
+            以下のタスクの緊急度と重要度を判定し、適切な優先度カテゴリを選択してください。
+
+            タスク名: {task_name}
+            所要時間: {duration_minutes}分
+            期日: {due_date or '未設定'}
+            期日までの日数: {days_until_due}日
+
+            優先度カテゴリ:
+            - urgent_important: 緊急かつ重要（最優先で処理すべき）
+            - not_urgent_important: 緊急ではないが重要（計画的に処理すべき）
+            - urgent_not_important: 緊急だが重要ではない（可能な限り委譲・簡略化すべき）
+            - normal: 緊急でも重要でもない（通常の優先度）
+
+            判定基準:
+            - 緊急度: 期日が近い、即座の対応が必要
+            - 重要度: 長期的な価値、目標達成への影響度
+
+            回答は上記のカテゴリ名のみを返してください。
+            """
+            
+            priority = ai_service.get_priority_classification(prompt)
+            
+            # 有効な優先度かチェック
+            valid_priorities = ["urgent_important", "not_urgent_important", "urgent_not_important", "normal"]
+            if priority not in valid_priorities:
+                priority = "normal"  # デフォルト
+            
+            print(f"[_determine_priority] AI判定結果: {priority}")
+            return priority
+            
+        except Exception as e:
+            print(f"[_determine_priority] AI判定エラー: {e}")
+            # エラーの場合は簡易判定
+            return self._simple_priority_determination(task_name, due_date, duration_minutes)
+
+    def _simple_priority_determination(self, task_name: str, due_date: str, duration_minutes: int) -> str:
+        """簡易的な優先度判定（AIが使えない場合のフォールバック）"""
+        # 緊急度のキーワード
+        urgent_keywords = ['緊急', '急ぎ', 'すぐ', '今すぐ', '至急', 'ASAP', 'urgent', 'immediate', 'deadline', '締切']
+        # 重要度のキーワード
+        important_keywords = ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要']
+        
+        is_urgent = any(keyword in task_name for keyword in urgent_keywords)
+        is_important = any(keyword in task_name for keyword in important_keywords)
+        
+        # 期日が今日または明日の場合は緊急と判定
+        if due_date:
+            jst = pytz.timezone('Asia/Tokyo')
+            today = datetime.now(jst)
+            today_str = today.strftime('%Y-%m-%d')
+            tomorrow_str = (today + timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            if due_date in [today_str, tomorrow_str]:
+                is_urgent = True
+        
+        # 優先度判定
+        if is_urgent and is_important:
+            return "urgent_important"
+        elif not is_urgent and is_important:
+            return "not_urgent_important"
+        elif is_urgent and not is_important:
+            return "urgent_not_important"
+        else:
+            return "normal"
 
     def create_task(self, user_id: str, task_info: Dict) -> Task:
         """タスクを作成"""
@@ -195,7 +284,8 @@ class TaskService:
             name=task_info['name'],
             duration_minutes=task_info['duration_minutes'],
             repeat=task_info['repeat'],
-            due_date=task_info.get('due_date')
+            due_date=task_info.get('due_date'),
+            priority=task_info.get('priority', 'normal')
         )
         
         if self.db.create_task(task):
@@ -266,26 +356,39 @@ class TaskService:
         }
 
     def format_task_list(self, tasks: List[Task], show_select_guide: bool = True, for_deletion: bool = False) -> str:
-        """タスク一覧をフォーマット（期日付き・期日昇順・期日ごとにグループ化、M/D〆切形式）
+        """タスク一覧をフォーマット（優先度・期日付き・期日昇順・期日ごとにグループ化、M/D〆切形式）
         show_select_guide: 末尾の案内文を表示するかどうか
         for_deletion: タスク削除用の案内文を表示するかどうか
         """
         if not tasks:
             return "登録されているタスクはありません。"
-        # 期日昇順でソート（未設定は最後）
-        def due_date_key(task):
-            return (task.due_date or '9999-12-31', task.name)
-        tasks_sorted = sorted(tasks, key=due_date_key)
+        
+        # 優先度と期日でソート
+        def sort_key(task):
+            priority_order = {
+                "urgent_important": 0,
+                "not_urgent_important": 1,
+                "urgent_not_important": 2,
+                "normal": 3
+            }
+            priority_score = priority_order.get(task.priority, 3)
+            due_date = task.due_date or '9999-12-31'
+            return (priority_score, due_date, task.name)
+        
+        tasks_sorted = sorted(tasks, key=sort_key)
+        
         # 期日ごとにグループ化
         from collections import defaultdict
         grouped = defaultdict(list)
         for task in tasks_sorted:
             grouped[task.due_date or '未設定'].append(task)
+        
         formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝\n"
         idx = 1
         jst = pytz.timezone('Asia/Tokyo')
         today = datetime.now(jst)
         today_str = today.strftime('%Y-%m-%d')
+        
         for due, group in sorted(grouped.items()):
             if due == today_str:
                 formatted_list += "📌 本日〆切\n"
@@ -298,18 +401,30 @@ class TaskService:
                 formatted_list += f"📌 {due_str}〆切\n"
             else:
                 formatted_list += "📌 期日未設定\n"
+            
             for task in group:
+                # 優先度アイコン
+                priority_icon = {
+                    "urgent_important": "🚨",
+                    "not_urgent_important": "⭐",
+                    "urgent_not_important": "⚡",
+                    "normal": "📝"
+                }.get(task.priority, "📝")
+                
                 # 期日未設定かつタスク名に「今日」など自然言語が含まれる場合は明示
                 name = task.name
                 if due == '未設定' and ('今日' in name or '明日' in name):
                     name += f" {due}"
-                formatted_list += f"{idx}. {name} ({task.duration_minutes}分)\n"
+                
+                formatted_list += f"{idx}. {priority_icon} {name} ({task.duration_minutes}分)\n"
                 idx += 1
+        
         formatted_list += "＝＝＝＝＝＝"
         if for_deletion:
             formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５"
         elif show_select_guide:
             formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５"
+        
         return formatted_list
 
     def get_daily_tasks(self, user_id: str) -> List[Task]:
