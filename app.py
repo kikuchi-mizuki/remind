@@ -890,7 +890,9 @@ def callback():
                         # 緊急タスク追加モードでの処理
                         import os
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
+                        print(f"[DEBUG] 緊急タスクモードファイル確認: {urgent_mode_file}, exists={os.path.exists(urgent_mode_file)}")
                         if os.path.exists(urgent_mode_file):
+                            print(f"[DEBUG] 緊急タスク追加モード開始: user_message='{user_message}'")
                             try:
                                 import pytz
                                 from datetime import datetime, timedelta
@@ -917,6 +919,7 @@ def callback():
                                 
                                 # 時間の抽出
                                 temp_message = user_message
+                                print(f"[DEBUG] 時間抽出開始: temp_message='{temp_message}'")
                                 for pattern in complex_time_patterns:
                                     match = re.search(pattern, temp_message)
                                     if match:
@@ -966,7 +969,9 @@ def callback():
                                 today_str = today.strftime('%Y-%m-%d')
                                 
                                 # 空き時間を検索
+                                print(f"[DEBUG] 空き時間検索開始: user_id={user_id}, today={today}")
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
+                                print(f"[DEBUG] 空き時間検索結果: {len(free_times)}件")
                                 
                                 if not free_times:
                                     reply_text = "⚠️ 今日の空き時間が見つかりませんでした。\n別の日時を指定するか、通常のタスク追加をお試しください。"
