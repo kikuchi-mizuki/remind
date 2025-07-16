@@ -193,12 +193,10 @@ class NotificationService:
             return
         self.is_running = True
         
-        # 毎朝8時にタスク通知（サーバー時間で8:00、JSTでの計算は関数内で行う）
-        schedule.every().day.at("08:00").do(self.send_daily_task_notification)
-        # 毎週日曜日の20時に週次レポート
-        schedule.every().sunday.at("20:00").do(self._send_weekly_reports_to_all_users)
-        # 毎日21時に繰り越し確認
-        schedule.every().day.at("21:00").do(self.send_carryover_check)
+        # Railway等UTCサーバーの場合、JST 8:00 = UTC 23:00、JST 21:00 = UTC 12:00
+        schedule.every().day.at("23:00").do(self.send_daily_task_notification)  # JST 8:00
+        schedule.every().sunday.at("11:00").do(self._send_weekly_reports_to_all_users)  # JST 20:00→UTC 11:00
+        schedule.every().day.at("12:00").do(self.send_carryover_check)  # JST 21:00
         
         # スケジューラーを別スレッドで実行
         self.scheduler_thread = threading.Thread(target=self._run_scheduler)
