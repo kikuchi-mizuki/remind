@@ -45,6 +45,7 @@ class Database:
 
     def init_database(self):
         """データベースとテーブルの初期化"""
+        print(f"[init_database] 開始: {self.db_path}")
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -94,6 +95,7 @@ class Database:
         
         conn.commit()
         conn.close()
+        print(f"[init_database] 完了: {self.db_path}")
 
     def create_task(self, task: Task) -> bool:
         """タスクを作成"""

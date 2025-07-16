@@ -197,6 +197,12 @@ class NotificationService:
         if self.is_running:
             print(f"[start_scheduler] スケジューラーは既に動作中: {datetime.now()}")
             return
+        
+        # スレッドが既に存在する場合は待機
+        if self.scheduler_thread and self.scheduler_thread.is_alive():
+            print(f"[start_scheduler] スケジューラースレッドは既に動作中: {datetime.now()}")
+            return
+            
         self.is_running = True
         
         print(f"[start_scheduler] スケジューラー開始: {datetime.now()}")
