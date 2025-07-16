@@ -757,6 +757,32 @@ def callback():
 
                         # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
                         print(f"[DEBUG] タスク追加分岐判定: '{user_message.strip()}'", flush=True)
+                        # 「緊急タスク追加」と送信された場合、緊急タスク追加モードを開始
+                        if user_message.strip() == "緊急タスク追加":
+                            # Google認証チェック
+                            if not is_google_authenticated(user_id):
+                                auth_url = get_google_auth_url(user_id)
+                                reply_text = f"📅 カレンダー連携が必要です\n\nGoogleカレンダーにアクセスして認証してください：\n{auth_url}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                continue
+                            
+                            # 緊急タスク追加モードファイルを作成
+                            import os
+                            urgent_mode_file = f"urgent_task_mode_{user_id}.json"
+                            with open(urgent_mode_file, "w") as f:
+                                import json
+                                json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
+                            
+                            reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         if "タスク追加" in user_message.replace(' ', '').replace('　', ''):
                             try:
                                 print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
@@ -858,6 +884,7 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
+
                         # 緊急タスク追加モードでの処理
                         import os
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
