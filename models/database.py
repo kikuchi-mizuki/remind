@@ -32,10 +32,13 @@ class Database:
         if db_path == "tasks.db":
             # Railway環境では絶対パスを使用
             import os
-            if os.path.exists('/app'):
+            # Railway環境の検出を改善
+            if os.path.exists('/app') or os.environ.get('RAILWAY_ENVIRONMENT'):
                 self.db_path = "/app/tasks.db"
+                print(f"[Database] Railway環境を検出: {self.db_path}")
             else:
                 self.db_path = "tasks.db"
+                print(f"[Database] ローカル環境: {self.db_path}")
         else:
             self.db_path = db_path
         self.init_database()
@@ -381,5 +384,5 @@ db = Database()
 def init_db():
     """データベースの初期化"""
     global db
-    db = Database()
+    # 既存のインスタンスを再利用（新しく作成しない）
     return db 
