@@ -167,6 +167,22 @@ def oauth2callback():
         # 認証済みユーザーとして登録
         add_google_authenticated_user(user_id)
         print("[oauth2callback] user registered")
+        
+        # 認証完了メッセージと動的メニューを送信
+        try:
+            from linebot.models import FlexSendMessage
+            flex_message = get_simple_flex_menu(str(user_id))
+            line_bot_api.push_message(
+                str(user_id),
+                FlexSendMessage(
+                    alt_text="認証完了・ご利用案内・操作メニュー",
+                    contents=flex_message
+                )
+            )
+            print("[oauth2callback] 認証完了メニューを送信しました")
+        except Exception as e:
+            print(f"[oauth2callback] 認証完了メニュー送信エラー: {e}")
+        
         # pending_actionがあれば自動実行
         pending_path = f"pending_actions/pending_action_{user_id}.json"
         if user_id and os.path.exists(pending_path):
@@ -249,7 +265,26 @@ def oauth2callback():
                     contents=flex_message
                 )
             )
-        return "Google認証が完了しました。LINEに戻って操作を続けてください。"
+        return """
+        <html>
+        <head>
+            <title>認証完了</title>
+            <meta charset="utf-8">
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                .success { color: green; font-size: 24px; margin-bottom: 20px; }
+                .message { color: #666; margin-bottom: 30px; }
+            </style>
+        </head>
+        <body>
+            <div class="success">✅ 認証完了</div>
+            <div class="message">
+                Googleカレンダーとの連携が完了しました。<br>
+                LINEアプリに戻って、緊急タスクボタンが表示されているかご確認ください。
+            </div>
+        </body>
+        </html>
+        """
     except Exception as e:
         import traceback
         print(f"[oauth2callback] error: {e}\n{traceback.format_exc()}")
