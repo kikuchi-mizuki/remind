@@ -58,8 +58,22 @@ class CalendarService:
             return []
         
         try:
-            # 指定日の開始と終了時間
-            start_time = date.replace(hour=8, minute=0, second=0, microsecond=0)
+            # 現在時刻を取得（JST）
+            import pytz
+            jst = pytz.timezone('Asia/Tokyo')
+            now = datetime.now(jst)
+            
+            # 指定日の開始と終了時間（現在時刻以降に限定）
+            if date.date() == now.date():
+                # 今日の場合は現在時刻以降
+                start_time = now.replace(second=0, microsecond=0)
+                # 現在時刻が8時前の場合は8時から開始
+                if start_time.hour < 8:
+                    start_time = start_time.replace(hour=8, minute=0)
+            else:
+                # 今日以外の場合は8時から開始
+                start_time = date.replace(hour=8, minute=0, second=0, microsecond=0)
+            
             end_time = date.replace(hour=22, minute=0, second=0, microsecond=0)
             
             # 既存の予定を取得
