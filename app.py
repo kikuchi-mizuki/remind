@@ -1079,8 +1079,10 @@ def callback():
                         except Exception as e:
                             # タスク登録エラーの場合は、Flex Messageメニューを返信
                             print(f"[DEBUG] タスク登録エラー: {e}")
+                            print(f"[DEBUG] メニュー生成開始: user_id={user_id}")
                             from linebot.models import FlexSendMessage
                             flex_message = get_simple_flex_menu(user_id)
+                            print(f"[DEBUG] メニュー生成完了: {flex_message}")
                             line_bot_api.reply_message(
                                 reply_token,
                                 FlexSendMessage(
@@ -1141,8 +1143,11 @@ def callback():
 
 
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
+                        print(f"[DEBUG] 認識されていないコマンド: {user_message}")
+                        print(f"[DEBUG] メニュー生成開始: user_id={user_id}")
                         from linebot.models import FlexSendMessage
                         flex_message = get_simple_flex_menu(user_id)
+                        print(f"[DEBUG] メニュー生成完了: {flex_message}")
                         line_bot_api.reply_message(
                             reply_token,
                             FlexSendMessage(
