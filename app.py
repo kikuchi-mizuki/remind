@@ -892,6 +892,7 @@ def callback():
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                         if os.path.exists(urgent_mode_file):
                             try:
+                                import pytz
                                 from datetime import datetime
                                 # 緊急タスク用の簡易パース（期日は今日固定）
                                 task_name = None
@@ -958,6 +959,7 @@ def callback():
                                     continue
                                 
                                 # 今日の日付を取得
+                                import pytz
                                 from datetime import datetime
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
