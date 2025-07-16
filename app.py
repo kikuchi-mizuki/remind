@@ -1024,18 +1024,30 @@ def callback():
                             continue
                         except Exception as e:
                             # タスク登録エラーの場合は、登録されていない文字かどうかを判定
-                            # 単一文字の場合は添付ファイルで返信
+                            # 単一文字の場合は認証状態を確認してから対応
                             if len(user_message.strip()) == 1:
-                                # 添付ファイルで返信
-                                from linebot.models import ImageSendMessage
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    ImageSendMessage(
-                                        original_content_url="https://example.com/attachment.jpg",
-                                        preview_image_url="https://example.com/attachment.jpg"
+                                # Google認証が完了していない場合は認証案内を先に表示
+                                if not is_google_authenticated(user_id):
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text = f"📅 Googleカレンダー連携が必要です\n\n"
+                                    reply_text += f"まずGoogleカレンダーにアクセスして認証してください：\n{auth_url}\n\n"
+                                    reply_text += f"認証完了後、再度「{user_message}」と送信してください。"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
                                     )
-                                )
-                                continue
+                                    continue
+                                else:
+                                    # 認証済みの場合は添付ファイルで返信
+                                    from linebot.models import ImageSendMessage
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        ImageSendMessage(
+                                            original_content_url="https://example.com/attachment.jpg",
+                                            preview_image_url="https://example.com/attachment.jpg"
+                                        )
+                                    )
+                                    continue
                             
                             # その他のエラーの場合はFlex Messageメニューを返信
                             from linebot.models import FlexSendMessage
