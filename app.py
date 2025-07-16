@@ -1091,18 +1091,6 @@ def callback():
                                 )
                             )
                             continue
-                            
-                            # その他のエラーの場合はFlex Messageメニューを返信
-                            from linebot.models import FlexSendMessage
-                            flex_message = get_simple_flex_menu(user_id)
-                            line_bot_api.reply_message(
-                                reply_token,
-                                FlexSendMessage(
-                                    alt_text="ご利用案内・操作メニュー",
-                                    contents=flex_message
-                                )
-                            )
-                            continue
                         
                         # 21時の繰り越し確認への返信処理
                         if regex.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
