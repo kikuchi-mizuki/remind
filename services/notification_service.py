@@ -21,16 +21,30 @@ class NotificationService:
 
     def send_daily_task_notification(self):
         """毎日のタスク通知を送信（タスク一覧コマンドと同じ形式）"""
+        print(f"[send_daily_task_notification] 開始: {datetime.now()}")
         try:
             user_ids = self._get_active_user_ids()
+            print(f"[send_daily_task_notification] ユーザー数: {len(user_ids)}")
             for user_id in user_ids:
-                # タスク一覧を取得
-                all_tasks = self.task_service.get_user_tasks(user_id)
-                # タスク一覧コマンドと同じ形式で出力
-                message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
-                self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+                try:
+                    print(f"[send_daily_task_notification] ユーザー {user_id} に送信中...")
+                    # タスク一覧を取得
+                    all_tasks = self.task_service.get_user_tasks(user_id)
+                    print(f"[send_daily_task_notification] タスク数: {len(all_tasks)}")
+                    # タスク一覧コマンドと同じ形式で出力
+                    message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
+                    print(f"[send_daily_task_notification] メッセージ送信: {message[:100]}...")
+                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+                    print(f"[send_daily_task_notification] ユーザー {user_id} に送信完了")
+                except Exception as e:
+                    print(f"[send_daily_task_notification] ユーザー {user_id} への送信エラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+            print(f"[send_daily_task_notification] 完了: {datetime.now()}")
         except Exception as e:
             print(f"Error sending daily notifications: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _is_google_authenticated(self, user_id):
         """tokenの存在と有効性をDBでチェック"""

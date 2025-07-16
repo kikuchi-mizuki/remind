@@ -344,6 +344,16 @@ def callback():
                             )
                             continue
 
+                        # 8時通知テストコマンド（デバッグ用）
+                        if user_message.strip() == "8時テスト":
+                            notification_service.send_daily_task_notification()
+                            reply_text = "✅ 8時通知を手動実行しました"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
