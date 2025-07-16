@@ -300,6 +300,21 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
+                        # 認証状態確認コマンド（デバッグ用）
+                        if user_message.strip() == "認証確認":
+                            auth_status = is_google_authenticated(user_id)
+                            reply_text = f"🔍 認証状態確認\n\n"
+                            reply_text += f"ユーザーID: {user_id}\n"
+                            reply_text += f"認証状態: {'✅ 認証済み' if auth_status else '❌ 未認証'}\n\n"
+                            if not auth_status:
+                                auth_url = get_google_auth_url(user_id)
+                                reply_text += f"認証が必要です:\n{auth_url}"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
@@ -1087,6 +1102,8 @@ def callback():
 # --- Flex Message メニュー定義 ---
 def get_simple_flex_menu(user_id=None):
     """認証状態に応じてメニューを動的に生成"""
+    print(f"[get_simple_flex_menu] user_id={user_id}")
+    
     # 基本のボタン（認証不要）
     basic_buttons = [
         {
@@ -1102,15 +1119,23 @@ def get_simple_flex_menu(user_id=None):
     ]
     
     # 認証済みの場合のみ緊急タスクボタンを追加
-    if user_id and is_google_authenticated(user_id):
-        # 緊急タスクボタンを2番目に挿入
-        urgent_button = {
-            "type": "button",
-            "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
-            "style": "primary",
-            "color": "#FF6B6B"
-        }
-        basic_buttons.insert(1, urgent_button)
+    if user_id:
+        auth_status = is_google_authenticated(user_id)
+        print(f"[get_simple_flex_menu] 認証状態: {auth_status}")
+        if auth_status:
+            # 緊急タスクボタンを2番目に挿入
+            urgent_button = {
+                "type": "button",
+                "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
+                "style": "primary",
+                "color": "#FF6B6B"
+            }
+            basic_buttons.insert(1, urgent_button)
+            print(f"[get_simple_flex_menu] 緊急タスクボタンを追加しました")
+        else:
+            print(f"[get_simple_flex_menu] 認証されていないため緊急タスクボタンを追加しません")
+    else:
+        print(f"[get_simple_flex_menu] user_idがNoneのため緊急タスクボタンを追加しません")
     
     return {
         "type": "bubble",
