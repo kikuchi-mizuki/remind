@@ -38,29 +38,25 @@ class NotificationService:
             print(f"Error sending daily notifications: {e}")
 
     def _is_google_authenticated(self, user_id):
-        """tokenファイルの存在と有効性をチェック"""
-        token_path = f'tokens/{user_id}_token.json'
-        if not os.path.exists(token_path):
+        """tokenの存在と有効性をDBでチェック"""
+        from models.database import db
+        token_json = db.get_token(user_id)
+        if not token_json:
             return False
-        
         try:
             from google.oauth2.credentials import Credentials
-            from google.auth.transport.requests import Request
-            
-            creds = Credentials.from_authorized_user_file(token_path, [
+            import json
+            creds = Credentials.from_authorized_user_info(json.loads(token_json), [
                 "https://www.googleapis.com/auth/calendar",
                 "https://www.googleapis.com/auth/drive.file",
                 "https://www.googleapis.com/auth/drive"
             ])
-            
-            # refresh_tokenが存在し、有効な場合のみTrue
             if creds and creds.refresh_token:
                 if creds.expired and creds.refresh_token:
                     try:
+                        from google.auth.transport.requests import Request
                         creds.refresh(Request())
-                        # 更新されたトークンを保存
-                        with open(token_path, 'w') as token:
-                            token.write(creds.to_json())
+                        db.save_token(user_id, creds.to_json())
                         return True
                     except Exception as e:
                         print(f"Token refresh failed: {e}")

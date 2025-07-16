@@ -18,14 +18,16 @@ class CalendarService:
         self.credentials = None
 
     def authenticate_user(self, user_id: str) -> bool:
-        """ユーザーの認証を行う（app.pyの認証フローに依存）"""
+        """ユーザーの認証を行う（DB保存方式）"""
         try:
-            token_path = f'tokens/{user_id}_token.json'
-            if not os.path.exists(token_path):
-                print(f"Token file not found: {token_path}")
+            from models.database import db
+            token_json = db.get_token(user_id)
+            if not token_json:
+                print(f"Token not found in DB for user: {user_id}")
                 return False
             
-            creds = Credentials.from_authorized_user_file(token_path, self.SCOPES)
+            import json
+            creds = Credentials.from_authorized_user_info(json.loads(token_json), self.SCOPES)
             
             # refresh_tokenが無い場合は認証失敗
             if not creds.refresh_token:
@@ -36,9 +38,8 @@ class CalendarService:
             if creds.expired:
                 try:
                     creds.refresh(Request())
-                    # 更新されたトークンを保存
-                    with open(token_path, 'w') as token:
-                        token.write(creds.to_json())
+                    # 更新されたトークンをDBに保存
+                    db.save_token(user_id, creds.to_json())
                 except Exception as e:
                     print(f"Token refresh failed: {e}")
                     return False
