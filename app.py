@@ -1023,7 +1023,21 @@ def callback():
                             )
                             continue
                         except Exception as e:
-                            # タスク登録エラーの場合はFlex Messageメニューを返信
+                            # タスク登録エラーの場合は、登録されていない文字かどうかを判定
+                            # 単一文字の場合は添付ファイルで返信
+                            if len(user_message.strip()) == 1:
+                                # 添付ファイルで返信
+                                from linebot.models import ImageSendMessage
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    ImageSendMessage(
+                                        original_content_url="https://example.com/attachment.jpg",
+                                        preview_image_url="https://example.com/attachment.jpg"
+                                    )
+                                )
+                                continue
+                            
+                            # その他のエラーの場合はFlex Messageメニューを返信
                             from linebot.models import FlexSendMessage
                             flex_message = get_simple_flex_menu(user_id)
                             line_bot_api.reply_message(
