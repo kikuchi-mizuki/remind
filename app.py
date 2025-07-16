@@ -323,24 +323,8 @@ def callback():
                     print(f"[DEBUG] 受信user_message: '{user_message}'", flush=True)
                     user_id = event["source"].get("userId", "")
                     try:
-                        # すべてのメッセージで最初にGoogle認証チェック
-                        if not is_google_authenticated(user_id):
-                            # 認証が必要な場合、pending_actionファイルに内容を保存
-                            import json, os
-                            pending_action = {
-                                "user_message": user_message,
-                                "reply_token": reply_token
-                            }
-                            os.makedirs("pending_actions", exist_ok=True)
-                            with open(f"pending_actions/pending_action_{user_id}.json", "w") as f:
-                                json.dump(pending_action, f)
-                            auth_url = get_google_auth_url(user_id)
-                            reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            continue
+                        # Google認証が必要な機能でのみ認証チェックを行う
+                        # 基本的なタスク管理機能は認証なしでも利用可能
                         
                         # 「キャンセル」コマンドの処理
                         if user_message.strip() == "キャンセル":
@@ -512,6 +496,25 @@ def callback():
                                     task_ids = json.load(f)
                                 all_tasks = task_service.get_user_tasks(user_id)
                                 selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                # Google認証チェック（カレンダー連携機能）
+                                if not is_google_authenticated(user_id):
+                                    # 認証が必要な場合、pending_actionファイルに内容を保存
+                                    import json, os
+                                    pending_action = {
+                                        "user_message": user_message,
+                                        "reply_token": reply_token
+                                    }
+                                    os.makedirs("pending_actions", exist_ok=True)
+                                    with open(f"pending_actions/pending_action_{user_id}.json", "w") as f:
+                                        json.dump(pending_action, f)
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
@@ -588,6 +591,25 @@ def callback():
                                     task_ids = json.load(f)
                                 all_tasks = task_service.get_user_tasks(user_id)
                                 selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                # Google認証チェック（カレンダー連携機能）
+                                if not is_google_authenticated(user_id):
+                                    # 認証が必要な場合、pending_actionファイルに内容を保存
+                                    import json, os
+                                    pending_action = {
+                                        "user_message": user_message,
+                                        "reply_token": reply_token
+                                    }
+                                    os.makedirs("pending_actions", exist_ok=True)
+                                    with open(f"pending_actions/pending_action_{user_id}.json", "w") as f:
+                                        json.dump(pending_action, f)
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
                                 # Googleカレンダーの空き時間を取得
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
@@ -614,6 +636,25 @@ def callback():
                                 with open(proposal_path, "r") as f:
                                     proposal = f.read()
                                 print(f"[承認する] 読み込んだ提案: {proposal}")
+                                # Google認証チェック（カレンダー連携機能）
+                                if not is_google_authenticated(user_id):
+                                    # 認証が必要な場合、pending_actionファイルに内容を保存
+                                    import json, os
+                                    pending_action = {
+                                        "user_message": user_message,
+                                        "reply_token": reply_token
+                                    }
+                                    os.makedirs("pending_actions", exist_ok=True)
+                                    with open(f"pending_actions/pending_action_{user_id}.json", "w") as f:
+                                        json.dump(pending_action, f)
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
                                 # Googleカレンダーに登録
                                 try:
                                     success = calendar_service.add_events_to_calendar(user_id, proposal)
@@ -671,6 +712,25 @@ def callback():
                             continue
                         # スケジュール修正指示（タスク登録より先にチェック）
                         if "を" in user_message and "時" in user_message and "変更" in user_message:
+                            # Google認証チェック（カレンダー連携機能）
+                            if not is_google_authenticated(user_id):
+                                # 認証が必要な場合、pending_actionファイルに内容を保存
+                                import json, os
+                                pending_action = {
+                                    "user_message": user_message,
+                                    "reply_token": reply_token
+                                }
+                                os.makedirs("pending_actions", exist_ok=True)
+                                with open(f"pending_actions/pending_action_{user_id}.json", "w") as f:
+                                    json.dump(pending_action, f)
+                                auth_url = get_google_auth_url(user_id)
+                                reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                continue
+                            
                             try:
                                 modification = task_service.parse_modification_message(user_message)
                                 # 直前のスケジュール提案を取得

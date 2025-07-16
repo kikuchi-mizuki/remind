@@ -24,16 +24,11 @@ class NotificationService:
         try:
             user_ids = self._get_active_user_ids()
             for user_id in user_ids:
-                if self._is_google_authenticated(user_id):
-                    # タスク一覧を取得
-                    all_tasks = self.task_service.get_user_tasks(user_id)
-                    # タスク一覧コマンドと同じ形式で出力
-                    message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
-                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
-                else:
-                    auth_url = self._get_google_auth_url(user_id)
-                    message = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
-                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+                # タスク一覧を取得
+                all_tasks = self.task_service.get_user_tasks(user_id)
+                # タスク一覧コマンドと同じ形式で出力
+                message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
+                self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
         except Exception as e:
             print(f"Error sending daily notifications: {e}")
 
@@ -306,20 +301,15 @@ class NotificationService:
         jst = pytz.timezone('Asia/Tokyo')
         today_str = datetime.now(jst).strftime('%Y-%m-%d')
         for user_id in user_ids:
-            if self._is_google_authenticated(user_id):
-                tasks = self.task_service.get_user_tasks(user_id)
-                today_tasks = [t for t in tasks if t.due_date == today_str]
-                if not today_tasks:
-                    continue
-                msg = '🔔 本日分タスクの繰り越し確認\n\n'
-                for i, t in enumerate(today_tasks, 1):
-                    msg += f'{i}. {t.name}（{t.duration_minutes}分）\n'
-                msg += '\n明日に繰り越すタスクの番号をカンマ区切りで返信してください。\n（例: 1,3）\n繰り越さない場合は「なし」と返信してください。'
-                self.line_bot_api.push_message(user_id, TextSendMessage(text=msg))
-            else:
-                auth_url = self._get_google_auth_url(user_id)
-                message = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
-                self.line_bot_api.push_message(user_id, TextSendMessage(text=message)) 
+            tasks = self.task_service.get_user_tasks(user_id)
+            today_tasks = [t for t in tasks if t.due_date == today_str]
+            if not today_tasks:
+                continue
+            msg = '🔔 本日分タスクの繰り越し確認\n\n'
+            for i, t in enumerate(today_tasks, 1):
+                msg += f'{i}. {t.name}（{t.duration_minutes}分）\n'
+            msg += '\n明日に繰り越すタスクの番号をカンマ区切りで返信してください。\n（例: 1,3）\n繰り越さない場合は「なし」と返信してください。'
+            self.line_bot_api.push_message(user_id, TextSendMessage(text=msg)) 
 
 if __name__ == "__main__":
     from models.database import init_db

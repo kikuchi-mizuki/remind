@@ -339,12 +339,15 @@ class CalendarService:
             flow.fetch_token(code=code)
             # 認証情報を保存
             creds = flow.credentials
-            # トークンをファイルに保存
-            os.makedirs('tokens', exist_ok=True)
-            token_path = f'tokens/{user_id}_token.json'
-            with open(token_path, 'w') as token:
-                token.write(creds.to_json())
-            return True
+            
+            # トークンをデータベースに保存
+            from models.database import db
+            if db.save_token(user_id, creds.to_json()):
+                print(f"Token saved to database for user: {user_id}")
+                return True
+            else:
+                print(f"Failed to save token to database for user: {user_id}")
+                return False
         except Exception as e:
             print(f"Error handling OAuth2 callback: {e}")
             return False 
