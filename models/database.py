@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime
 from typing import List, Optional
 import json
+from sqlalchemy import Column, String, Text
 
 class Task:
     """タスクモデルクラス"""
@@ -67,6 +68,14 @@ class Database:
                 notification_time TEXT DEFAULT '08:00',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # tokensテーブルの作成
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS tokens (
+                user_id TEXT PRIMARY KEY,
+                token_json TEXT NOT NULL
             )
         ''')
         
@@ -280,6 +289,46 @@ class Database:
         except Exception as e:
             print(f"Error getting all user ids: {e}")
             return []
+
+    def save_token(self, user_id: str, token_json: str) -> bool:
+        """Google認証トークンを保存"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO tokens (user_id, token_json)
+                VALUES (?, ?)
+            ''', (user_id, token_json))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error saving token: {e}")
+            return False
+
+    def get_token(self, user_id: str) -> Optional[str]:
+        """Google認証トークンを取得"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT token_json
+                FROM tokens
+                WHERE user_id = ?
+            ''', (user_id,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return row[0]
+            return None
+        except Exception as e:
+            print(f"Error getting token: {e}")
+            return None
 
 # グローバルデータベースインスタンス
 db = Database()

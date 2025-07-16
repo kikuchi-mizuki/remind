@@ -39,29 +39,25 @@ if not os.path.exists("client_secrets.json"):
 
 # Google認証済みユーザー管理（tokenファイルの存在と有効性で判定）
 def is_google_authenticated(user_id):
-    """tokenファイルの存在と有効性をチェック"""
-    token_path = f'tokens/{user_id}_token.json'
-    if not os.path.exists(token_path):
+    """tokenの存在と有効性をDBでチェック"""
+    from models.database import db
+    token_json = db.get_token(user_id)
+    if not token_json:
         return False
-    
     try:
         from google.oauth2.credentials import Credentials
-        from google.auth.transport.requests import Request
-        
-        creds = Credentials.from_authorized_user_file(token_path, [
+        import json
+        creds = Credentials.from_authorized_user_info(json.loads(token_json), [
             "https://www.googleapis.com/auth/calendar",
             "https://www.googleapis.com/auth/drive.file",
             "https://www.googleapis.com/auth/drive"
         ])
-        
-        # refresh_tokenが存在し、有効な場合のみTrue
         if creds and creds.refresh_token:
             if creds.expired and creds.refresh_token:
                 try:
+                    from google.auth.transport.requests import Request
                     creds.refresh(Request())
-                    # 更新されたトークンを保存
-                    with open(token_path, 'w') as token:
-                        token.write(creds.to_json())
+                    db.save_token(user_id, creds.to_json())
                     return True
                 except Exception as e:
                     print(f"Token refresh failed: {e}")
@@ -139,12 +135,12 @@ def oauth2callback():
         # ユーザーごとにトークンを保存
         import os
         try:
-            os.makedirs('tokens', exist_ok=True)
-            print(f"[oauth2callback] tokensディレクトリ作成/存在確認済み")
-            token_path = f'tokens/{user_id}_token.json'
-            with open(token_path, 'w') as token:
-                token.write(creds.to_json())
-            print(f"[oauth2callback] token saved: {token_path}")
+            from models.database import db
+            if not user_id:
+                print(f"[oauth2callback] ERROR: user_id is None, token保存スキップ")
+            else:
+                db.save_token(str(user_id), creds.to_json())
+                print(f"[oauth2callback] token saved to DB for user: {user_id}")
         except Exception as e:
             print(f"[oauth2callback] token保存エラー: {e}")
             import traceback
