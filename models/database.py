@@ -277,18 +277,46 @@ class Database:
             print(f"Error getting user settings: {e}")
             return None
 
+    def register_user(self, user_id: str) -> bool:
+        """ユーザーを登録（初回メッセージ時に呼び出し）"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # user_settingsテーブルにユーザーを登録（既に存在する場合は何もしない）
+            cursor.execute('''
+                INSERT OR IGNORE INTO user_settings (user_id, created_at)
+                VALUES (?, ?)
+            ''', (user_id, datetime.now()))
+            
+            conn.commit()
+            conn.close()
+            print(f"[register_user] ユーザー {user_id} を登録しました")
+            return True
+        except Exception as e:
+            print(f"Error registering user: {e}")
+            return False
+
     def get_all_user_ids(self) -> List[str]:
         """
-        全ユーザーのuser_id一覧を取得（tasksテーブルから一意に抽出）
+        全ユーザーのuser_id一覧を取得（tasksテーブルとuser_settingsテーブルから一意に抽出）
         """
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+            
+            # tasksテーブルとuser_settingsテーブルの両方からユーザーIDを取得
             cursor.execute('''
-                SELECT DISTINCT user_id FROM tasks
+                SELECT DISTINCT user_id FROM (
+                    SELECT user_id FROM tasks
+                    UNION
+                    SELECT user_id FROM user_settings
+                )
             ''')
+            
             user_ids = [row[0] for row in cursor.fetchall()]
             conn.close()
+            print(f"[get_all_user_ids] 取得したユーザー数: {len(user_ids)}")
             return user_ids
         except Exception as e:
             print(f"Error getting all user ids: {e}")

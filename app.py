@@ -287,6 +287,11 @@ def callback():
                     user_message = event["message"]["text"]
                     print(f"[DEBUG] 受信user_message: '{user_message}'", flush=True)
                     user_id = event["source"].get("userId", "")
+                    
+                    # ユーザーをデータベースに登録（初回メッセージ時）
+                    from models.database import db
+                    db.register_user(user_id)
+                    
                     try:
                         # Google認証が必要な機能でのみ認証チェックを行う
                         # 基本的なタスク管理機能は認証なしでも利用可能
