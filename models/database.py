@@ -333,6 +333,7 @@ class Database:
     def save_token(self, user_id: str, token_json: str) -> bool:
         """Google認証トークンを保存"""
         try:
+            print(f"[save_token] 開始: user_id={user_id}, db_path={self.db_path}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
@@ -343,6 +344,7 @@ class Database:
             
             conn.commit()
             conn.close()
+            print(f"[save_token] 成功: user_id={user_id}")
             return True
         except Exception as e:
             print(f"Error saving token: {e}")
@@ -351,6 +353,7 @@ class Database:
     def get_token(self, user_id: str) -> Optional[str]:
         """Google認証トークンを取得"""
         try:
+            print(f"[get_token] 開始: user_id={user_id}, db_path={self.db_path}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
@@ -364,7 +367,9 @@ class Database:
             conn.close()
             
             if row:
+                print(f"[get_token] 成功: user_id={user_id}, token_length={len(row[0])}")
                 return row[0]
+            print(f"[get_token] トークンなし: user_id={user_id}")
             return None
         except Exception as e:
             print(f"Error getting token: {e}")
