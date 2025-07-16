@@ -129,11 +129,12 @@ def oauth2callback():
         print("[oauth2callback] token fetched")
         creds = flow.credentials
         print(f"[oauth2callback] creds: {creds}")
-        
+        print(f"[oauth2callback] creds.refresh_token: {getattr(creds, 'refresh_token', None)}")
+        print(f"[oauth2callback] user_id: {user_id}")
         # refresh_tokenの確認
         if not creds.refresh_token:
-            print("[oauth2callback] WARNING: refresh_token not found!")
-            return "認証エラー: refresh_tokenが取得できませんでした。<br>ブラウザで「別のアカウントを使用」を選択して再度認証してください。", 400
+            print("[oauth2callback] ERROR: refresh_token not found! 必ずGoogle認証時に『別のアカウントを選択』してください。")
+            return "認証エラー: refresh_tokenが取得できませんでした。<br>ブラウザで『別のアカウントを使用』を選択して再度認証してください。", 400
         
         # ユーザーごとにトークンを保存
         import os
