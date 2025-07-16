@@ -806,6 +806,32 @@ def callback():
                             )
                             continue
 
+                        # 「緊急タスク追加」と送信された場合、緊急タスク追加モードを開始
+                        if user_message.strip() == "緊急タスク追加":
+                            # Google認証チェック
+                            if not is_google_authenticated(user_id):
+                                auth_url = get_google_auth_url(user_id)
+                                reply_text = f"📅 カレンダー連携が必要です\n\nGoogleカレンダーにアクセスして認証してください：\n{auth_url}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                continue
+                            
+                            # 緊急タスク追加モードファイルを作成
+                            import os
+                            urgent_mode_file = f"urgent_task_mode_{user_id}.json"
+                            with open(urgent_mode_file, "w") as f:
+                                import json
+                                json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
+                            
+                            reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
                         if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
                             import pytz
@@ -832,6 +858,158 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
+                        # 緊急タスク追加モードでの処理
+                        import os
+                        urgent_mode_file = f"urgent_task_mode_{user_id}.json"
+                        if os.path.exists(urgent_mode_file):
+                            try:
+                                # 緊急タスク用の簡易パース（期日は今日固定）
+                                task_name = None
+                                duration_minutes = None
+                                
+                                # 時間パターンの定義（タスクサービスと同じ）
+                                complex_time_patterns = [
+                                    r'(\d+)\s*時間\s*半',  # 1時間半
+                                    r'(\d+)\s*時間\s*(\d+)\s*分',  # 1時間30分
+                                    r'(\d+)\s*hour\s*(\d+)\s*min',  # 1hour 30min
+                                    r'(\d+)\s*h\s*(\d+)\s*m',  # 1h 30m
+                                ]
+                                
+                                simple_time_patterns = [
+                                    r'(\d+)\s*分',
+                                    r'(\d+)\s*時間',
+                                    r'(\d+)\s*min',
+                                    r'(\d+)\s*hour',
+                                    r'(\d+)\s*h',
+                                    r'(\d+)\s*m'
+                                ]
+                                
+                                # 時間の抽出
+                                temp_message = user_message
+                                for pattern in complex_time_patterns:
+                                    match = re.search(pattern, temp_message)
+                                    if match:
+                                        if '半' in pattern:
+                                            hours = int(match.group(1))
+                                            duration_minutes = hours * 60 + 30
+                                        else:
+                                            hours = int(match.group(1))
+                                            minutes = int(match.group(2))
+                                            duration_minutes = hours * 60 + minutes
+                                        temp_message = re.sub(pattern, '', temp_message)
+                                        break
+                                
+                                if not duration_minutes:
+                                    for pattern in simple_time_patterns:
+                                        match = re.search(pattern, temp_message)
+                                        if match:
+                                            duration_minutes = int(match.group(1))
+                                            if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
+                                                duration_minutes *= 60
+                                            temp_message = re.sub(pattern, '', temp_message)
+                                            break
+                                
+                                if not duration_minutes:
+                                    reply_text = "⚠️ 所要時間が見つかりませんでした。\n例：「資料作成 1時間半」"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # タスク名の抽出
+                                task_name = re.sub(r'[\s　]+', ' ', temp_message).strip()
+                                if not task_name:
+                                    reply_text = "⚠️ タスク名が見つかりませんでした。\n例：「資料作成 1時間半」"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # 今日の日付を取得
+                                jst = pytz.timezone('Asia/Tokyo')
+                                today = datetime.now(jst)
+                                today_str = today.strftime('%Y-%m-%d')
+                                
+                                # 空き時間を検索
+                                free_times = calendar_service.get_free_busy_times(user_id, today)
+                                
+                                if not free_times:
+                                    reply_text = "⚠️ 今日の空き時間が見つかりませんでした。\n別の日時を指定するか、通常のタスク追加をお試しください。"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # 十分な時間がある空き時間をフィルタリング
+                                suitable_times = [t for t in free_times if t['duration_minutes'] >= duration_minutes]
+                                
+                                if not suitable_times:
+                                    reply_text = f"⚠️ {duration_minutes}分の空き時間が見つかりませんでした。\n最長の空き時間: {max(free_times, key=lambda x: x['duration_minutes'])['duration_minutes']}分"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # 最も早い時間を選択
+                                selected_time = min(suitable_times, key=lambda x: x['start'])
+                                start_time = selected_time['start']
+                                
+                                # カレンダーにイベントを追加
+                                success = calendar_service.add_event_to_calendar(
+                                    user_id, task_name, start_time, duration_minutes, 
+                                    f"緊急タスク: {task_name}"
+                                )
+                                
+                                if success:
+                                    # タスクもDBに保存
+                                    task_info = {
+                                        'name': task_name,
+                                        'duration_minutes': duration_minutes,
+                                        'repeat': False,
+                                        'due_date': today_str
+                                    }
+                                    task_service.create_task(user_id, task_info)
+                                    
+                                    # 緊急タスク追加モードを終了
+                                    os.remove(urgent_mode_file)
+                                    
+                                    # 成功メッセージ
+                                    start_time_str = start_time.strftime('%H:%M')
+                                    end_time = start_time + timedelta(minutes=duration_minutes)
+                                    end_time_str = end_time.strftime('%H:%M')
+                                    
+                                    reply_text = f"✅ 緊急タスクを追加しました！\n\n"
+                                    reply_text += f"📝 {task_name}\n"
+                                    reply_text += f"🕐 {start_time_str}〜{end_time_str}\n"
+                                    reply_text += f"📅 {today_str}\n\n"
+                                    reply_text += "Googleカレンダーにも登録されました。"
+                                    
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                else:
+                                    reply_text = "⚠️ カレンダーへの登録に失敗しました。\nしばらく時間をおいて再度お試しください。"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                
+                            except Exception as e:
+                                print(f"[ERROR] 緊急タスク追加処理: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            continue
+
                         # タスク登録メッセージか判定してDB保存
                         try:
                             task_info = task_service.parse_task_message(user_message)
@@ -943,6 +1121,12 @@ def get_simple_flex_menu():
                     "type": "button",
                     "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
                     "style": "primary"
+                },
+                {
+                    "type": "button",
+                    "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
+                    "style": "primary",
+                    "color": "#FF6B6B"
                 },
                 {
                     "type": "button",
