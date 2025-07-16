@@ -231,34 +231,7 @@ def oauth2callback():
                     return "OK", 200
             else:
                 from linebot.models import FlexSendMessage
-                flex_message = {
-                    "type": "bubble",
-                    "body": {
-                        "type": "box",
-                        "layout": "vertical",
-                        "contents": [
-                            {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "lg"},
-                            {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
-                        ]
-                    },
-                    "footer": {
-                        "type": "box",
-                        "layout": "vertical",
-                        "spacing": "sm",
-                        "contents": [
-                            {
-                                "type": "button",
-                                "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
-                                "style": "primary"
-                            },
-                            {
-                                "type": "button",
-                                "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
-                                "style": "secondary"
-                            }
-                        ]
-                    }
-                }
+                flex_message = get_simple_flex_menu()
                 line_bot_api.push_message(
                     str(user_id),
                     FlexSendMessage(
@@ -268,34 +241,7 @@ def oauth2callback():
                 )
         else:
             from linebot.models import FlexSendMessage
-            flex_message = {
-                "type": "bubble",
-                "body": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "contents": [
-                        {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "lg"},
-                        {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
-                    ]
-                },
-                "footer": {
-                    "type": "box",
-                    "layout": "vertical",
-                    "spacing": "sm",
-                    "contents": [
-                        {
-                            "type": "button",
-                            "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
-                            "style": "primary"
-                        },
-                        {
-                            "type": "button",
-                            "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
-                            "style": "secondary"
-                        }
-                    ]
-                }
-            }
+            flex_message = get_simple_flex_menu()
             line_bot_api.push_message(
                 str(user_id),
                 FlexSendMessage(
