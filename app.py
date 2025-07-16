@@ -456,17 +456,22 @@ def callback():
                                 continue
                         # 「はい」と返信された場合は自動でスケジュール提案
                         if user_message.strip() == "はい":
+                            print(f"[はい処理] 開始: user_id={user_id}")
                             import os
                             import json
                             import re
                             from datetime import datetime
                             import pytz
                             selected_path = f"selected_tasks_{user_id}.json"
+                            print(f"[はい処理] selected_path={selected_path}, exists={os.path.exists(selected_path)}")
                             if os.path.exists(selected_path):
                                 with open(selected_path, "r") as f:
                                     task_ids = json.load(f)
+                                print(f"[はい処理] task_ids={task_ids}")
                                 all_tasks = task_service.get_user_tasks(user_id)
+                                print(f"[はい処理] all_tasks数={len(all_tasks)}")
                                 selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                print(f"[はい処理] selected_tasks数={len(selected_tasks)}")
                                 # Google認証チェック（カレンダー連携機能）
                                 if not is_google_authenticated(user_id):
                                     # 認証が必要な場合、pending_actionファイルに内容を保存
@@ -488,7 +493,9 @@ def callback():
                                 
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
+                                print(f"[はい処理] 空き時間検索開始: user_id={user_id}, today={today}")
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
+                                print(f"[はい処理] 空き時間検索結果: {len(free_times)}件")
                                 if not free_times and len(free_times) == 0:
                                     # Google認証エラーの可能性
                                     reply_text = "❌ Googleカレンダーへのアクセスに失敗しました。\n\n"
@@ -503,10 +510,13 @@ def callback():
                                         TextSendMessage(text=reply_text)
                                     )
                                     continue
+                                print(f"[はい処理] スケジュール提案生成開始")
                                 proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                                print(f"[はい処理] スケジュール提案生成完了: {len(proposal)}文字")
                                 # スケジュール提案を一時保存
                                 with open(f"schedule_proposal_{user_id}.txt", "w") as f:
                                     f.write(proposal)
+                                print(f"[はい処理] スケジュール提案保存完了")
                                 # --- リッチテキスト整形 ---
                                 # 1. AI出力から案内文を除去
                                 proposal_clean = regex.sub(r'このスケジュールでよろしければ.*?返信してください。', '', proposal, flags=regex.DOTALL)
