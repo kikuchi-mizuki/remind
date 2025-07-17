@@ -214,8 +214,19 @@ class TaskService:
         elif not detected_urgent and detected_important:
             priority = "not_urgent_important"
         else:
-            # キーワードがない場合は必ずその他（normal）
-            priority = "normal"
+            # キーワードがない場合でも、本日・明日締切りの場合は緊急と判定
+            if due_date:
+                jst = pytz.timezone('Asia/Tokyo')
+                today = datetime.now(jst)
+                today_str = today.strftime('%Y-%m-%d')
+                tomorrow_str = (today + timedelta(days=1)).strftime('%Y-%m-%d')
+                
+                if due_date in [today_str, tomorrow_str]:
+                    priority = "urgent_not_important"  # B（緊急）
+                else:
+                    priority = "normal"  # -（その他）
+            else:
+                priority = "normal"  # -（その他）
         
         print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}, priority={priority}")
         return {
