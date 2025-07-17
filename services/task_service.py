@@ -418,6 +418,8 @@ class TaskService:
             grouped[task.due_date or '未設定'].append(task)
         
         formatted_list = "📋 タスク一覧\n＝＝＝＝＝＝\n"
+        # ABC説明を追加
+        formatted_list += "A: 緊急かつ重要  B: 緊急  C: 重要  -: その他\n"
         idx = 1
         jst = pytz.timezone('Asia/Tokyo')
         today = datetime.now(jst)
@@ -437,26 +439,26 @@ class TaskService:
                 formatted_list += "📌 期日未設定\n"
             
             for task in group:
-                # 優先度アイコン（A:🏃‍♀️, B:⚡, C:⭐, その他:📝）
+                # 優先度アイコン（A/B/C/-）
                 priority_icon = {
-                    "urgent_important": "🏃‍♀️",      # Aランク
-                    "urgent_not_important": "⚡",     # Bランク
-                    "not_urgent_important": "⭐",    # Cランク
-                    "normal": "📝"
-                }.get(task.priority, "📝")
+                    "urgent_important": "A",
+                    "urgent_not_important": "B",
+                    "not_urgent_important": "C",
+                    "normal": "-"
+                }.get(task.priority, "-")
                 
                 name = task.name
                 if due == '未設定' and ('今日' in name or '明日' in name):
                     name += f" {due}"
                 
-                formatted_list += f"{idx}. {priority_icon}{name} ({task.duration_minutes}分)\n"
+                formatted_list += f"{idx}. {priority_icon} {name} ({task.duration_minutes}分)\n"
                 idx += 1
         
         formatted_list += "＝＝＝＝＝＝"
         if for_deletion:
-            formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５"
+            formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５\nA: 緊急かつ重要  B: 緊急  C: 重要  -: その他"
         elif show_select_guide:
-            formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５"
+            formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５\nA: 緊急かつ重要  B: 緊急  C: 重要  -: その他"
         
         return formatted_list
 
