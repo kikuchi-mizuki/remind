@@ -159,7 +159,7 @@ class CalendarService:
             return False
 
     def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> bool:
-        """スケジュール提案をカレンダーに反映（日付パース強化・2行セット対応）"""
+        """スケジュール提案をカレンダーに反映（日付パース強化・2行セット対応・未来タスク対応）"""
         try:
             import re
             from datetime import datetime, timedelta
@@ -170,8 +170,25 @@ class CalendarService:
             event_added = False
             unparsable_lines = []
             i = 0
+            
+            # 未来タスクかどうかを判定（来週のスケジュール提案かチェック）
+            is_future_task = any('来週のスケジュール提案' in line for line in lines)
+            
             while i < len(lines):
                 line = lines[i]
+                
+                # 日付行を検出（例: 7/22(月)）
+                date_match = re.match(r'(\d{1,2})/(\d{1,2})\([月火水木金土日]\)', line)
+                target_date = today
+                if date_match and is_future_task:
+                    # 来週の日付を計算
+                    month = int(date_match.group(1))
+                    day = int(date_match.group(2))
+                    current_year = today.year
+                    # 来週の日付を計算（簡易版）
+                    target_date = today + timedelta(days=7)
+                    target_date = target_date.replace(month=month, day=day)
+                
                 # 🕒時刻行＋📝タスク行の2行セットを1つの予定として扱う
                 if line.startswith('🕒') and i+1 < len(lines) and lines[i+1].startswith('📝'):
                     # 🕒 08:00〜08:30
@@ -185,7 +202,7 @@ class CalendarService:
                         end_min = int(m_time.group(4))
                         task_name = m_task.group(1).strip()
                         duration = int(m_task.group(2))
-                        start_time = today.replace(hour=start_hour, minute=start_min)
+                        start_time = target_date.replace(hour=start_hour, minute=start_min)
                         self.add_event_to_calendar(user_id, task_name, start_time, duration)
                         event_added = True
                         i += 2
@@ -200,7 +217,7 @@ class CalendarService:
                     end_min = int(m.group(4))
                     task_name = m.group(6).strip()
                     duration = int(m.group(7))
-                    start_time = today.replace(hour=start_hour, minute=start_min)
+                    start_time = target_date.replace(hour=start_hour, minute=start_min)
                     self.add_event_to_calendar(user_id, task_name, start_time, duration)
                     event_added = True
                     i += 1
@@ -219,7 +236,7 @@ class CalendarService:
                         if end <= start:
                             end += timedelta(days=1)
                         duration = int((end-start).total_seconds()//60)
-                        start_time = today.replace(hour=start_hour, minute=start_min)
+                        start_time = target_date.replace(hour=start_hour, minute=start_min)
                         self.add_event_to_calendar(user_id, task_name, start_time, duration)
                         event_added = True
                     except Exception as e:
