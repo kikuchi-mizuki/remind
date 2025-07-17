@@ -134,6 +134,7 @@ class TaskService:
             today = datetime.now(jst)
             # 自然言語→日付変換辞書
             natural_date_map = {
+                '今日': 0,
                 '明日': 1,
                 '明後日': 2,
                 '明々後日': 3,
