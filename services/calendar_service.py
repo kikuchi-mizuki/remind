@@ -207,6 +207,33 @@ class CalendarService:
                         event_added = True
                         i += 2
                         continue
+                
+                # 未来タスク用の1行パターン（日付＋時刻＋タスク）
+                # 例: 7/22(月) 08:00〜10:00
+                date_time_match = re.match(r'(\d{1,2})/(\d{1,2})\([月火水木金土日]\)\s*(\d{1,2}):(\d{2})[〜~\-ー―‐–—−﹣－:：](\d{1,2}):(\d{2})', line)
+                if date_time_match and i+1 < len(lines) and lines[i+1].startswith('📝'):
+                    # 日付と時刻を取得
+                    month = int(date_time_match.group(1))
+                    day = int(date_time_match.group(2))
+                    start_hour = int(date_time_match.group(3))
+                    start_min = int(date_time_match.group(4))
+                    end_hour = int(date_time_match.group(5))
+                    end_min = int(date_time_match.group(6))
+                    
+                    # 来週の日付を計算
+                    next_week_date = today + timedelta(days=7)
+                    target_date = next_week_date.replace(month=month, day=day)
+                    
+                    # タスク名を取得
+                    m_task = re.match(r'📝\s*(.+)[（(](\d+)分[)）]', lines[i+1])
+                    if m_task:
+                        task_name = m_task.group(1).strip()
+                        duration = int(m_task.group(2))
+                        start_time = target_date.replace(hour=start_hour, minute=start_min)
+                        self.add_event_to_calendar(user_id, task_name, start_time, duration)
+                        event_added = True
+                        i += 2
+                        continue
                 # 既存の1行パターンもサポート
                 # 1. (所要時間明示あり) 柔軟な正規表現
                 m = re.match(r"[-・*\s]*\*?\*?\s*(\d{1,2})[:：]?(\d{2})\s*[〜~\-ー―‐–—−﹣－:：]\s*(\d{1,2})[:：]?(\d{2})\*?\*?\s*([\u3000 \t\-–—―‐]*)?(.+?)\s*\((\d+)分\)", line)
