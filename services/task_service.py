@@ -17,6 +17,41 @@ class TaskService:
         """LINEメッセージからタスク情報を解析"""
         print(f"[parse_task_message] 入力: '{message}'")
         
+        # 改行で区切られた複数タスクの場合は最初のタスクのみ処理
+        if '\n' in message:
+            first_task = message.split('\n')[0]
+            print(f"[parse_task_message] 複数タスク検出、最初のタスクのみ処理: '{first_task}'")
+            message = first_task
+        
+        return self._parse_single_task(message)
+    
+    def parse_multiple_tasks(self, message: str) -> List[Dict]:
+        """改行で区切られた複数タスクを解析"""
+        print(f"[parse_multiple_tasks] 入力: '{message}'")
+        
+        tasks = []
+        lines = message.strip().split('\n')
+        
+        for i, line in enumerate(lines):
+            line = line.strip()
+            if not line:  # 空行をスキップ
+                continue
+                
+            try:
+                task_info = self._parse_single_task(line)
+                tasks.append(task_info)
+                print(f"[parse_multiple_tasks] タスク{i+1}解析成功: {task_info['name']}")
+            except Exception as e:
+                print(f"[parse_multiple_tasks] タスク{i+1}解析エラー: {e}")
+                # エラーが発生したタスクはスキップして続行
+                continue
+        
+        return tasks
+    
+    def _parse_single_task(self, message: str) -> Dict:
+        """単一タスクの解析"""
+        print(f"[_parse_single_task] 入力: '{message}'")
+        
         # 時間パターンの定義
         complex_time_patterns = [
             r'(\d+)\s*時間\s*半',  # 1時間半

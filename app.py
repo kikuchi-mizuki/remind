@@ -1108,26 +1108,62 @@ def callback():
 
                         # タスク登録メッセージか判定してDB保存
                         try:
-                            task_info = task_service.parse_task_message(user_message)
-                            task_service.create_task(user_id, task_info)
-                            # タスク一覧を取得
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            
-                            # 優先度に応じたメッセージ
-                            priority_messages = {
-                               "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
-                          "not_urgent_important": "⭐重要なタスクを追加しました！",
-                          "urgent_not_important": "⚡緊急タスクを追加しました！",
-                          "normal": "✅タスクを追加しました！"
-                            }
-                            
-                            priority = task_info.get('priority', 'normal')
-                            reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
-                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text.strip())
-                            )
+                            # 改行で区切られた複数タスクかチェック
+                            if '\n' in user_message:
+                                # 複数タスク処理
+                                task_infos = task_service.parse_multiple_tasks(user_message)
+                                if not task_infos:
+                                    raise ValueError("有効なタスクが見つかりませんでした")
+                                
+                                # 各タスクをDBに保存
+                                created_tasks = []
+                                for task_info in task_infos:
+                                    task = task_service.create_task(user_id, task_info)
+                                    created_tasks.append(task)
+                                
+                                # タスク一覧を取得
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                
+                                # 成功メッセージ
+                                if len(created_tasks) == 1:
+                                    priority = task_infos[0].get('priority', 'normal')
+                                    priority_messages = {
+                                        "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
+                                        "not_urgent_important": "⭐重要なタスクを追加しました！",
+                                        "urgent_not_important": "⚡緊急タスクを追加しました！",
+                                        "normal": "✅タスクを追加しました！"
+                                    }
+                                    reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
+                                else:
+                                    reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n"
+                                
+                                reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text.strip())
+                                )
+                            else:
+                                # 単一タスク処理（既存の処理）
+                                task_info = task_service.parse_task_message(user_message)
+                                task_service.create_task(user_id, task_info)
+                                # タスク一覧を取得
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                
+                                # 優先度に応じたメッセージ
+                                priority_messages = {
+                                   "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
+                              "not_urgent_important": "⭐重要なタスクを追加しました！",
+                              "urgent_not_important": "⚡緊急タスクを追加しました！",
+                              "normal": "✅タスクを追加しました！"
+                                }
+                                
+                                priority = task_info.get('priority', 'normal')
+                                reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
+                                reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text.strip())
+                                )
                             continue
                         except Exception as e:
                             # タスク登録エラーの場合は、Flex Messageメニューを返信
