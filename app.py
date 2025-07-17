@@ -558,48 +558,22 @@ def callback():
                                     )
                                     continue
                                 
-                                # 来週の日付を計算（次の月曜日から金曜日）
-                                import pytz
-                                from datetime import datetime, timedelta
-                                jst = pytz.timezone('Asia/Tokyo')
-                                today = datetime.now(jst)
-                                
-                                # 次の月曜日を計算
-                                days_until_monday = (7 - today.weekday()) % 7
-                                if days_until_monday == 0:
-                                    days_until_monday = 7
-                                next_monday = today + timedelta(days=days_until_monday)
-                                
-                                # 選択された未来タスクを通常のタスクに変換
-                                created_tasks = []
-                                for i, future_task in enumerate(selected_future_tasks):
-                                    # 来週の各日に分散して配置
-                                    task_date = next_monday + timedelta(days=i % 5)  # 月〜金の5日間
-                                    task_date_str = task_date.strftime('%Y-%m-%d')
-                                    
-                                    task_info = {
-                                        'name': future_task.name,
-                                        'duration_minutes': future_task.duration_minutes,
-                                        'repeat': False,
-                                        'due_date': task_date_str,
-                                        'priority': 'normal'
-                                    }
-                                    
-                                    task = task_service.create_task(user_id, task_info)
-                                    created_tasks.append(task)
+                                # 選択された未来タスクを一時保存
+                                with open(f"selected_future_tasks_{user_id}.json", "w") as f:
+                                    import json
+                                    json.dump([{
+                                        'name': task.name,
+                                        'duration_minutes': task.duration_minutes,
+                                        'priority': getattr(task, 'priority', 'normal')
+                                    } for task in selected_future_tasks], f)
                                 
                                 # 未来タスク選択モードを終了
                                 os.remove(future_selection_file)
                                 
-                                # 成功メッセージ
-                                reply_text = f"✅ {len(created_tasks)}個の未来タスクを来週のスケジュールに追加しました！\n\n"
-                                reply_text += "追加されたタスク：\n"
-                                for task in created_tasks:
-                                    reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
-                                
-                                reply_text += "\n来週のスケジュール：\n"
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                # 確認メッセージ
+                                reply_text = "🤖来週やる未来タスクはこちらで良いですか？\n\n"
+                                reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_future_tasks])
+                                reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
                                 
                                 line_bot_api.reply_message(
                                     reply_token,
@@ -681,9 +655,102 @@ def callback():
                             import re
                             from datetime import datetime
                             import pytz
+                            
+                            # 通常のタスク選択か未来タスク選択かを判定
                             selected_path = f"selected_tasks_{user_id}.json"
+                            selected_future_path = f"selected_future_tasks_{user_id}.json"
+                            
                             print(f"[はい処理] selected_path={selected_path}, exists={os.path.exists(selected_path)}")
-                            if os.path.exists(selected_path):
+                            print(f"[はい処理] selected_future_path={selected_future_path}, exists={os.path.exists(selected_future_path)}")
+                            
+                            if os.path.exists(selected_future_path):
+                                # 未来タスク選択の場合
+                                print(f"[はい処理] 未来タスク選択処理開始")
+                                try:
+                                    with open(selected_future_path, "r") as f:
+                                        future_task_infos = json.load(f)
+                                    
+                                    # 来週の空き時間を検索
+                                    jst = pytz.timezone('Asia/Tokyo')
+                                    today = datetime.now(jst)
+                                    
+                                    # 次の月曜日を計算
+                                    days_until_monday = (7 - today.weekday()) % 7
+                                    if days_until_monday == 0:
+                                        days_until_monday = 7
+                                    next_monday = today + timedelta(days=days_until_monday)
+                                    
+                                    # 来週の空き時間を取得（月曜日から金曜日）
+                                    free_times = []
+                                    for i in range(5):  # 月〜金の5日間
+                                        target_date = next_monday + timedelta(days=i)
+                                        day_free_times = calendar_service.get_free_busy_times(user_id, target_date)
+                                        for ft in day_free_times:
+                                            ft['date'] = target_date
+                                        free_times.extend(day_free_times)
+                                    
+                                    print(f"[はい処理] 来週の空き時間検索結果: {len(free_times)}件")
+                                    
+                                    if not free_times:
+                                        reply_text = "⚠️ 来週の空き時間が見つかりませんでした。\n別の週を指定するか、通常のタスク追加をお試しください。"
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            TextSendMessage(text=reply_text)
+                                        )
+                                        continue
+                                    
+                                    # 未来タスク用のスケジュール提案を生成（既存のメソッドを使用）
+                                    # 未来タスク情報を通常のタスク形式に変換
+                                    from datetime import timedelta
+                                    converted_tasks = []
+                                    for i, task_info in enumerate(future_task_infos):
+                                        # 来週の各日に分散して配置
+                                        task_date = next_monday + timedelta(days=i % 5)  # 月〜金の5日間
+                                        task_date_str = task_date.strftime('%Y-%m-%d')
+                                        
+                                        # タスクオブジェクトを作成（簡易版）
+                                        class SimpleTask:
+                                            def __init__(self, name, duration, due_date, priority):
+                                                self.name = name
+                                                self.duration_minutes = duration
+                                                self.due_date = due_date
+                                                self.priority = priority
+                                        
+                                        task = SimpleTask(
+                                            task_info['name'],
+                                            task_info['duration_minutes'],
+                                            task_date_str,
+                                            task_info.get('priority', 'normal')
+                                        )
+                                        converted_tasks.append(task)
+                                    
+                                    proposal = openai_service.generate_schedule_proposal(converted_tasks, free_times)
+                                    
+                                    # スケジュール提案を一時保存
+                                    with open(f"schedule_proposal_{user_id}.txt", "w") as f:
+                                        f.write(proposal)
+                                    
+                                    # 提案を送信
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=proposal)
+                                    )
+                                    
+                                    # 一時ファイルを削除
+                                    os.remove(selected_future_path)
+                                    
+                                except Exception as e:
+                                    print(f"[ERROR] 未来タスク選択処理: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    reply_text = f"⚠️ 未来タスク選択中にエラーが発生しました: {e}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                continue
+                            
+                            elif os.path.exists(selected_path):
                                 with open(selected_path, "r") as f:
                                     task_ids = json.load(f)
                                 print(f"[はい処理] task_ids={task_ids}")
@@ -769,15 +836,36 @@ def callback():
                         if user_message.strip() == "修正する":
                             import os
                             selected_path = f"selected_tasks_{user_id}.json"
-                            if os.path.exists(selected_path):
+                            selected_future_path = f"selected_future_tasks_{user_id}.json"
+                            
+                            if os.path.exists(selected_future_path):
+                                # 未来タスク選択の場合
+                                os.remove(selected_future_path)
+                                # 未来タスク一覧を再表示
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=True)
+                                
+                                # 未来タスク選択モードファイルを作成
+                                future_selection_file = f"future_task_selection_{user_id}.json"
+                                with open(future_selection_file, "w") as f:
+                                    import json
+                                    from datetime import datetime
+                                    json.dump({"mode": "future_selection", "timestamp": datetime.now().isoformat()}, f)
+                                
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            elif os.path.exists(selected_path):
+                                # 通常のタスク選択の場合
                                 os.remove(selected_path)
-                            # タスク一覧を再表示
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
+                                # タスク一覧を再表示
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
                             continue
                         # スケジュール提案コマンド
                         if user_message.strip() in ["スケジュール提案", "提案して"]:
