@@ -279,8 +279,7 @@ def oauth2callback():
         <body>
             <div class="success">✅ 認証完了</div>
             <div class="message">
-                Googleカレンダーとの連携が完了しました。<br>
-                LINEアプリに戻って、緊急タスクボタンが表示されているかご確認ください。
+                Googleカレンダーとの連携が完了しました。
             </div>
         </body>
         </html>
