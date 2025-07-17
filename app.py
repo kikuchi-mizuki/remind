@@ -1003,15 +1003,27 @@ def callback():
                                             if '[added_by_bot]' in title:
                                                 reply_text += "🔥"
                                             reply_text += "\n"
-                                            # 2. 時刻（🕐8:00～8:30）
+                                            
+                                            # 2. 日付と時刻（未来タスクの場合は日付も表示）
                                             def fmt_time(dtstr):
                                                 m = regex.search(r'T(\d{2}):(\d{2})', dtstr)
                                                 if m:
                                                     return f"{int(m.group(1))}:{m.group(2)}"
                                                 return dtstr
-                                            start = fmt_time(ev['start'])
-                                            end = fmt_time(ev['end'])
-                                            reply_text += f"🕐{start}～{end}\n\n"
+                                            
+                                            if is_future_task:
+                                                # 未来タスクの場合は日付も表示
+                                                start_date = datetime.fromisoformat(ev['start'].replace('Z', '+00:00'))
+                                                jst_start = start_date.astimezone(pytz.timezone('Asia/Tokyo'))
+                                                date_str = jst_start.strftime('%m/%d(%a)')
+                                                start = fmt_time(ev['start'])
+                                                end = fmt_time(ev['end'])
+                                                reply_text += f"📅 {date_str} 🕐{start}～{end}\n\n"
+                                            else:
+                                                # 通常タスクの場合は時刻のみ
+                                                start = fmt_time(ev['start'])
+                                                end = fmt_time(ev['end'])
+                                                reply_text += f"🕐{start}～{end}\n\n"
                                     reply_text += "━━━━━━━━━━"
                                     line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                                     continue
