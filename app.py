@@ -407,12 +407,37 @@ def callback():
 
                         # 日曜18時通知テストコマンド（デバッグ用）
                         if user_message.strip() == "日曜18時テスト":
-                            notification_service.send_future_task_selection()
-                            reply_text = "✅ 日曜18時の未来タスク選択通知を手動実行しました"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
+                            try:
+                                # 未来タスク一覧を取得
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                print(f"[日曜18時テスト] 未来タスク数: {len(future_tasks)}")
+                                
+                                if not future_tasks:
+                                    reply_text = "⭐️未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
+                                else:
+                                    reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=True)
+                                    
+                                    # 未来タスク選択モードファイルを作成
+                                    import os
+                                    from datetime import datetime
+                                    future_selection_file = f"future_task_selection_{user_id}.json"
+                                    with open(future_selection_file, "w") as f:
+                                        import json
+                                        json.dump({"mode": "future_selection", "timestamp": datetime.now().isoformat()}, f)
+                                
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            except Exception as e:
+                                print(f"[ERROR] 日曜18時テスト: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 日曜18時テスト中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
                             continue
 
                         # タスク一覧コマンド
