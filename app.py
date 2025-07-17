@@ -983,6 +983,73 @@ def callback():
                             )
                             continue
 
+                        # 未来タスク追加モードでの処理
+                        import os
+                        future_mode_file = f"future_task_mode_{user_id}.json"
+                        print(f"[DEBUG] 未来タスクモードファイル確認: {future_mode_file}, exists={os.path.exists(future_mode_file)}")
+                        if os.path.exists(future_mode_file):
+                            print(f"[DEBUG] 未来タスク追加モード開始: user_message='{user_message}'")
+                            try:
+                                # 未来タスク用のパース
+                                task_info = task_service.parse_future_task_message(user_message)
+                                
+                                # 未来タスクをDBに保存
+                                task = task_service.create_future_task(user_id, task_info)
+                                
+                                # 未来タスク追加モードを終了
+                                os.remove(future_mode_file)
+                                
+                                # 成功メッセージ
+                                reply_text = f"🔮 未来タスクを追加しました！\n\n"
+                                reply_text += f"📝 {task.name}\n"
+                                reply_text += f"⏱️ {task.duration_minutes}分\n"
+                                reply_text += f"📅 毎週日曜日18時に選択可能\n\n"
+                                reply_text += "毎週日曜日18時に「どのタスクを来週やりますか？」と質問されます。\n\n"
+                                
+                                # 未来タスク一覧を表示
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                reply_text += task_service.format_future_task_list(future_tasks, show_select_guide=False)
+                                
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                
+                            except ValueError as e:
+                                # 所要時間が見つからない場合の特別処理
+                                if "所要時間が見つかりませんでした" in str(e):
+                                    reply_text = "⚠️ 所要時間が見つかりませんでした。\n\n"
+                                    reply_text += "未来タスクには所要時間が必要です。\n"
+                                    reply_text += "例：「新規事業計画 2時間」\n"
+                                    reply_text += "例：「営業資料の見直し 1時間半」\n"
+                                    reply_text += "例：「〇〇という本を読む 30分」\n\n"
+                                    reply_text += "タスク名と所要時間を一緒に送信してください。"
+                                    
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                else:
+                                    # その他のエラーの場合
+                                    reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}\n\n"
+                                    reply_text += "正しい形式で入力してください。\n"
+                                    reply_text += "例：「新規事業計画 2時間」"
+                                    
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                            except Exception as e:
+                                print(f"[ERROR] 未来タスク追加処理: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            continue
+
                         # 緊急タスク追加モードでの処理
                         import os
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
@@ -1144,72 +1211,7 @@ def callback():
                                 )
                             continue
 
-                        # 未来タスク追加モードでの処理
-                        import os
-                        future_mode_file = f"future_task_mode_{user_id}.json"
-                        print(f"[DEBUG] 未来タスクモードファイル確認: {future_mode_file}, exists={os.path.exists(future_mode_file)}")
-                        if os.path.exists(future_mode_file):
-                            print(f"[DEBUG] 未来タスク追加モード開始: user_message='{user_message}'")
-                            try:
-                                # 未来タスク用のパース
-                                task_info = task_service.parse_future_task_message(user_message)
-                                
-                                # 未来タスクをDBに保存
-                                task = task_service.create_future_task(user_id, task_info)
-                                
-                                # 未来タスク追加モードを終了
-                                os.remove(future_mode_file)
-                                
-                                # 成功メッセージ
-                                reply_text = f"🔮 未来タスクを追加しました！\n\n"
-                                reply_text += f"📝 {task.name}\n"
-                                reply_text += f"⏱️ {task.duration_minutes}分\n"
-                                reply_text += f"📅 毎週日曜日18時に選択可能\n\n"
-                                reply_text += "毎週日曜日18時に「どのタスクを来週やりますか？」と質問されます。\n\n"
-                                
-                                # 未来タスク一覧を表示
-                                future_tasks = task_service.get_user_future_tasks(user_id)
-                                reply_text += task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                                
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                
-                            except ValueError as e:
-                                # 所要時間が見つからない場合の特別処理
-                                if "所要時間が見つかりませんでした" in str(e):
-                                    reply_text = "⚠️ 所要時間が見つかりませんでした。\n\n"
-                                    reply_text += "未来タスクには所要時間が必要です。\n"
-                                    reply_text += "例：「新規事業計画 2時間」\n"
-                                    reply_text += "例：「営業資料の見直し 1時間半」\n"
-                                    reply_text += "例：「〇〇という本を読む 30分」\n\n"
-                                    reply_text += "タスク名と所要時間を一緒に送信してください。"
-                                    
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=reply_text)
-                                    )
-                                else:
-                                    # その他のエラーの場合
-                                    reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}\n\n"
-                                    reply_text += "正しい形式で入力してください。\n"
-                                    reply_text += "例：「新規事業計画 2時間」"
-                                    
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=reply_text)
-                                    )
-                            except Exception as e:
-                                print(f"[ERROR] 未来タスク追加処理: {e}")
-                                import traceback
-                                traceback.print_exc()
-                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                            continue
+
 
                         # タスク登録メッセージか判定してDB保存
                         try:
