@@ -11,7 +11,7 @@ class OpenAIService:
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.model = "gpt-4o-mini"  # または "gpt-4o"
 
-    def generate_schedule_proposal(self, tasks: List[Task], free_times: List[dict] = []) -> str:
+    def generate_schedule_proposal(self, tasks: List[Task], free_times: List[dict] = [], week_info: str = "") -> str:
         """選択されたタスクと空き時間からスケジュール提案を生成"""
         if not tasks:
             return "タスクが選択されていません。"
@@ -51,7 +51,7 @@ class OpenAIService:
             "この日時は、すべての自然言語の解釈において常に絶対的な基準としてください。\n"
             "会話の流れや前回の入力に引きずられることなく、毎回この現在日時を最優先にしてください。\n"
         )
-        prompt += self._create_schedule_prompt(task_info, total_duration, free_time_str)
+        prompt += self._create_schedule_prompt(task_info, total_duration, free_time_str, week_info)
         
         try:
             response = self.client.chat.completions.create(
@@ -114,7 +114,7 @@ class OpenAIService:
             print(f"OpenAI API error: {e}")
             return "スケジュールの修正に失敗しました。"
 
-    def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "") -> str:
+    def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "", week_info: str = "") -> str:
         """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止・本文必須・優先度考慮）"""
         # 優先度に応じたアイコンを追加
         priority_icons = {
@@ -128,8 +128,14 @@ class OpenAIService:
             f"- {priority_icons.get(task.get('priority', 'normal'), '📝')} {task['name']} ({task['duration']}分)" for task in task_info
         ])
         
+        # ヘッダーを動的に設定
+        if week_info:
+            header = f"以下のタスクを{week_info}に最適に配置してください。"
+        else:
+            header = "以下のタスクを今日のスケジュールに最適に配置してください。"
+        
         return f"""
-以下のタスクを今日のスケジュールに最適に配置してください。
+{header}
 
 【要件】
 - 必ずカレンダーの空き時間リスト内にのみタスクを割り当ててください。
@@ -154,13 +160,13 @@ class OpenAIService:
 {free_time_str}
 
 【表記フォーマット例】
-🗓️【来週のスケジュール提案】
+{week_info and '🗓️【来週のスケジュール提案】' or '🗓️【本日のスケジュール提案】'}
 
 ━━━━━━━━━━━━━━
-7/22(月) 08:00〜10:00
+{week_info and '7/22(月) 08:00〜10:00' or '08:00〜10:00'}
 ⭐ 新規事業計画（120分）
 ━━━━━━━━━━━━━━
-7/24(水) 14:00〜15:30
+{week_info and '7/24(水) 14:00〜15:30' or '14:00〜15:30'}
 ⭐ 営業資料の見直し（90分）
 ━━━━━━━━━━━━━━
 
@@ -300,7 +306,7 @@ class OpenAIService:
         seen_guide = False
         seen_reason = False
         # 1. ヘッダー
-        if not any('本日のスケジュール提案' in l for l in lines):
+        if not any('スケジュール提案' in l for l in lines):
             result.append('🗓️【本日のスケジュール提案】')
         # 2. 本文（区切り線・時刻・タスク）
         in_reason = False

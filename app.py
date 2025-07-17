@@ -700,7 +700,7 @@ def callback():
                                         )
                                         continue
                                     
-                                    # 未来タスク用のスケジュール提案を生成（既存のメソッドを使用）
+                                    # 未来タスク用のスケジュール提案を生成（来週の日付を明示）
                                     # 未来タスク情報を通常のタスク形式に変換
                                     from datetime import timedelta
                                     converted_tasks = []
@@ -726,7 +726,9 @@ def callback():
                                         )
                                         converted_tasks.append(task)
                                     
-                                    proposal = openai_service.generate_schedule_proposal(converted_tasks, free_times)
+                                    # 来週の日付情報をAIに明示的に渡す
+                                    next_week_info = f"来週（{next_monday.strftime('%m/%d')}〜{(next_monday + timedelta(days=6)).strftime('%m/%d')}）のスケジュール提案"
+                                    proposal = openai_service.generate_schedule_proposal(converted_tasks, free_times, week_info=next_week_info)
                                     
                                     # スケジュール提案を一時保存
                                     with open(f"schedule_proposal_{user_id}.txt", "w") as f:
