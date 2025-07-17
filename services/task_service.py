@@ -179,8 +179,42 @@ class TaskService:
         if not task_name:
             print("[parse_task_message] タスク名が見つかりませんでした")
             raise ValueError("タスク名が見つかりませんでした")
-        # 優先度の判定（AIを使用）
-        priority = self._determine_priority(task_name, due_date or "", duration_minutes)
+        
+        # 優先度キーワードの抽出
+        priority_keywords = {
+            'urgent': ['急ぎ', '緊急', 'すぐ', '今すぐ', '至急', 'ASAP', 'urgent', 'immediate', 'deadline', '締切'],
+            'important': ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要']
+        }
+        
+        detected_urgent = False
+        detected_important = False
+        
+        # 緊急キーワードの検出
+        for keyword in priority_keywords['urgent']:
+            if keyword in message:
+                detected_urgent = True
+                message = message.replace(keyword, '')
+                print(f"[parse_task_message] 緊急キーワード検出: {keyword}")
+                break
+        
+        # 重要キーワードの検出
+        for keyword in priority_keywords['important']:
+            if keyword in message:
+                detected_important = True
+                message = message.replace(keyword, '')
+                print(f"[parse_task_message] 重要キーワード検出: {keyword}")
+                break
+        
+        # 優先度の決定
+        if detected_urgent and detected_important:
+            priority = "urgent_important"
+        elif detected_urgent and not detected_important:
+            priority = "urgent_not_important"
+        elif not detected_urgent and detected_important:
+            priority = "not_urgent_important"
+        else:
+            # キーワードがない場合はAI判定を使用
+            priority = self._determine_priority(task_name, due_date or "", duration_minutes)
         
         print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}, priority={priority}")
         return {
@@ -404,20 +438,19 @@ class TaskService:
                 formatted_list += "📌 期日未設定\n"
             
             for task in group:
-                # 優先度アイコン
+                # 優先度アイコン（A:🏃‍♀️, B:⚡, C:⭐, その他:📝）
                 priority_icon = {
-                    "urgent_important": "🚨",
-                    "not_urgent_important": "⭐",
-                    "urgent_not_important": "⚡",
+                    "urgent_important": "🏃‍♀️",      # Aランク
+                    "urgent_not_important": "⚡",     # Bランク
+                    "not_urgent_important": "⭐",    # Cランク
                     "normal": "📝"
                 }.get(task.priority, "📝")
                 
-                # 期日未設定かつタスク名に「今日」など自然言語が含まれる場合は明示
                 name = task.name
                 if due == '未設定' and ('今日' in name or '明日' in name):
                     name += f" {due}"
                 
-                formatted_list += f"{idx}. {priority_icon} {name} ({task.duration_minutes}分)\n"
+                formatted_list += f"{idx}. {priority_icon}{name} ({task.duration_minutes}分)\n"
                 idx += 1
         
         formatted_list += "＝＝＝＝＝＝"

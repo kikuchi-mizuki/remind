@@ -16,14 +16,15 @@ class OpenAIService:
         if not tasks:
             return "タスクが選択されていません。"
         
-        # タスク情報を整理
+        # タスク情報を整理（優先度付き）
         task_info = []
         total_duration = 0
         for task in tasks:
             task_info.append({
                 'name': task.name,
                 'duration': task.duration_minutes,
-                'repeat': task.repeat
+                'repeat': task.repeat,
+                'priority': task.priority
             })
             total_duration += task.duration_minutes
         
@@ -114,10 +115,19 @@ class OpenAIService:
             return "スケジュールの修正に失敗しました。"
 
     def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "") -> str:
-        """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止・本文必須）"""
+        """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止・本文必須・優先度考慮）"""
+        # 優先度に応じたアイコンを追加
+        priority_icons = {
+            "urgent_important": "🚨",
+            "not_urgent_important": "⭐",
+            "urgent_not_important": "⚡",
+            "normal": "📝"
+        }
+        
         task_list = "\n".join([
-            f"- {task['name']} ({task['duration']}分)" for task in task_info
+            f"- {priority_icons.get(task.get('priority', 'normal'), '📝')} {task['name']} ({task['duration']}分)" for task in task_info
         ])
+        
         return f"""
 以下のタスクを今日のスケジュールに最適に配置してください。
 
@@ -131,6 +141,11 @@ class OpenAIService:
 - 最後に必ず「✅理由・まとめ」を記載してください。
 - 「このスケジュールでよろしければ…」などの案内文や「理由・まとめ」は1回だけ記載し、繰り返さないでください。
 - 案内文や理由・まとめ以外の余計な文章は出力しないでください。
+- 優先度を考慮してスケジュールを組んでください：
+  * 🚨（緊急かつ重要）: 最優先で早い時間に配置
+  * ⭐（重要だが緊急ではない）: 計画的に配置
+  * ⚡（緊急だが重要ではない）: 可能な限り委譲・簡略化
+  * 📝（通常）: 通常の優先度
 
 【タスク一覧】
 {task_list}

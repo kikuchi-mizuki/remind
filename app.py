@@ -1113,7 +1113,17 @@ def callback():
                             task_service.create_task(user_id, task_info)
                             # タスク一覧を取得
                             all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text = "✅タスクを追加しました！\n\n"
+                            
+                            # 優先度に応じたメッセージ
+                            priority_messages = {
+                               "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
+                          "not_urgent_important": "⭐重要なタスクを追加しました！",
+                          "urgent_not_important": "⚡緊急タスクを追加しました！",
+                          "normal": "✅タスクを追加しました！"
+                            }
+                            
+                            priority = task_info.get('priority', 'normal')
+                            reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
                             reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
                             line_bot_api.reply_message(
                                 reply_token,
