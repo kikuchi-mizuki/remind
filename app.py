@@ -716,6 +716,7 @@ def callback():
                                                 self.duration_minutes = duration
                                                 self.due_date = due_date
                                                 self.priority = priority
+                                                self.repeat = False  # repeat属性を追加
                                         
                                         task = SimpleTask(
                                             task_info['name'],
