@@ -302,7 +302,7 @@ class CalendarService:
                 start = event['start'].get('dateTime', event['start'].get('date'))
                 end = event['end'].get('dateTime', event['end'].get('date'))
                 schedule.append({
-                    'title': event['summary'],
+                    'title': event.get('summary', 'タイトルなし'),
                     'start': start,
                     'end': end,
                     'description': event.get('description', '')
@@ -334,7 +334,7 @@ class CalendarService:
                 start = event['start'].get('dateTime', event['start'].get('date'))
                 end = event['end'].get('dateTime', event['end'].get('date'))
                 schedule.append({
-                    'title': event['summary'],
+                    'title': event.get('summary', 'タイトルなし'),
                     'start': start,
                     'end': end,
                     'description': event.get('description', '')
