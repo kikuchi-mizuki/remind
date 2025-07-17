@@ -1191,8 +1191,6 @@ def callback():
                                             events.extend(day_events)
                                         
                                         reply_text = "✅来週のスケジュールです！\n\n"
-                                        reply_text += f"📅 {next_monday.strftime('%m/%d')}〜{(next_monday + timedelta(days=6)).strftime('%m/%d')}\n"
-                                        reply_text += "━━━━━━━━━━\n"
                                     else:
                                         # 今日のスケジュール一覧を取得
                                         import pytz
@@ -1204,37 +1202,71 @@ def callback():
                                         reply_text += "━━━━━━━━━━\n"
                                     
                                     if events:
-                                        for i, ev in enumerate(events, 1):
-                                            title = ev['title']
-                                            # 📝や余計な記号を除去
-                                            title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
-                                            # 1. 番号付き（1. タイトル🔥）
-                                            reply_text += f"{i}. {title_clean}"
-                                            if '[added_by_bot]' in title:
-                                                reply_text += "🔥"
-                                            reply_text += "\n"
-                                            
-                                            # 2. 日付と時刻（未来タスクの場合は日付も表示）
-                                            def fmt_time(dtstr):
-                                                m = regex.search(r'T(\d{2}):(\d{2})', dtstr)
-                                                if m:
-                                                    return f"{int(m.group(1))}:{m.group(2)}"
-                                                return dtstr
-                                            
-                                            if is_future_task:
-                                                # 未来タスクの場合は日付も表示
+                                        if is_future_task:
+                                            # 来週のスケジュールを日付ごとにグループ化
+                                            from collections import defaultdict
+                                            grouped_events = defaultdict(list)
+                                            for ev in events:
                                                 start_date = datetime.fromisoformat(ev['start'].replace('Z', '+00:00'))
                                                 jst_start = start_date.astimezone(pytz.timezone('Asia/Tokyo'))
-                                                date_str = jst_start.strftime('%m/%d(%a)')
-                                                start = fmt_time(ev['start'])
-                                                end = fmt_time(ev['end'])
-                                                reply_text += f"📅 {date_str} 🕐{start}～{end}\n\n"
-                                            else:
-                                                # 通常タスクの場合は時刻のみ
+                                                date_key = jst_start.strftime('%Y-%m-%d')
+                                                grouped_events[date_key].append(ev)
+                                            
+                                            # 日付順にソートして表示
+                                            task_counter = 1
+                                            for date_key in sorted(grouped_events.keys()):
+                                                date_obj = datetime.strptime(date_key, '%Y-%m-%d')
+                                                weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+                                                weekday = weekday_names[date_obj.weekday()]
+                                                
+                                                reply_text += f"📅 {date_obj.strftime('%Y/%m/%d')} ({weekday})\n"
+                                                reply_text += "━━━━━━━━━━\n"
+                                                
+                                                for ev in grouped_events[date_key]:
+                                                    title = ev['title']
+                                                    title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
+                                                    
+                                                    # 優先度アイコンを追加
+                                                    priority_emoji = "⭐" if '[added_by_bot]' in title else ""
+                                                    
+                                                    reply_text += f"{task_counter}. {priority_emoji} {title_clean}🔥\n"
+                                                    
+                                                    # 時刻を表示
+                                                    def fmt_time(dtstr):
+                                                        m = regex.search(r'T(\d{2}):(\d{2})', dtstr)
+                                                        if m:
+                                                            return f"{int(m.group(1))}:{m.group(2)}"
+                                                        return dtstr
+                                                    
+                                                    start = fmt_time(ev['start'])
+                                                    end = fmt_time(ev['end'])
+                                                    reply_text += f"🕐{start}～{end}\n"
+                                                    
+                                                    task_counter += 1
+                                                
+                                                reply_text += "━━━━━━━━━━\n"
+                                        else:
+                                            # 通常のタスク表示（既存の処理）
+                                            for i, ev in enumerate(events, 1):
+                                                title = ev['title']
+                                                title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
+                                                reply_text += f"{i}. {title_clean}"
+                                                if '[added_by_bot]' in title:
+                                                    reply_text += "🔥"
+                                                reply_text += "\n"
+                                                
+                                                def fmt_time(dtstr):
+                                                    m = regex.search(r'T(\d{2}):(\d{2})', dtstr)
+                                                    if m:
+                                                        return f"{int(m.group(1))}:{m.group(2)}"
+                                                    return dtstr
+                                                
                                                 start = fmt_time(ev['start'])
                                                 end = fmt_time(ev['end'])
                                                 reply_text += f"🕐{start}～{end}\n\n"
-                                    reply_text += "━━━━━━━━━━"
+                                    
+                                    if not is_future_task:
+                                        reply_text += "━━━━━━━━━━"
                                     line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                                     continue
                                 else:
