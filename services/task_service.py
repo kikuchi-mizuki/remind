@@ -165,6 +165,13 @@ class TaskService:
             print(f"[parse_task_message] タスク名抽出前: '{message}'")
             print(f"[parse_task_message] タスク名抽出後: '{task_name}'")
             
+            # 優先度記号（A、B、C）をタスク名から除去
+            priority_removed = False
+            if task_name.endswith(' A') or task_name.endswith(' B') or task_name.endswith(' C'):
+                task_name = task_name[:-2].strip()  # 末尾の「 A」「 B」「 C」を除去
+                priority_removed = True
+                print(f"[parse_task_message] 優先度記号除去後: '{task_name}'")
+            
             if not task_name:
                 raise ValueError("タスク名が見つかりませんでした")
             
@@ -172,18 +179,32 @@ class TaskService:
             detected_urgent = False
             detected_important = False
             
-            urgent_keywords = ['急ぎ', '緊急', 'urgent', '急', '早急', '至急', 'すぐ', '今すぐ']
-            important_keywords = ['重要', 'important', '大事', '必須', '必要', '要', '重要度高い']
-            
-            for keyword in urgent_keywords:
-                if keyword in task_name:
+            # 優先度記号が除去された場合の判定
+            if priority_removed:
+                # 元のメッセージから優先度記号を確認
+                original_message = message
+                if ' A' in original_message:
                     detected_urgent = True
-                    break
-            
-            for keyword in important_keywords:
-                if keyword in task_name:
                     detected_important = True
-                    break
+                elif ' B' in original_message:
+                    detected_urgent = True
+                elif ' C' in original_message:
+                    detected_important = True
+                print(f"[parse_task_message] 優先度記号判定: urgent={detected_urgent}, important={detected_important}")
+            else:
+                # キーワードベースの判定
+                urgent_keywords = ['急ぎ', '緊急', 'urgent', '急', '早急', '至急', 'すぐ', '今すぐ']
+                important_keywords = ['重要', 'important', '大事', '必須', '必要', '要', '重要度高い']
+                
+                for keyword in urgent_keywords:
+                    if keyword in task_name:
+                        detected_urgent = True
+                        break
+                
+                for keyword in important_keywords:
+                    if keyword in task_name:
+                        detected_important = True
+                        break
             
             # 優先度の決定
             if detected_urgent and detected_important:

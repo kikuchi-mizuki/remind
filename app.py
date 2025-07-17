@@ -1560,6 +1560,7 @@ def callback():
                                     reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n"
                                 
                                 reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text.strip())
@@ -1588,6 +1589,7 @@ def callback():
                                 priority = task_info.get('priority', 'normal')
                                 reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
                                 reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                                 
                                 print(f"[DEBUG] 返信メッセージ送信開始")
                                 line_bot_api.reply_message(
