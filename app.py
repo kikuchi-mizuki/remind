@@ -955,14 +955,44 @@ def callback():
                                     print(f"[承認する] カレンダー登録時エラー: {e}")
                                     success = False
                                 if success:
-                                    # 今日のスケジュール一覧を取得
-                                    import pytz
-                                    jst = pytz.timezone('Asia/Tokyo')
-                                    today = datetime.now(jst)
-                                    events = calendar_service.get_today_schedule(user_id)
-                                    reply_text = "✅本日のスケジュールです！\n\n"
-                                    reply_text += f"📅 {today.strftime('%Y/%m/%d (%a)')}\n"
-                                    reply_text += "━━━━━━━━━━\n"
+                                    # 未来タスクかどうかを判定
+                                    is_future_task = '来週のスケジュール提案' in proposal
+                                    
+                                    if is_future_task:
+                                        # 来週のスケジュール一覧を取得
+                                        import pytz
+                                        from datetime import timedelta
+                                        jst = pytz.timezone('Asia/Tokyo')
+                                        today = datetime.now(jst)
+                                        
+                                        # 次の月曜日を計算
+                                        days_until_monday = (7 - today.weekday()) % 7
+                                        if days_until_monday == 0:
+                                            days_until_monday = 7
+                                        next_monday = today + timedelta(days=days_until_monday)
+                                        
+                                        # 来週のスケジュールを取得（月曜日から日曜日）
+                                        events = []
+                                        for i in range(7):  # 月〜日の7日間
+                                            target_date = next_monday + timedelta(days=i)
+                                            day_events = calendar_service.get_day_schedule(user_id, target_date)
+                                            for ev in day_events:
+                                                ev['date'] = target_date
+                                            events.extend(day_events)
+                                        
+                                        reply_text = "✅来週のスケジュールです！\n\n"
+                                        reply_text += f"📅 {next_monday.strftime('%m/%d')}〜{(next_monday + timedelta(days=6)).strftime('%m/%d')}\n"
+                                        reply_text += "━━━━━━━━━━\n"
+                                    else:
+                                        # 今日のスケジュール一覧を取得
+                                        import pytz
+                                        jst = pytz.timezone('Asia/Tokyo')
+                                        today = datetime.now(jst)
+                                        events = calendar_service.get_today_schedule(user_id)
+                                        reply_text = "✅本日のスケジュールです！\n\n"
+                                        reply_text += f"📅 {today.strftime('%Y/%m/%d (%a)')}\n"
+                                        reply_text += "━━━━━━━━━━\n"
+                                    
                                     if events:
                                         for i, ev in enumerate(events, 1):
                                             title = ev['title']

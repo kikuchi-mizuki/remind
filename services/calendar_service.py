@@ -312,6 +312,38 @@ class CalendarService:
             print(f'Calendar API error: {error}')
             return []
 
+    def get_day_schedule(self, user_id: str, target_date: datetime) -> List[Dict]:
+        """指定日のスケジュールを取得"""
+        if not self.authenticate_user(user_id):
+            return []
+        try:
+            # 指定日の開始と終了時間
+            start_time = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_time = start_time + timedelta(days=1)
+            
+            events_result = self.service.events().list(
+                calendarId='primary',
+                timeMin=start_time.isoformat(),
+                timeMax=end_time.isoformat(),
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            events = events_result.get('items', [])
+            schedule = []
+            for event in events:
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                end = event['end'].get('dateTime', event['end'].get('date'))
+                schedule.append({
+                    'title': event['summary'],
+                    'start': start,
+                    'end': end,
+                    'description': event.get('description', '')
+                })
+            return schedule
+        except Exception as error:
+            print(f'Calendar API error: {error}')
+            return []
+
     def check_time_conflict(self, user_id: str, start_time: datetime, 
                           duration_minutes: int) -> bool:
         """時間の重複をチェック"""
