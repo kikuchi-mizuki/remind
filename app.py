@@ -675,6 +675,7 @@ def callback():
                                     today = datetime.now(jst)
                                     
                                     # 次の月曜日を計算
+                                    from datetime import timedelta
                                     days_until_monday = (7 - today.weekday()) % 7
                                     if days_until_monday == 0:
                                         days_until_monday = 7
