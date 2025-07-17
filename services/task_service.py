@@ -17,13 +17,21 @@ class TaskService:
         """LINEメッセージからタスク情報を解析"""
         print(f"[parse_task_message] 入力: '{message}'")
         
-        # 改行で区切られた複数タスクの場合は最初のタスクのみ処理
-        if '\n' in message:
-            first_task = message.split('\n')[0]
-            print(f"[parse_task_message] 複数タスク検出、最初のタスクのみ処理: '{first_task}'")
-            message = first_task
-        
-        return self._parse_single_task(message)
+        try:
+            # 改行で区切られた複数タスクの場合は最初のタスクのみ処理
+            if '\n' in message:
+                first_task = message.split('\n')[0]
+                print(f"[parse_task_message] 複数タスク検出、最初のタスクのみ処理: '{first_task}'")
+                message = first_task
+            
+            result = self._parse_single_task(message)
+            print(f"[parse_task_message] 解析成功: {result}")
+            return result
+        except Exception as e:
+            print(f"[parse_task_message] 解析エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
     
     def parse_multiple_tasks(self, message: str) -> List[Dict]:
         """改行で区切られた複数タスクを解析"""
@@ -52,252 +60,166 @@ class TaskService:
         """単一タスクの解析"""
         print(f"[_parse_single_task] 入力: '{message}'")
         
-        # 時間パターンの定義
-        complex_time_patterns = [
-            r'(\d+)\s*時間\s*半',  # 1時間半
-            r'(\d+)\s*時間\s*(\d+)\s*分',  # 1時間30分
-            r'(\d+)\s*hour\s*(\d+)\s*min',  # 1hour 30min
-            r'(\d+)\s*h\s*(\d+)\s*m',  # 1h 30m
-        ]
-        
-        simple_time_patterns = [
-            r'(\d+)\s*分',
-            r'(\d+)\s*時間',
-            r'(\d+)\s*min',
-            r'(\d+)\s*hour',
-            r'(\d+)\s*h',
-            r'(\d+)\s*m'
-        ]
-        
-        # 時間の抽出（複合時間表現に対応）
-        duration_minutes = None
-        
-        # 複合時間表現を先にチェック
-        for pattern in complex_time_patterns:
-            match = re.search(pattern, message)
-            if match:
-                if '半' in pattern:
-                    # 1時間半の場合
-                    hours = int(match.group(1))
-                    duration_minutes = hours * 60 + 30
-                    print(f"[parse_task_message] 複合時間抽出: {hours}時間半 → {duration_minutes}分")
-                else:
-                    # 1時間30分の場合
-                    hours = int(match.group(1))
-                    minutes = int(match.group(2))
-                    duration_minutes = hours * 60 + minutes
-                    print(f"[parse_task_message] 複合時間抽出: {hours}時間{minutes}分 → {duration_minutes}分")
-                message = re.sub(pattern, '', message)
-                print(f"[parse_task_message] 複合時間除去後: '{message}'")
-                break
-        
-        # 単純な時間表現のパターン
-        if not duration_minutes:
-            for pattern in simple_time_patterns:
+        try:
+            # 時間パターンの定義
+            complex_time_patterns = [
+                r'(\d+)\s*時間\s*半',  # 1時間半
+                r'(\d+)\s*時間\s*(\d+)\s*分',  # 1時間30分
+                r'(\d+)\s*hour\s*(\d+)\s*min',  # 1hour 30min
+                r'(\d+)\s*h\s*(\d+)\s*m',  # 1h 30m
+            ]
+            
+            simple_time_patterns = [
+                r'(\d+)\s*分',
+                r'(\d+)\s*時間',
+                r'(\d+)\s*min',
+                r'(\d+)\s*hour',
+                r'(\d+)\s*h',
+                r'(\d+)\s*m'
+            ]
+            
+            # 時間の抽出（複合時間表現に対応）
+            duration_minutes = None
+            
+            # 複合時間表現を先にチェック
+            for pattern in complex_time_patterns:
                 match = re.search(pattern, message)
                 if match:
-                    duration_minutes = int(match.group(1))
-                    print(f"[parse_task_message] 単純時間抽出: {duration_minutes} (pattern: {pattern})")
-                    # 時間の場合は分に変換
-                    if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
-                        duration_minutes *= 60
-                        print(f"[parse_task_message] 時間→分変換: {duration_minutes}")
+                    if '半' in pattern:
+                        # 1時間半の場合
+                        hours = int(match.group(1))
+                        duration_minutes = hours * 60 + 30
+                        print(f"[parse_task_message] 複合時間抽出: {hours}時間半 → {duration_minutes}分")
+                    else:
+                        # 1時間30分の場合
+                        hours = int(match.group(1))
+                        minutes = int(match.group(2))
+                        duration_minutes = hours * 60 + minutes
+                        print(f"[parse_task_message] 複合時間抽出: {hours}時間{minutes}分 → {duration_minutes}分")
                     message = re.sub(pattern, '', message)
-                    print(f"[parse_task_message] 単純時間除去後: '{message}'")
-                    break
-        if not duration_minutes:
-            print("[parse_task_message] 所要時間が見つかりませんでした")
-            raise ValueError("所要時間が見つかりませんでした")
-        # 頻度の判定
-        repeat = False
-        repeat_keywords = ['毎日', 'daily', '毎', '日々', 'ルーチン']
-        for keyword in repeat_keywords:
-            if keyword in message:
-                repeat = True
-                message = message.replace(keyword, '')
-                print(f"[parse_task_message] 頻度抽出: {keyword} → repeat={repeat}")
-                break
-        # 期日の抽出
-        due_date = None
-        jst = pytz.timezone('Asia/Tokyo')
-        today = datetime.now(jst)
-        # 自然言語→日付変換辞書
-        natural_date_map = {
-            '明日': 1,
-            '明後日': 2,
-            '明々後日': 3,
-            '明明後日': 3,  # 誤表記も吸収
-        }
-        for key, delta in natural_date_map.items():
-            if key in message:
-                due_date = (today + timedelta(days=delta)).strftime('%Y-%m-%d')
-                message = message.replace(key, '')
-                print(f"[parse_task_message] 期日抽出: {key} → {due_date}")
-                break
-        else:
-            m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', message)
-            if m:
-                due_date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-                message = message.replace(m.group(0), '')
-                print(f"[parse_task_message] 期日抽出: YYYY-MM-DD → {due_date}")
-            else:
-                m2 = re.search(r'(\d{1,2})[/-](\d{1,2})', message)
-                if m2:
-                    year = today.year
-                    due_date = f"{year}-{int(m2.group(1)):02d}-{int(m2.group(2)):02d}"
-                    message = message.replace(m2.group(0), '')
-                    print(f"[parse_task_message] 期日抽出: M/D → {due_date}")
-                else:
-                    m3 = re.search(r'(\d{1,2})月(\d{1,2})日', message)
-                    if m3:
-                        year = today.year
-                        due_date = f"{year}-{int(m3.group(1)):02d}-{int(m3.group(2)):02d}"
-                        message = message.replace(m3.group(0), '')
-                        print(f"[parse_task_message] 期日抽出: M月D日 → {due_date}")
-        # AIで期日抽出（既存ロジックでdue_dateが取れなかった場合のみ）
-        ai_date_keywords = ['今日', '明日', '明後日', '今週', '来週', '今週中', '来週中', '今週末', '来週末', '今月末', '来月', '来月末']
-        used_date_keywords = []  # 使用された日付キーワードを記録
-        original_message = message  # 元のメッセージを保存
-        
-        if not due_date:
-            try:
-                from services.openai_service import OpenAIService
-                ai_service = OpenAIService()
-                ai_due = ai_service.extract_due_date_from_text(message)
-                if ai_due:
-                    due_date = ai_due
-                    print(f"[parse_task_message] AI日付抽出: {due_date}")
-                    # AI抽出時に使用されたキーワードを特定して除去
-                    for key in ai_date_keywords:
-                        if key in original_message:
-                            used_date_keywords.append(key)
-                            original_message = original_message.replace(key, '')
-            except Exception as e:
-                print(f"[parse_task_message] AI日付抽出エラー: {e}")
-        else:
-            # 既存ロジックでdue_dateが取れた場合も使用されたキーワードを除去
-            for key in ai_date_keywords:
-                if key in original_message:
-                    used_date_keywords.append(key)
-                    original_message = original_message.replace(key, '')
-        
-        # 優先度キーワードの抽出（タスク名抽出の前に行う）
-        priority_keywords = {
-            'urgent': ['急ぎ', '緊急', 'すぐ', '今すぐ', '至急', 'ASAP', 'urgent', 'immediate', 'deadline', '締切'],
-            'important': ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要']
-        }
-        
-        detected_urgent = False
-        detected_important = False
-        
-        # 文字ベースの優先度検出（A、B、C）
-        letter_priority_pattern = r'\b([ABC])\b'
-        letter_priority_match = re.search(letter_priority_pattern, original_message)
-        if letter_priority_match:
-            priority_letter = letter_priority_match.group(1)
-            original_message = re.sub(letter_priority_pattern, '', original_message)
-            print(f"[parse_task_message] 文字優先度検出: {priority_letter}")
-            
-            # 文字を優先度に変換
-            if priority_letter == 'A':
-                detected_urgent = True
-                detected_important = True
-            elif priority_letter == 'B':
-                detected_urgent = True
-                detected_important = False
-            elif priority_letter == 'C':
-                detected_urgent = False
-                detected_important = True
-        
-        # キーワードベースの優先度検出（文字優先度が検出されていない場合のみ）
-        if not (detected_urgent or detected_important):
-            # 緊急キーワードの検出
-            for keyword in priority_keywords['urgent']:
-                if keyword in original_message:
-                    detected_urgent = True
-                    original_message = original_message.replace(keyword, '')
-                    print(f"[parse_task_message] 緊急キーワード検出: {keyword}")
+                    print(f"[parse_task_message] 複合時間除去後: '{message}'")
                     break
             
-            # 重要キーワードの検出
-            for keyword in priority_keywords['important']:
-                if keyword in original_message:
-                    detected_important = True
-                    original_message = original_message.replace(keyword, '')
-                    print(f"[parse_task_message] 重要キーワード検出: {keyword}")
-                    break
-        
-        # タスク名の抽出
-        task_name = original_message
-        print(f"[parse_task_message] タスク名抽出前: '{task_name}'")
-        
-        # 使用された日付キーワードを除去
-        for keyword in used_date_keywords:
-            task_name = task_name.replace(keyword, '')
-        
-        # 文字優先度を除去
-        task_name = re.sub(letter_priority_pattern, '', task_name)
-        
-        for pattern in simple_time_patterns:
-            task_name = re.sub(pattern, '', task_name)
-        for keyword in repeat_keywords:
-            task_name = task_name.replace(keyword, '')
-        task_name = re.sub(r'[\s　]+', ' ', task_name).strip()
-        print(f"[parse_task_message] タスク名抽出後: '{task_name}'")
-        
-        if not task_name:
-            temp_message = original_message
-            # 使用された日付キーワードを除去
-            for keyword in used_date_keywords:
-                temp_message = temp_message.replace(keyword, '')
+            # 単純な時間表現のパターン
+            if not duration_minutes:
+                for pattern in simple_time_patterns:
+                    match = re.search(pattern, message)
+                    if match:
+                        duration_minutes = int(match.group(1))
+                        print(f"[parse_task_message] 単純時間抽出: {duration_minutes} (pattern: {pattern})")
+                        # 時間の場合は分に変換
+                        if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
+                            duration_minutes *= 60
+                            print(f"[parse_task_message] 時間→分変換: {duration_minutes}")
+                        message = re.sub(pattern, '', message)
+                        print(f"[parse_task_message] 単純時間除去後: '{message}'")
+                        break
+            if not duration_minutes:
+                print("[parse_task_message] 所要時間が見つかりませんでした")
+                raise ValueError("所要時間が見つかりませんでした")
             
-            # 文字優先度を除去
-            temp_message = re.sub(letter_priority_pattern, '', temp_message)
-            
-            for pattern in simple_time_patterns:
-                temp_message = re.sub(pattern, '', temp_message)
+            # 頻度の判定
+            repeat = False
+            repeat_keywords = ['毎日', 'daily', '毎', '日々', 'ルーチン']
             for keyword in repeat_keywords:
-                temp_message = temp_message.replace(keyword, '')
-            temp_message = re.sub(r'明日', '', temp_message)
-            temp_message = re.sub(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', '', temp_message)
-            temp_message = re.sub(r'(\d{1,2})[/-](\d{1,2})', '', temp_message)
-            temp_message = re.sub(r'(\d{1,2})月(\d{1,2})日', '', temp_message)
-            task_name = re.sub(r'[\s　]+', ' ', temp_message).strip()
-            print(f"[parse_task_message] タスク名再抽出: '{task_name}'")
-        if not task_name:
-            print("[parse_task_message] タスク名が見つかりませんでした")
-            raise ValueError("タスク名が見つかりませんでした")
-        
-        # 優先度の決定
-        if detected_urgent and detected_important:
-            priority = "urgent_important"
-        elif detected_urgent and not detected_important:
-            priority = "urgent_not_important"
-        elif not detected_urgent and detected_important:
-            priority = "not_urgent_important"
-        else:
-            # キーワードがない場合でも、本日・明日締切りの場合は緊急と判定
-            if due_date:
-                jst = pytz.timezone('Asia/Tokyo')
-                today = datetime.now(jst)
-                today_str = today.strftime('%Y-%m-%d')
-                tomorrow_str = (today + timedelta(days=1)).strftime('%Y-%m-%d')
-                
-                if due_date in [today_str, tomorrow_str]:
-                    priority = "urgent_not_important"  # B（緊急）
+                if keyword in message:
+                    repeat = True
+                    message = message.replace(keyword, '')
+                    print(f"[parse_task_message] 頻度抽出: {keyword} → repeat={repeat}")
+                    break
+            
+            # 期日の抽出
+            due_date = None
+            jst = pytz.timezone('Asia/Tokyo')
+            today = datetime.now(jst)
+            # 自然言語→日付変換辞書
+            natural_date_map = {
+                '明日': 1,
+                '明後日': 2,
+                '明々後日': 3,
+                '明明後日': 3,  # 誤表記も吸収
+            }
+            
+            # 自然言語の期日表現をチェック
+            for keyword, days in natural_date_map.items():
+                if keyword in message:
+                    due_date = (today + timedelta(days=days)).strftime('%Y-%m-%d')
+                    message = message.replace(keyword, '')
+                    print(f"[parse_task_message] 自然言語期日抽出: {keyword} → {due_date}")
+                    break
+            
+            # AIによる日付抽出（自然言語で見つからない場合）
+            if not due_date:
+                try:
+                    from services.openai_service import OpenAIService
+                    ai_service = OpenAIService()
+                    ai_date = ai_service.extract_due_date_from_text(message)
+                    if ai_date:
+                        due_date = ai_date
+                        print(f"[parse_task_message] AI日付抽出: {due_date}")
+                except Exception as e:
+                    print(f"[parse_task_message] AI日付抽出エラー: {e}")
+            
+            # タスク名の抽出
+            task_name = re.sub(r'[\s　]+', ' ', message).strip()
+            print(f"[parse_task_message] タスク名抽出前: '{message}'")
+            print(f"[parse_task_message] タスク名抽出後: '{task_name}'")
+            
+            if not task_name:
+                raise ValueError("タスク名が見つかりませんでした")
+            
+            # 優先度の判定
+            detected_urgent = False
+            detected_important = False
+            
+            urgent_keywords = ['急ぎ', '緊急', 'urgent', '急', '早急', '至急', 'すぐ', '今すぐ']
+            important_keywords = ['重要', 'important', '大事', '必須', '必要', '要', '重要度高い']
+            
+            for keyword in urgent_keywords:
+                if keyword in task_name:
+                    detected_urgent = True
+                    break
+            
+            for keyword in important_keywords:
+                if keyword in task_name:
+                    detected_important = True
+                    break
+            
+            # 優先度の決定
+            if detected_urgent and detected_important:
+                priority = "urgent_important"
+            elif detected_urgent and not detected_important:
+                priority = "urgent_not_important"
+            elif not detected_urgent and detected_important:
+                priority = "not_urgent_important"
+            else:
+                # キーワードがない場合でも、本日・明日締切りの場合は緊急と判定
+                if due_date:
+                    jst = pytz.timezone('Asia/Tokyo')
+                    today = datetime.now(jst)
+                    today_str = today.strftime('%Y-%m-%d')
+                    tomorrow_str = (today + timedelta(days=1)).strftime('%Y-%m-%d')
+                    
+                    if due_date in [today_str, tomorrow_str]:
+                        priority = "urgent_not_important"  # B（緊急）
+                    else:
+                        priority = "normal"  # -（その他）
                 else:
                     priority = "normal"  # -（その他）
-            else:
-                priority = "normal"  # -（その他）
-        
-        print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}, priority={priority}")
-        return {
-            'name': task_name,
-            'duration_minutes': duration_minutes,
-            'repeat': repeat,
-            'due_date': due_date,
-            'priority': priority
-        }
+            
+            print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}, priority={priority}")
+            return {
+                'name': task_name,
+                'duration_minutes': duration_minutes,
+                'repeat': repeat,
+                'due_date': due_date,
+                'priority': priority
+            }
+        except Exception as e:
+            print(f"[_parse_single_task] 解析エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     def _determine_priority(self, task_name: str, due_date: str, duration_minutes: int) -> str:
         """タスクの優先度を判定（AIを使用）"""

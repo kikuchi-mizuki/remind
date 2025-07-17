@@ -1177,8 +1177,11 @@ def callback():
 
                         # タスク登録メッセージか判定してDB保存
                         try:
+                            print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
+                            
                             # 改行で区切られた複数タスクかチェック
                             if '\n' in user_message:
+                                print(f"[DEBUG] 複数タスク処理開始")
                                 # 複数タスク処理
                                 task_infos = task_service.parse_multiple_tasks(user_message)
                                 if not task_infos:
@@ -1212,11 +1215,17 @@ def callback():
                                     TextSendMessage(text=reply_text.strip())
                                 )
                             else:
+                                print(f"[DEBUG] 単一タスク処理開始")
                                 # 単一タスク処理（既存の処理）
                                 task_info = task_service.parse_task_message(user_message)
-                                task_service.create_task(user_id, task_info)
+                                print(f"[DEBUG] タスク情報解析完了: {task_info}")
+                                
+                                task = task_service.create_task(user_id, task_info)
+                                print(f"[DEBUG] タスク作成完了: task_id={task.task_id}")
+                                
                                 # タスク一覧を取得
                                 all_tasks = task_service.get_user_tasks(user_id)
+                                print(f"[DEBUG] タスク一覧取得完了: {len(all_tasks)}件")
                                 
                                 # 優先度に応じたメッセージ
                                 priority_messages = {
@@ -1229,14 +1238,20 @@ def callback():
                                 priority = task_info.get('priority', 'normal')
                                 reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
                                 reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                
+                                print(f"[DEBUG] 返信メッセージ送信開始")
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text.strip())
                                 )
+                                print(f"[DEBUG] 返信メッセージ送信完了")
                             continue
                         except Exception as e:
                             # タスク登録エラーの場合は、Flex Messageメニューを返信
-                            print(f"[DEBUG] タスク登録エラー: {e}")
+                            print(f"[DEBUG] タスク登録エラー詳細: {e}")
+                            import traceback
+                            print(f"[DEBUG] エラートレースバック:")
+                            traceback.print_exc()
                             print(f"[DEBUG] メニュー生成開始: user_id={user_id}")
                             from linebot.models import FlexSendMessage
                             flex_message = get_simple_flex_menu(user_id)
@@ -1249,7 +1264,7 @@ def callback():
                                 )
                             )
                             continue
-                        
+
                         # 21時の繰り越し確認への返信処理
                         if regex.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
                             from datetime import datetime, timedelta
