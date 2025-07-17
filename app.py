@@ -1165,7 +1165,11 @@ def callback():
                                 reply_text += f"📝 {task.name}\n"
                                 reply_text += f"⏱️ {task.duration_minutes}分\n"
                                 reply_text += f"📅 毎週日曜日18時に選択可能\n\n"
-                                reply_text += "毎週日曜日18時に「どのタスクを来週やりますか？」と質問されます。"
+                                reply_text += "毎週日曜日18時に「どのタスクを来週やりますか？」と質問されます。\n\n"
+                                
+                                # 未来タスク一覧を表示
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                reply_text += task_service.format_future_task_list(future_tasks, show_select_guide=False)
                                 
                                 line_bot_api.reply_message(
                                     reply_token,
