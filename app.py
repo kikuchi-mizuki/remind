@@ -706,7 +706,7 @@ def callback():
                                     converted_tasks = []
                                     for i, task_info in enumerate(future_task_infos):
                                         # 来週の各日に分散して配置
-                                        task_date = next_monday + timedelta(days=i % 5)  # 月〜金の5日間
+                                        task_date = next_monday + timedelta(days=i % 7)  # 月〜日までの7日間
                                         task_date_str = task_date.strftime('%Y-%m-%d')
                                         
                                         # タスクオブジェクトを作成（簡易版）
