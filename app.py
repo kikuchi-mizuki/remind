@@ -1233,7 +1233,20 @@ def callback():
                                 reply_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                 if not reply_text:
                                     reply_text = "📋 タスク一覧\n＝＝＝＝＝＝\n登録されているタスクはありません。\n＝＝＝＝＝＝"
-                                reply_text += "\n追加するタスク・所要時間・期限を送信してください！\n\n優先度が高いものがあれば、こちらも記載ください\nA: 緊急かつ重要  B: 緊急  C: 重要  -: その他\n\n例：「資料作成　30分　明日　急ぎ」"
+                                reply_text += "\n\n📝 タスク追加モード\n\n"
+                                reply_text += "タスク名・所要時間・期限を送信してください！\n\n"
+                                reply_text += "📝 例：\n"
+                                reply_text += "• 資料作成 30分 明日\n"
+                                reply_text += "• 会議準備 1時間半 今日\n"
+                                reply_text += "• メール返信 15分 明日\n"
+                                reply_text += "• プロジェクト計画 2時間 来週月曜日\n\n"
+                                reply_text += "🎯 優先度設定（任意）：\n"
+                                reply_text += "• A: 緊急かつ重要\n"
+                                reply_text += "• B: 緊急\n"
+                                reply_text += "• C: 重要\n"
+                                reply_text += "• -: その他\n\n"
+                                reply_text += "例：「資料作成 30分 明日 A」\n\n"
+                                reply_text += "⚠️ 所要時間は必須です！"
                                 print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
                                 print("[DEBUG] LINE API reply_message直前", flush=True)
                                 res = line_bot_api.reply_message(
