@@ -304,6 +304,17 @@ def callback():
                     # ユーザーをデータベースに登録（初回メッセージ時）
                     from models.database import db
                     db.register_user(user_id)
+
+                    # ここで認証未済なら認証案内のみ返す
+                    if not is_google_authenticated(user_id):
+                        auth_url = get_google_auth_url(user_id)
+                        reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                        line_bot_api.reply_message(
+                            reply_token,
+                            TextSendMessage(text=reply_text)
+                        )
+                        continue
+                    # --- ここから下は認証済みユーザーのみ ---
                     
                     try:
                         # Google認証が必要な機能でのみ認証チェックを行う
@@ -1194,7 +1205,7 @@ def get_simple_flex_menu(user_id=None):
     """認証状態に応じてメニューを動的に生成"""
     print(f"[get_simple_flex_menu] user_id={user_id}")
     
-    # 基本のボタン（認証不要）
+    # 全ボタンを表示（緊急タスクボタン含む）
     basic_buttons = [
         {
             "type": "button",
@@ -1203,30 +1214,18 @@ def get_simple_flex_menu(user_id=None):
         },
         {
             "type": "button",
+            "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
+            "style": "primary",
+            "color": "#FF6B6B"
+        },
+        {
+            "type": "button",
             "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
             "style": "secondary"
         }
     ]
     
-    # 認証済みの場合のみ緊急タスクボタンを追加
-    if user_id:
-        auth_status = is_google_authenticated(user_id)
-        print(f"[get_simple_flex_menu] 認証状態: {auth_status}")
-        if auth_status:
-            # 緊急タスクボタンを2番目に挿入
-            urgent_button = {
-                "type": "button",
-                "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
-                "style": "primary",
-                "color": "#FF6B6B"
-            }
-            basic_buttons.insert(1, urgent_button)
-            print(f"[get_simple_flex_menu] 緊急タスクボタンを追加しました")
-        else:
-            print(f"[get_simple_flex_menu] 認証されていないため緊急タスクボタンを追加しません")
-    else:
-        print(f"[get_simple_flex_menu] user_idがNoneのため緊急タスクボタンを追加しません")
-    
+    print(f"[get_simple_flex_menu] 全ボタンを表示（緊急タスクボタン含む）")
     return {
         "type": "bubble",
         "body": {
