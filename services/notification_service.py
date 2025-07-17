@@ -207,14 +207,16 @@ class NotificationService:
         
         print(f"[start_scheduler] スケジューラー開始: {datetime.now()}")
         
-        # Railway等UTCサーバーの場合、JST 8:00 = UTC 23:00、JST 21:00 = UTC 12:00
+        # Railway等UTCサーバーの場合、JST 8:00 = UTC 23:00、JST 21:00 = UTC 12:00、JST 18:00 = UTC 09:00
         schedule.every().day.at("23:00").do(self.send_daily_task_notification)  # JST 8:00
+        schedule.every().sunday.at("09:00").do(self.send_future_task_selection)  # JST 18:00
         schedule.every().sunday.at("11:00").do(self._send_weekly_reports_to_all_users)  # JST 20:00→UTC 11:00
         schedule.every().day.at("12:00").do(self.send_carryover_check)  # JST 21:00
         
         print(f"[start_scheduler] スケジュール設定完了:")
         print(f"[start_scheduler] - 毎日 23:00 UTC (JST 8:00): タスク一覧通知")
         print(f"[start_scheduler] - 毎日 12:00 UTC (JST 21:00): タスク確認通知")
+        print(f"[start_scheduler] - 日曜 09:00 UTC (JST 18:00): 未来タスク選択通知")
         print(f"[start_scheduler] - 日曜 11:00 UTC (JST 20:00): 週次レポート")
         
         # 現在時刻と次の実行時刻を表示
@@ -229,11 +231,16 @@ class NotificationService:
         if jst_now.hour >= 8:
             next_8am_jst += timedelta(days=1)
         
+        next_6pm_jst = jst_now.replace(hour=18, minute=0, second=0, microsecond=0)
+        if jst_now.hour >= 18:
+            next_6pm_jst += timedelta(days=1)
+        
         next_9pm_jst = jst_now.replace(hour=21, minute=0, second=0, microsecond=0)
         if jst_now.hour >= 21:
             next_9pm_jst += timedelta(days=1)
         
         print(f"[start_scheduler] 次回8時通知予定: {next_8am_jst.strftime('%Y-%m-%d %H:%M:%S')} JST")
+        print(f"[start_scheduler] 次回18時通知予定: {next_6pm_jst.strftime('%Y-%m-%d %H:%M:%S')} JST")
         print(f"[start_scheduler] 次回21時通知予定: {next_9pm_jst.strftime('%Y-%m-%d %H:%M:%S')} JST")
         
         # スケジューラーを別スレッドで実行
@@ -385,6 +392,46 @@ class NotificationService:
                 import traceback
                 traceback.print_exc()
         print(f"[send_carryover_check] 完了: {datetime.now()}") 
+
+    def send_future_task_selection(self):
+        """未来タスク選択通知を送信（毎週日曜日18時）"""
+        print(f"[send_future_task_selection] 開始: {datetime.now()}")
+        try:
+            user_ids = self._get_active_user_ids()
+            print(f"[send_future_task_selection] ユーザー数: {len(user_ids)}")
+            for user_id in user_ids:
+                try:
+                    print(f"[send_future_task_selection] ユーザー {user_id} に送信中...")
+                    
+                    # 未来タスク一覧を取得
+                    future_tasks = self.task_service.get_user_future_tasks(user_id)
+                    print(f"[send_future_task_selection] 未来タスク数: {len(future_tasks)}")
+                    
+                    if not future_tasks:
+                        message = "📋 未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
+                    else:
+                        message = self.task_service.format_future_task_list(future_tasks, show_select_guide=True)
+                        
+                        # 未来タスク選択モードファイルを作成
+                        import os
+                        future_selection_file = f"future_task_selection_{user_id}.json"
+                        with open(future_selection_file, "w") as f:
+                            import json
+                            json.dump({"mode": "future_selection", "timestamp": datetime.now().isoformat()}, f)
+                    
+                    print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
+                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+                    print(f"[send_future_task_selection] ユーザー {user_id} に送信完了")
+                    
+                except Exception as e:
+                    print(f"[send_future_task_selection] ユーザー {user_id} への送信エラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+            print(f"[send_future_task_selection] 完了: {datetime.now()}")
+        except Exception as e:
+            print(f"Error sending future task selection: {e}")
+            import traceback
+            traceback.print_exc()
 
 if __name__ == "__main__":
     from models.database import init_db

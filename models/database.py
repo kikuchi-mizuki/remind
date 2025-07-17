@@ -8,7 +8,7 @@ from sqlalchemy import Column, String, Text
 class Task:
     """タスクモデルクラス"""
     def __init__(self, task_id: str, user_id: str, name: str, duration_minutes: int, 
-                 repeat: bool, status: str = "active", created_at: Optional[datetime] = None, due_date: Optional[str] = None, priority: str = "normal"):
+                 repeat: bool, status: str = "active", created_at: Optional[datetime] = None, due_date: Optional[str] = None, priority: str = "normal", task_type: str = "daily"):
         self.task_id = task_id
         self.user_id = user_id
         self.name = name
@@ -18,6 +18,7 @@ class Task:
         self.created_at = created_at or datetime.now()
         self.due_date = due_date  # 期日（YYYY-MM-DD 形式の文字列）
         self.priority = priority  # 優先度: "urgent_important", "not_urgent_important", "urgent_not_important", "normal"
+        self.task_type = task_type  # タスクタイプ: "daily"（毎日のタスク）, "future"（未来タスク）
 
 class ScheduleProposal:
     """スケジュール提案モデルクラス"""
@@ -49,7 +50,7 @@ class Database:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # タスクテーブルの作成
+        # タスクテーブルの作成（task_typeカラムを追加）
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS tasks (
                 task_id TEXT PRIMARY KEY,
@@ -60,7 +61,29 @@ class Database:
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 due_date TEXT,
-                priority TEXT DEFAULT 'normal'
+                priority TEXT DEFAULT 'normal',
+                task_type TEXT DEFAULT 'daily'
+            )
+        ''')
+        
+        # 既存のテーブルにtask_typeカラムが存在しない場合は追加
+        try:
+            cursor.execute('ALTER TABLE tasks ADD COLUMN task_type TEXT DEFAULT "daily"')
+            print("[init_database] task_typeカラムを追加しました")
+        except sqlite3.OperationalError:
+            print("[init_database] task_typeカラムは既に存在します")
+        
+        # 未来タスクテーブルの作成
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS future_tasks (
+                task_id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                priority TEXT DEFAULT 'normal',
+                status TEXT DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                category TEXT DEFAULT 'investment'
             )
         ''')
         
@@ -100,14 +123,14 @@ class Database:
     def create_task(self, task: Task) -> bool:
         """タスクを作成"""
         try:
-            print(f"[create_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, repeat={task.repeat}, status={task.status}, created_at={task.created_at}, due_date={task.due_date}, priority={task.priority}")
+            print(f"[create_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, repeat={task.repeat}, status={task.status}, created_at={task.created_at}, due_date={task.due_date}, priority={task.priority}, task_type={task.task_type}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
-                  task.repeat, task.status, task.created_at, task.due_date, task.priority))
+                  task.repeat, task.status, task.created_at, task.due_date, task.priority, task.task_type))
             conn.commit()
             conn.close()
             return True
@@ -115,18 +138,36 @@ class Database:
             print(f"[create_task] Error creating task: {e}")
             return False
 
-    def get_user_tasks(self, user_id: str, status: str = "active") -> List[Task]:
+    def create_future_task(self, task: Task) -> bool:
+        """未来タスクを作成"""
+        try:
+            print(f"[create_future_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, priority={task.priority}, status={task.status}, created_at={task.created_at}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO future_tasks (task_id, user_id, name, duration_minutes, priority, status, created_at, category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
+                  task.priority, task.status, task.created_at, 'investment'))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"[create_future_task] Error creating future task: {e}")
+            return False
+
+    def get_user_tasks(self, user_id: str, status: str = "active", task_type: str = "daily") -> List[Task]:
         """ユーザーのタスク一覧を取得"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority
+                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type
                 FROM tasks
-                WHERE user_id = ? AND status = ?
+                WHERE user_id = ? AND status = ? AND task_type = ?
                 ORDER BY created_at DESC
-            ''', (user_id, status))
+            ''', (user_id, status, task_type))
             
             tasks = []
             for row in cursor.fetchall():
@@ -139,7 +180,8 @@ class Database:
                     status=row[5],
                     created_at=datetime.fromisoformat(row[6]),
                     due_date=row[7],
-                    priority=row[8] if row[8] else "normal"
+                    priority=row[8] if row[8] else "normal",
+                    task_type=row[9] if row[9] else "daily"
                 )
                 tasks.append(task)
             
@@ -147,6 +189,41 @@ class Database:
             return tasks
         except Exception as e:
             print(f"Error getting user tasks: {e}")
+            return []
+
+    def get_user_future_tasks(self, user_id: str, status: str = "active") -> List[Task]:
+        """ユーザーの未来タスク一覧を取得"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT task_id, user_id, name, duration_minutes, status, created_at, priority, category
+                FROM future_tasks
+                WHERE user_id = ? AND status = ?
+                ORDER BY created_at DESC
+            ''', (user_id, status))
+            
+            tasks = []
+            for row in cursor.fetchall():
+                task = Task(
+                    task_id=row[0],
+                    user_id=row[1],
+                    name=row[2],
+                    duration_minutes=row[3],
+                    repeat=False,  # 未来タスクは繰り返しなし
+                    status=row[4],
+                    created_at=datetime.fromisoformat(row[5]),
+                    due_date=None,  # 未来タスクは期日なし
+                    priority=row[6] if row[6] else "normal",
+                    task_type="future"
+                )
+                tasks.append(task)
+            
+            conn.close()
+            return tasks
+        except Exception as e:
+            print(f"Error getting user future tasks: {e}")
             return []
 
     def get_task_by_id(self, task_id: str) -> Optional[Task]:

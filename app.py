@@ -330,7 +330,10 @@ def callback():
                                 f"task_check_mode_{user_id}.flag",
                                 f"delete_mode_{user_id}.json",
                                 f"selected_tasks_{user_id}.json",
-                                f"schedule_proposal_{user_id}.txt"
+                                f"schedule_proposal_{user_id}.txt",
+                                f"urgent_task_mode_{user_id}.json",
+                                f"future_task_mode_{user_id}.json",
+                                f"future_task_selection_{user_id}.json"
                             ]
                             
                             for file_path in files_to_remove:
@@ -406,6 +409,16 @@ def callback():
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
                             reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
+                        # 未来タスク一覧コマンド
+                        if user_message.strip() == "未来タスク一覧":
+                            future_tasks = task_service.get_user_future_tasks(user_id)
+                            reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
                             line_bot_api.reply_message(
                                 reply_token,
                                 TextSendMessage(text=reply_text)
@@ -918,6 +931,23 @@ def callback():
                             )
                             continue
 
+                        # 「未来タスク追加」と送信された場合、未来タスク追加モードを開始
+                        if user_message.strip() == "未来タスク追加":
+                            # 未来タスク追加モードファイルを作成
+                            import os
+                            from datetime import datetime
+                            future_mode_file = f"future_task_mode_{user_id}.json"
+                            with open(future_mode_file, "w") as f:
+                                import json
+                                json.dump({"mode": "future_task", "timestamp": datetime.now().isoformat()}, f)
+                            
+                            reply_text = "🔮 未来タスク追加モード\n\n投資につながるタスク名と所要時間を送信してください！\n例：「新規事業を考える 2時間」\n「営業資料の見直し 1時間半」\n「〇〇という本を読む 30分」\n\n※毎週日曜日18時に来週やるタスクを選択できます"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
                         if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
                             import pytz
@@ -1106,6 +1136,45 @@ def callback():
                                 )
                             continue
 
+                        # 未来タスク追加モードでの処理
+                        import os
+                        future_mode_file = f"future_task_mode_{user_id}.json"
+                        print(f"[DEBUG] 未来タスクモードファイル確認: {future_mode_file}, exists={os.path.exists(future_mode_file)}")
+                        if os.path.exists(future_mode_file):
+                            print(f"[DEBUG] 未来タスク追加モード開始: user_message='{user_message}'")
+                            try:
+                                # 未来タスク用のパース
+                                task_info = task_service.parse_future_task_message(user_message)
+                                
+                                # 未来タスクをDBに保存
+                                task = task_service.create_future_task(user_id, task_info)
+                                
+                                # 未来タスク追加モードを終了
+                                os.remove(future_mode_file)
+                                
+                                # 成功メッセージ
+                                reply_text = f"🔮 未来タスクを追加しました！\n\n"
+                                reply_text += f"📝 {task.name}\n"
+                                reply_text += f"⏱️ {task.duration_minutes}分\n"
+                                reply_text += f"📅 毎週日曜日18時に選択可能\n\n"
+                                reply_text += "毎週日曜日18時に「どのタスクを来週やりますか？」と質問されます。"
+                                
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                
+                            except Exception as e:
+                                print(f"[ERROR] 未来タスク追加処理: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            continue
+
                         # タスク登録メッセージか判定してDB保存
                         try:
                             # 改行で区切られた複数タスクかチェック
@@ -1265,6 +1334,12 @@ def get_simple_flex_menu(user_id=None):
             "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
             "style": "primary",
             "color": "#FF6B6B"
+        },
+        {
+            "type": "button",
+            "action": {"type": "message", "label": "未来タスクを追加する", "text": "未来タスク追加"},
+            "style": "primary",
+            "color": "#4ECDC4"
         },
         {
             "type": "button",

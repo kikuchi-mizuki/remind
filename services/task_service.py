@@ -389,7 +389,8 @@ class TaskService:
             duration_minutes=task_info['duration_minutes'],
             repeat=task_info['repeat'],
             due_date=task_info.get('due_date'),
-            priority=task_info.get('priority', 'normal')
+            priority=task_info.get('priority', 'normal'),
+            task_type=task_info.get('task_type', 'daily')
         )
         
         if self.db.create_task(task):
@@ -397,19 +398,45 @@ class TaskService:
         else:
             raise Exception("タスクの作成に失敗しました")
 
-    def get_user_tasks(self, user_id: str, status: str = "active") -> List[Task]:
-        """ユーザーのタスク一覧を取得"""
-        return self.db.get_user_tasks(user_id, status)
+    def create_future_task(self, user_id: str, task_info: Dict) -> Task:
+        """未来タスクを作成"""
+        task_id = str(uuid.uuid4())
+        task = Task(
+            task_id=task_id,
+            user_id=user_id,
+            name=task_info['name'],
+            duration_minutes=task_info['duration_minutes'],
+            repeat=False,  # 未来タスクは繰り返しなし
+            due_date=None,  # 未来タスクは期日なし
+            priority=task_info.get('priority', 'normal'),
+            task_type='future'
+        )
+        
+        if self.db.create_future_task(task):
+            return task
+        else:
+            raise Exception("未来タスクの作成に失敗しました")
 
-    def get_selected_tasks(self, user_id: str, selection_message: str) -> List[Task]:
+    def get_user_tasks(self, user_id: str, status: str = "active", task_type: str = "daily") -> List[Task]:
+        """ユーザーのタスク一覧を取得"""
+        return self.db.get_user_tasks(user_id, status, task_type)
+
+    def get_user_future_tasks(self, user_id: str, status: str = "active") -> List[Task]:
+        """ユーザーの未来タスク一覧を取得"""
+        return self.db.get_user_future_tasks(user_id, status)
+
+    def get_selected_tasks(self, user_id: str, selection_message: str, task_type: str = "daily") -> List[Task]:
         """選択されたタスクを取得"""
         # 数字を抽出
         numbers = re.findall(r'\d+', selection_message)
         if not numbers:
             return []
         
-        # 全タスクを取得
-        all_tasks = self.get_user_tasks(user_id)
+        # タスク一覧を取得（task_typeに応じて）
+        if task_type == "future":
+            all_tasks = self.get_user_future_tasks(user_id)
+        else:
+            all_tasks = self.get_user_tasks(user_id, task_type=task_type)
         
         selected_tasks = []
         for number in numbers:
@@ -550,3 +577,111 @@ class TaskService:
     def reactivate_task(self, task_id: str) -> bool:
         """タスクを再アクティブ化"""
         return self.db.update_task_status(task_id, "active") 
+
+    def format_future_task_list(self, tasks: List[Task], show_select_guide: bool = True) -> str:
+        """未来タスク一覧をフォーマット"""
+        if not tasks:
+            return "📋 未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n━━━━━━━━━━━━"
+        
+        # 優先度でソート
+        def sort_key(task):
+            priority_order = {
+                "urgent_important": 0,
+                "not_urgent_important": 1,
+                "urgent_not_important": 2,
+                "normal": 3
+            }
+            priority_score = priority_order.get(task.priority, 3)
+            return (priority_score, task.name)
+        
+        tasks_sorted = sorted(tasks, key=sort_key)
+        
+        formatted_list = "📋 未来タスク一覧\n━━━━━━━━━━━━\n"
+        formatted_list += "A: 緊急かつ重要  B: 緊急  C: 重要\n\n"
+        
+        for idx, task in enumerate(tasks_sorted, 1):
+            # 優先度に応じたアイコン
+            priority_icons = {
+                "urgent_important": "🚨",
+                "not_urgent_important": "⭐",
+                "urgent_not_important": "⚡",
+                "normal": "📝"
+            }
+            icon = priority_icons.get(task.priority, "📝")
+            
+            formatted_list += f"{idx}. {icon} {task.name} ({task.duration_minutes}分)\n"
+        
+        formatted_list += "━━━━━━━━━━━━\n"
+        
+        if show_select_guide:
+            formatted_list += "来週やるタスクを選んでください！\n例：１、３、５"
+        
+        return formatted_list
+
+    def parse_future_task_message(self, message: str) -> Dict:
+        """未来タスクメッセージからタスク情報を解析"""
+        print(f"[parse_future_task_message] 入力: '{message}'")
+        
+        # 時間パターンの定義
+        complex_time_patterns = [
+            r'(\d+)\s*時間\s*半',  # 1時間半
+            r'(\d+)\s*時間\s*(\d+)\s*分',  # 1時間30分
+            r'(\d+)\s*hour\s*(\d+)\s*min',  # 1hour 30min
+            r'(\d+)\s*h\s*(\d+)\s*m',  # 1h 30m
+        ]
+        
+        simple_time_patterns = [
+            r'(\d+)\s*分',
+            r'(\d+)\s*時間',
+            r'(\d+)\s*min',
+            r'(\d+)\s*hour',
+            r'(\d+)\s*h',
+            r'(\d+)\s*m'
+        ]
+        
+        # 時間の抽出
+        duration_minutes = None
+        temp_message = message
+        
+        # 複合時間表現を先にチェック
+        for pattern in complex_time_patterns:
+            match = re.search(pattern, temp_message)
+            if match:
+                if '半' in pattern:
+                    hours = int(match.group(1))
+                    duration_minutes = hours * 60 + 30
+                else:
+                    hours = int(match.group(1))
+                    minutes = int(match.group(2))
+                    duration_minutes = hours * 60 + minutes
+                temp_message = re.sub(pattern, '', temp_message)
+                break
+        
+        # 単純な時間表現のパターン
+        if not duration_minutes:
+            for pattern in simple_time_patterns:
+                match = re.search(pattern, temp_message)
+                if match:
+                    duration_minutes = int(match.group(1))
+                    if '時間' in pattern or 'hour' in pattern or 'h' in pattern:
+                        duration_minutes *= 60
+                    temp_message = re.sub(pattern, '', temp_message)
+                    break
+        
+        if not duration_minutes:
+            raise ValueError("所要時間が見つかりませんでした")
+        
+        # タスク名の抽出
+        task_name = re.sub(r'[\s　]+', ' ', temp_message).strip()
+        if not task_name:
+            raise ValueError("タスク名が見つかりませんでした")
+        
+        # 優先度の判定（未来タスクは基本的に重要）
+        priority = "not_urgent_important"  # 未来タスクは基本的に重要だが緊急ではない
+        
+        print(f"[parse_future_task_message] 結果: name='{task_name}', duration={duration_minutes}, priority={priority}")
+        return {
+            'name': task_name,
+            'duration_minutes': duration_minutes,
+            'priority': priority
+        } 
