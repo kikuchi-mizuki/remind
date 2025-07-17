@@ -217,8 +217,8 @@ class TaskService:
         elif not detected_urgent and detected_important:
             priority = "not_urgent_important"
         else:
-            # キーワードがない場合はAI判定を使用
-            priority = self._determine_priority(task_name, due_date or "", duration_minutes)
+            # キーワードがない場合は必ずその他（normal）
+            priority = "normal"
         
         print(f"[parse_task_message] 結果: name='{task_name}', duration={duration_minutes}, repeat={repeat}, due_date={due_date}, priority={priority}")
         return {
