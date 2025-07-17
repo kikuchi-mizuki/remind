@@ -391,6 +391,256 @@ class CalendarService:
         # 最も早い時間を選択
         return min(suitable_times, key=lambda x: x['start'])['start']
 
+    def auto_schedule_tasks(self, user_id: str, tasks: List[Dict]) -> List[Dict]:
+        """タスクを空き時間に自動配置"""
+        if not self.authenticate_user(user_id):
+            return []
+        
+        try:
+            import pytz
+            jst = pytz.timezone('Asia/Tokyo')
+            today = datetime.now(jst)
+            
+            # 今日の空き時間を取得
+            free_times = self.get_free_busy_times(user_id, today)
+            if not free_times:
+                return []
+            
+            # タスクを優先度順にソート
+            priority_order = {
+                "urgent_important": 1,
+                "urgent_not_important": 2,
+                "not_urgent_important": 3,
+                "normal": 4
+            }
+            
+            sorted_tasks = sorted(tasks, key=lambda x: priority_order.get(x.get('priority', 'normal'), 4))
+            
+            scheduled_tasks = []
+            used_times = []
+            
+            for task in sorted_tasks:
+                task_name = task['name']
+                duration = task['duration_minutes']
+                priority = task.get('priority', 'normal')
+                
+                # 最適な空き時間を探す
+                best_time = None
+                best_time_slot = None
+                
+                for time_slot in free_times:
+                    # 既に使用された時間との重複をチェック
+                    is_conflict = False
+                    for used_time in used_times:
+                        if (time_slot['start'] < used_time['end'] and 
+                            time_slot['end'] > used_time['start']):
+                            is_conflict = True
+                            break
+                    
+                    if is_conflict:
+                        continue
+                    
+                    # 十分な時間があるかチェック
+                    if time_slot['duration_minutes'] >= duration:
+                        # 優先度に応じた時間帯の好み
+                        if priority == "urgent_important":
+                            # 緊急かつ重要は早い時間を優先
+                            if best_time is None or time_slot['start'] < best_time['start']:
+                                best_time = time_slot
+                                best_time_slot = time_slot
+                        elif priority == "not_urgent_important":
+                            # 重要だが緊急ではないは午前中を優先
+                            if time_slot['start'].hour < 12:
+                                if best_time is None or time_slot['start'] < best_time['start']:
+                                    best_time = time_slot
+                                    best_time_slot = time_slot
+                        else:
+                            # その他は利用可能な時間を選択
+                            if best_time is None or time_slot['start'] < best_time['start']:
+                                best_time = time_slot
+                                best_time_slot = time_slot
+                
+                if best_time_slot:
+                    # タスクをスケジュール
+                    start_time = best_time_slot['start']
+                    end_time = start_time + timedelta(minutes=duration)
+                    
+                    scheduled_task = {
+                        'name': task_name,
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'duration_minutes': duration,
+                        'priority': priority,
+                        'date': start_time.strftime('%Y-%m-%d'),
+                        'time_str': f"{start_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}"
+                    }
+                    
+                    scheduled_tasks.append(scheduled_task)
+                    
+                    # 使用された時間を記録
+                    used_times.append({
+                        'start': start_time,
+                        'end': end_time
+                    })
+                    
+                    # 空き時間リストを更新
+                    remaining_duration = best_time_slot['duration_minutes'] - duration
+                    if remaining_duration >= 15:  # 15分以上の残り時間があれば
+                        new_free_time = {
+                            'start': end_time,
+                            'end': best_time_slot['end'],
+                            'duration_minutes': remaining_duration
+                        }
+                        free_times.append(new_free_time)
+                    
+                    # 使用された時間スロットを削除
+                    free_times.remove(best_time_slot)
+            
+            return scheduled_tasks
+            
+        except Exception as e:
+            print(f"Auto schedule error: {e}")
+            return []
+
+    def add_scheduled_tasks_to_calendar(self, user_id: str, scheduled_tasks: List[Dict]) -> bool:
+        """スケジュールされたタスクをカレンダーに追加"""
+        if not self.authenticate_user(user_id):
+            return False
+        
+        try:
+            success_count = 0
+            for task in scheduled_tasks:
+                success = self.add_event_to_calendar(
+                    user_id,
+                    task['name'],
+                    task['start_time'],
+                    task['duration_minutes'],
+                    f"自動スケジュール: {task['name']}"
+                )
+                if success:
+                    success_count += 1
+            
+            return success_count > 0
+            
+        except Exception as e:
+            print(f"Add scheduled tasks error: {e}")
+            return False
+
+    def auto_schedule_tasks_next_week(self, user_id: str, tasks: List[Dict], next_monday: datetime) -> List[Dict]:
+        """来週の空き時間にタスクを自動配置"""
+        if not self.authenticate_user(user_id):
+            return []
+        
+        try:
+            # 来週の空き時間を取得（月曜日から金曜日）
+            free_times = []
+            for i in range(5):  # 月〜金の5日間
+                target_date = next_monday + timedelta(days=i)
+                day_free_times = self.get_free_busy_times(user_id, target_date)
+                for ft in day_free_times:
+                    ft['date'] = target_date
+                free_times.extend(day_free_times)
+            
+            if not free_times:
+                return []
+            
+            # タスクを優先度順にソート
+            priority_order = {
+                "urgent_important": 1,
+                "urgent_not_important": 2,
+                "not_urgent_important": 3,
+                "normal": 4
+            }
+            
+            sorted_tasks = sorted(tasks, key=lambda x: priority_order.get(x.get('priority', 'normal'), 4))
+            
+            scheduled_tasks = []
+            used_times = []
+            
+            for task in sorted_tasks:
+                task_name = task['name']
+                duration = task['duration_minutes']
+                priority = task.get('priority', 'normal')
+                
+                # 最適な空き時間を探す
+                best_time = None
+                best_time_slot = None
+                
+                for time_slot in free_times:
+                    # 既に使用された時間との重複をチェック
+                    is_conflict = False
+                    for used_time in used_times:
+                        if (time_slot['start'] < used_time['end'] and 
+                            time_slot['end'] > used_time['start']):
+                            is_conflict = True
+                            break
+                    
+                    if is_conflict:
+                        continue
+                    
+                    # 十分な時間があるかチェック
+                    if time_slot['duration_minutes'] >= duration:
+                        # 優先度に応じた時間帯の好み
+                        if priority == "urgent_important":
+                            # 緊急かつ重要は早い時間を優先
+                            if best_time is None or time_slot['start'] < best_time['start']:
+                                best_time = time_slot
+                                best_time_slot = time_slot
+                        elif priority == "not_urgent_important":
+                            # 重要だが緊急ではないは午前中を優先
+                            if time_slot['start'].hour < 12:
+                                if best_time is None or time_slot['start'] < best_time['start']:
+                                    best_time = time_slot
+                                    best_time_slot = time_slot
+                        else:
+                            # その他は利用可能な時間を選択
+                            if best_time is None or time_slot['start'] < best_time['start']:
+                                best_time = time_slot
+                                best_time_slot = time_slot
+                
+                if best_time_slot:
+                    # タスクをスケジュール
+                    start_time = best_time_slot['start']
+                    end_time = start_time + timedelta(minutes=duration)
+                    
+                    scheduled_task = {
+                        'name': task_name,
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'duration_minutes': duration,
+                        'priority': priority,
+                        'date': start_time.strftime('%Y-%m-%d'),
+                        'date_str': start_time.strftime('%m/%d(%a)'),
+                        'time_str': f"{start_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}"
+                    }
+                    
+                    scheduled_tasks.append(scheduled_task)
+                    
+                    # 使用された時間を記録
+                    used_times.append({
+                        'start': start_time,
+                        'end': end_time
+                    })
+                    
+                    # 空き時間リストを更新
+                    remaining_duration = best_time_slot['duration_minutes'] - duration
+                    if remaining_duration >= 15:  # 15分以上の残り時間があれば
+                        new_free_time = {
+                            'start': end_time,
+                            'end': best_time_slot['end'],
+                            'duration_minutes': remaining_duration
+                        }
+                        free_times.append(new_free_time)
+                    
+                    # 使用された時間スロットを削除
+                    free_times.remove(best_time_slot)
+            
+            return scheduled_tasks
+            
+        except Exception as e:
+            print(f"Auto schedule next week error: {e}")
+            return []
+
     def get_authorization_url(self, user_id: str, redirect_uri: str = None) -> str:
         """Google OAuth2認証URLを生成"""
         try:

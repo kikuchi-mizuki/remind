@@ -206,6 +206,7 @@ def oauth2callback():
 📅 スケジュール管理：
 • タスクを選択→「はい」→ AIが最適なスケジュールを提案
 • 「承認する」→ Googleカレンダーに自動登録
+• 「空き時間に配置」→ 選択したタスクを空き時間に自動配置
 
 💡 便利な機能：
 • 「タスク削除」→ 不要なタスクを削除
@@ -904,6 +905,182 @@ def callback():
                                     TextSendMessage(text=reply_text)
                                 )
                             continue
+                        # 空き時間に自動配置コマンド
+                        if user_message.strip() in ["空き時間に配置", "自動配置"]:
+                            import json
+                            import os
+                            from datetime import datetime
+                            import pytz
+                            selected_path = f"selected_tasks_{user_id}.json"
+                            selected_future_path = f"selected_future_tasks_{user_id}.json"
+                            
+                            # 未来タスク選択の場合
+                            if os.path.exists(selected_future_path):
+                                try:
+                                    with open(selected_future_path, "r") as f:
+                                        future_task_infos = json.load(f)
+                                    
+                                    # Google認証チェック
+                                    if not is_google_authenticated(user_id):
+                                        auth_url = get_google_auth_url(user_id)
+                                        reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            TextSendMessage(text=reply_text)
+                                        )
+                                        continue
+                                    
+                                    # 来週の空き時間を検索
+                                    jst = pytz.timezone('Asia/Tokyo')
+                                    today = datetime.now(jst)
+                                    
+                                    # 次の月曜日を計算
+                                    from datetime import timedelta
+                                    days_until_monday = (7 - today.weekday()) % 7
+                                    if days_until_monday == 0:
+                                        days_until_monday = 7
+                                    next_monday = today + timedelta(days=days_until_monday)
+                                    
+                                    # 来週の空き時間を取得（月曜日から金曜日）
+                                    free_times = []
+                                    for i in range(5):  # 月〜金の5日間
+                                        target_date = next_monday + timedelta(days=i)
+                                        day_free_times = calendar_service.get_free_busy_times(user_id, target_date)
+                                        for ft in day_free_times:
+                                            ft['date'] = target_date
+                                        free_times.extend(day_free_times)
+                                    
+                                    if not free_times:
+                                        reply_text = "⚠️ 来週の空き時間が見つかりませんでした。\n別の週を指定するか、通常のタスク追加をお試しください。"
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            TextSendMessage(text=reply_text)
+                                        )
+                                        continue
+                                    
+                                    # 未来タスク情報を辞書形式に変換
+                                    task_dicts = []
+                                    for task_info in future_task_infos:
+                                        task_dicts.append({
+                                            'name': task_info['name'],
+                                            'duration_minutes': task_info['duration_minutes'],
+                                            'priority': task_info.get('priority', 'normal')
+                                        })
+                                    
+                                    # 来週の空き時間に自動配置
+                                    scheduled_tasks = calendar_service.auto_schedule_tasks_next_week(user_id, task_dicts, next_monday)
+                                    
+                                    if scheduled_tasks:
+                                        # カレンダーに追加
+                                        success = calendar_service.add_scheduled_tasks_to_calendar(user_id, scheduled_tasks)
+                                        
+                                        if success:
+                                            # 成功メッセージ
+                                            reply_text = "✅ 来週の空き時間に自動配置しました！\n\n"
+                                            reply_text += f"📅 来週のスケジュール（{next_monday.strftime('%m/%d')}〜{(next_monday + timedelta(days=6)).strftime('%m/%d')}）\n"
+                                            reply_text += "━━━━━━━━━━\n"
+                                            
+                                            for i, task in enumerate(scheduled_tasks, 1):
+                                                priority_emoji = {
+                                                    "urgent_important": "🚨",
+                                                    "urgent_not_important": "⚡",
+                                                    "not_urgent_important": "⭐",
+                                                    "normal": "📝"
+                                                }.get(task['priority'], "📝")
+                                                
+                                                reply_text += f"{i}. {priority_emoji} {task['name']} 🔥\n"
+                                                reply_text += f"📅 {task['date_str']} 🕐 {task['time_str']}\n\n"
+                                            
+                                            reply_text += "━━━━━━━━━━\n"
+                                            reply_text += "Googleカレンダーにも登録されました。"
+                                        else:
+                                            reply_text = "⚠️ カレンダーへの登録に失敗しました。"
+                                    else:
+                                        reply_text = "⚠️ 来週の十分な空き時間が見つかりませんでした。\n別の週を指定するか、タスクの時間を調整してください。"
+                                    
+                                    # 選択ファイルを削除
+                                    os.remove(selected_future_path)
+                                    
+                                except Exception as e:
+                                    print(f"[ERROR] 未来タスク自動配置処理: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    reply_text = f"⚠️ 未来タスク自動配置中にエラーが発生しました: {e}"
+                                
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                continue
+                            
+                            # 通常のタスク選択の場合
+                            elif os.path.exists(selected_path):
+                                with open(selected_path, "r") as f:
+                                    task_ids = json.load(f)
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                
+                                # Google認証チェック
+                                if not is_google_authenticated(user_id):
+                                    auth_url = get_google_auth_url(user_id)
+                                    reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # タスク情報を辞書形式に変換
+                                task_dicts = []
+                                for task in selected_tasks:
+                                    task_dicts.append({
+                                        'name': task.name,
+                                        'duration_minutes': task.duration_minutes,
+                                        'priority': task.priority
+                                    })
+                                
+                                # 空き時間に自動配置
+                                scheduled_tasks = calendar_service.auto_schedule_tasks(user_id, task_dicts)
+                                
+                                if scheduled_tasks:
+                                    # カレンダーに追加
+                                    success = calendar_service.add_scheduled_tasks_to_calendar(user_id, scheduled_tasks)
+                                    
+                                    if success:
+                                        # 成功メッセージ
+                                        reply_text = "✅ 空き時間に自動配置しました！\n\n"
+                                        reply_text += "📅 本日のスケジュール\n"
+                                        reply_text += "━━━━━━━━━━\n"
+                                        
+                                        for i, task in enumerate(scheduled_tasks, 1):
+                                            priority_emoji = {
+                                                "urgent_important": "🚨",
+                                                "urgent_not_important": "⚡",
+                                                "not_urgent_important": "⭐",
+                                                "normal": "📝"
+                                            }.get(task['priority'], "📝")
+                                            
+                                            reply_text += f"{i}. {priority_emoji} {task['name']} 🔥\n"
+                                            reply_text += f"🕐 {task['time_str']}\n\n"
+                                        
+                                        reply_text += "━━━━━━━━━━\n"
+                                        reply_text += "Googleカレンダーにも登録されました。"
+                                    else:
+                                        reply_text = "⚠️ カレンダーへの登録に失敗しました。"
+                                else:
+                                    reply_text = "⚠️ 十分な空き時間が見つかりませんでした。\n別の日時を指定するか、タスクの時間を調整してください。"
+                                
+                                # 選択ファイルを削除
+                                os.remove(selected_path)
+                            else:
+                                reply_text = "先に今日やるタスクを選択してください。"
+                            
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # スケジュール提案コマンド
                         if user_message.strip() in ["スケジュール提案", "提案して"]:
                             import json
@@ -1246,7 +1423,8 @@ def callback():
                                 reply_text += "• C: 重要\n"
                                 reply_text += "• -: その他\n\n"
                                 reply_text += "例：「資料作成 30分 明日 A」\n\n"
-                                reply_text += "⚠️ 所要時間は必須です！"
+                                reply_text += "⚠️ 所要時間は必須です！\n\n"
+                                reply_text += "💡 タスクを選択後、「空き時間に配置」で自動スケジュールできます！"
                                 print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
                                 print("[DEBUG] LINE API reply_message直前", flush=True)
                                 res = line_bot_api.reply_message(
