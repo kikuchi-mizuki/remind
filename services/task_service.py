@@ -194,6 +194,8 @@ class TaskService:
             if keyword in message:
                 detected_urgent = True
                 message = message.replace(keyword, '')
+                # タスク名からも除去するためoriginal_messageも更新
+                original_message = original_message.replace(keyword, '')
                 print(f"[parse_task_message] 緊急キーワード検出: {keyword}")
                 break
         
@@ -202,6 +204,8 @@ class TaskService:
             if keyword in message:
                 detected_important = True
                 message = message.replace(keyword, '')
+                # タスク名からも除去するためoriginal_messageも更新
+                original_message = original_message.replace(keyword, '')
                 print(f"[parse_task_message] 重要キーワード検出: {keyword}")
                 break
         
@@ -230,19 +234,18 @@ class TaskService:
         try:
             from services.openai_service import OpenAIService
             ai_service = OpenAIService()
-            
             # 現在の日付を取得
             jst = pytz.timezone('Asia/Tokyo')
             today = datetime.now(jst)
             today_str = today.strftime('%Y-%m-%d')
-            
             # 期日までの日数を計算
             if due_date:
-                due_date_obj = datetime.strptime(due_date, '%Y-%m-%d')
-                days_until_due = (due_date_obj - today).days
+                # due_date_objをJSTタイムゾーン付きにする
+                due_date_obj = jst.localize(datetime.strptime(due_date, '%Y-%m-%d'))
+                # todayもJSTタイムゾーン付きなので、差分計算が安全
+                days_until_due = (due_date_obj.date() - today.date()).days
             else:
                 days_until_due = 7  # 期日がない場合は7日後と仮定
-            
             # AIに優先度判定を依頼
             prompt = f"""
             以下のタスクの緊急度と重要度を判定し、適切な優先度カテゴリを選択してください。
@@ -264,17 +267,13 @@ class TaskService:
 
             回答は上記のカテゴリ名のみを返してください。
             """
-            
             priority = ai_service.get_priority_classification(prompt)
-            
             # 有効な優先度かチェック
             valid_priorities = ["urgent_important", "not_urgent_important", "urgent_not_important", "normal"]
             if priority not in valid_priorities:
                 priority = "normal"  # デフォルト
-            
             print(f"[_determine_priority] AI判定結果: {priority}")
             return priority
-            
         except Exception as e:
             print(f"[_determine_priority] AI判定エラー: {e}")
             # エラーの場合は簡易判定
