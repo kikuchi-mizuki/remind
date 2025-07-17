@@ -9,8 +9,9 @@ from collections import defaultdict
 class TaskService:
     """タスク管理サービスクラス"""
     
-    def __init__(self):
-        self.db = db
+    def __init__(self, db_instance=None):
+        from models.database import db
+        self.db = db_instance or db
 
     def parse_task_message(self, message: str) -> Dict:
         """LINEメッセージからタスク情報を解析"""
