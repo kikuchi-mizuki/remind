@@ -405,6 +405,16 @@ def callback():
                             )
                             continue
 
+                        # 日曜18時通知テストコマンド（デバッグ用）
+                        if user_message.strip() == "日曜18時テスト":
+                            notification_service.send_future_task_selection()
+                            reply_text = "✅ 日曜18時の未来タスク選択通知を手動実行しました"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
+
                         # タスク一覧コマンド
                         if user_message.strip() == "タスク一覧":
                             all_tasks = task_service.get_user_tasks(user_id)
@@ -488,6 +498,100 @@ def callback():
                             reply_text += task_service.format_task_list(task_service.get_user_tasks(user_id), show_select_guide=False)
                             line_bot_api.reply_message(reply_token, TextSendMessage(text=reply_text))
                             continue
+                        # 未来タスク選択モードでの処理
+                        import os
+                        future_selection_file = f"future_task_selection_{user_id}.json"
+                        if os.path.exists(future_selection_file):
+                            print(f"[DEBUG] 未来タスク選択モード開始: user_message='{user_message}'")
+                            try:
+                                # 番号抽出
+                                nums = regex.findall(r'\d+', user_message)
+                                selected_indexes = set(int(n)-1 for n in nums)
+                                
+                                # 未来タスク一覧を取得
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                
+                                if not future_tasks:
+                                    reply_text = "未来タスクが見つかりませんでした。"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # 選択された未来タスクを通常のタスクに変換
+                                selected_future_tasks = []
+                                for idx, task in enumerate(future_tasks):
+                                    if idx in selected_indexes:
+                                        selected_future_tasks.append(task)
+                                
+                                if not selected_future_tasks:
+                                    reply_text = "選択されたタスクが見つかりませんでした。"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
+                                
+                                # 来週の日付を計算（次の月曜日から金曜日）
+                                import pytz
+                                from datetime import datetime, timedelta
+                                jst = pytz.timezone('Asia/Tokyo')
+                                today = datetime.now(jst)
+                                
+                                # 次の月曜日を計算
+                                days_until_monday = (7 - today.weekday()) % 7
+                                if days_until_monday == 0:
+                                    days_until_monday = 7
+                                next_monday = today + timedelta(days=days_until_monday)
+                                
+                                # 選択された未来タスクを通常のタスクに変換
+                                created_tasks = []
+                                for i, future_task in enumerate(selected_future_tasks):
+                                    # 来週の各日に分散して配置
+                                    task_date = next_monday + timedelta(days=i % 5)  # 月〜金の5日間
+                                    task_date_str = task_date.strftime('%Y-%m-%d')
+                                    
+                                    task_info = {
+                                        'name': future_task.name,
+                                        'duration_minutes': future_task.duration_minutes,
+                                        'repeat': False,
+                                        'due_date': task_date_str,
+                                        'priority': 'normal'
+                                    }
+                                    
+                                    task = task_service.create_task(user_id, task_info)
+                                    created_tasks.append(task)
+                                
+                                # 未来タスク選択モードを終了
+                                os.remove(future_selection_file)
+                                
+                                # 成功メッセージ
+                                reply_text = f"✅ {len(created_tasks)}個の未来タスクを来週のスケジュールに追加しました！\n\n"
+                                reply_text += "追加されたタスク：\n"
+                                for task in created_tasks:
+                                    reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
+                                
+                                reply_text += "\n来週のスケジュール：\n"
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                
+                            except Exception as e:
+                                print(f"[ERROR] 未来タスク選択処理: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 未来タスク選択中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                            continue
+
                         # タスク選択（番号のみのメッセージ: 半角/全角数字・カンマ・ピリオド・スペース対応）
                         import re
                         if regex.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
