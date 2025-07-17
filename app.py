@@ -27,6 +27,9 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 init_db()
 print(f"[app.py] データベース初期化完了: {datetime.now()}")
 
+from models.database import db
+print(f"[app.py] データベースインスタンス確認: {db.db_path if db else 'None'}")
+
 task_service = TaskService()
 calendar_service = CalendarService()
 openai_service = OpenAIService()
