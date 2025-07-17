@@ -145,6 +145,32 @@ class TaskService:
                 if key in original_message:
                     used_date_keywords.append(key)
                     original_message = original_message.replace(key, '')
+        
+        # 優先度キーワードの抽出（タスク名抽出の前に行う）
+        priority_keywords = {
+            'urgent': ['急ぎ', '緊急', 'すぐ', '今すぐ', '至急', 'ASAP', 'urgent', 'immediate', 'deadline', '締切'],
+            'important': ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要']
+        }
+        
+        detected_urgent = False
+        detected_important = False
+        
+        # 緊急キーワードの検出
+        for keyword in priority_keywords['urgent']:
+            if keyword in original_message:
+                detected_urgent = True
+                original_message = original_message.replace(keyword, '')
+                print(f"[parse_task_message] 緊急キーワード検出: {keyword}")
+                break
+        
+        # 重要キーワードの検出
+        for keyword in priority_keywords['important']:
+            if keyword in original_message:
+                detected_important = True
+                original_message = original_message.replace(keyword, '')
+                print(f"[parse_task_message] 重要キーワード検出: {keyword}")
+                break
+        
         # タスク名の抽出
         task_name = original_message
         print(f"[parse_task_message] タスク名抽出前: '{task_name}'")
@@ -179,35 +205,6 @@ class TaskService:
         if not task_name:
             print("[parse_task_message] タスク名が見つかりませんでした")
             raise ValueError("タスク名が見つかりませんでした")
-        
-        # 優先度キーワードの抽出
-        priority_keywords = {
-            'urgent': ['急ぎ', '緊急', 'すぐ', '今すぐ', '至急', 'ASAP', 'urgent', 'immediate', 'deadline', '締切'],
-            'important': ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要']
-        }
-        
-        detected_urgent = False
-        detected_important = False
-        
-        # 緊急キーワードの検出
-        for keyword in priority_keywords['urgent']:
-            if keyword in message:
-                detected_urgent = True
-                message = message.replace(keyword, '')
-                # タスク名からも除去するためoriginal_messageも更新
-                original_message = original_message.replace(keyword, '')
-                print(f"[parse_task_message] 緊急キーワード検出: {keyword}")
-                break
-        
-        # 重要キーワードの検出
-        for keyword in priority_keywords['important']:
-            if keyword in message:
-                detected_important = True
-                message = message.replace(keyword, '')
-                # タスク名からも除去するためoriginal_messageも更新
-                original_message = original_message.replace(keyword, '')
-                print(f"[parse_task_message] 重要キーワード検出: {keyword}")
-                break
         
         # 優先度の決定
         if detected_urgent and detected_important:
