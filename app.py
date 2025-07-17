@@ -184,20 +184,53 @@ def oauth2callback():
         add_google_authenticated_user(user_id)
         print("[oauth2callback] user registered")
         
-        # 認証完了メッセージと動的メニューを送信
+        # 認証完了メッセージと使い方ガイドを送信
         try:
+            # 使い方ガイドをテキストで送信
+            guide_text = """✅ Googleカレンダー連携完了！
+
+🤖 AIタスクコンシェルジュの使い方
+
+📝 基本的な使い方：
+• 「タスク追加」→ タスク名・所要時間・期限を入力
+• 「タスク一覧」→ 登録済みタスクを確認
+• 「タスク確認」→ 今日のタスクを完了/繰り越し処理
+
+🚨 緊急タスク：
+• 「緊急タスク追加」→ 今日の空き時間に自動スケジュール
+
+🔮 未来タスク：
+• 「未来タスク追加」→ 投資につながるタスクを登録
+• 毎週日曜18時に来週やるタスクを選択可能
+
+📅 スケジュール管理：
+• タスクを選択→「はい」→ AIが最適なスケジュールを提案
+• 「承認する」→ Googleカレンダーに自動登録
+
+💡 便利な機能：
+• 「タスク削除」→ 不要なタスクを削除
+• 「キャンセル」→ 操作をキャンセル
+
+何かご質問があれば、いつでもお気軽にお声かけください！"""
+            
+            line_bot_api.push_message(
+                str(user_id),
+                TextSendMessage(text=guide_text)
+            )
+            
+            # 操作メニューも送信
             from linebot.models import FlexSendMessage
             flex_message = get_simple_flex_menu(str(user_id))
             line_bot_api.push_message(
                 str(user_id),
                 FlexSendMessage(
-                    alt_text="認証完了・ご利用案内・操作メニュー",
+                    alt_text="操作メニュー",
                     contents=flex_message
                 )
             )
-            print("[oauth2callback] 認証完了メニューを送信しました")
+            print("[oauth2callback] 認証完了ガイドとメニューを送信しました")
         except Exception as e:
-            print(f"[oauth2callback] 認証完了メニュー送信エラー: {e}")
+            print(f"[oauth2callback] 認証完了ガイド送信エラー: {e}")
         
         # pending_actionがあれば自動実行
         pending_path = f"pending_actions/pending_action_{user_id}.json"
