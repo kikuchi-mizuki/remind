@@ -619,12 +619,12 @@ class TaskService:
     def format_future_task_list(self, tasks: List[Task], show_select_guide: bool = True) -> str:
         """未来タスク一覧をフォーマット"""
         if not tasks:
-            return "⭐️未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n━━━━━━━━━━━━"
+            return "⭐未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n━━━━━━━━━━━━"
         
         # 作成日時でソート（新しい順）
         tasks_sorted = sorted(tasks, key=lambda x: x.created_at, reverse=True)
         
-        formatted_list = "⭐️未来タスク一覧\n━━━━━━━━━━━━\n"
+        formatted_list = "⭐未来タスク一覧\n━━━━━━━━━━━━\n"
         
         for idx, task in enumerate(tasks_sorted, 1):
             formatted_list += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
@@ -742,13 +742,9 @@ class TaskService:
         schedule_text += f"📅 {date_str}\n"
         schedule_text += "━━━━━━━━━━\n"
         
-        # タスクリスト（新しく追加されたタスクには🔥を付ける）
+        # タスクリスト
         for idx, task in enumerate(today_tasks_sorted, 1):
-            # 新しく追加されたタスクかどうかを判定（作成日が今日の場合）
-            is_new = task.created_at.date() == today.date()
-            fire_emoji = "🔥" if is_new else ""
-            
-            schedule_text += f"{idx}. {task.name} {fire_emoji}\n"
+            schedule_text += f"{idx}. {task.name}\n"
             schedule_text += f"   🕐 {task.duration_minutes}分\n"
         
         schedule_text += "━━━━━━━━━━"
