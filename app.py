@@ -187,6 +187,10 @@ def oauth2callback():
         # 認証完了メッセージと使い方ガイドを送信
         try:
             print(f"[oauth2callback] 認証完了メッセージ送信開始: user_id={user_id}")
+            
+            # LINE API制限チェック用フラグ
+            line_api_limited = False
+            
             # 簡潔な認証完了メッセージを送信
             guide_text = """✅ Googleカレンダー連携完了！
 
@@ -210,6 +214,7 @@ def oauth2callback():
                 print(f"[oauth2callback] ガイドメッセージ送信エラー: {e}")
                 if "429" in str(e) or "monthly limit" in str(e):
                     print(f"[oauth2callback] LINE API制限エラー: {e}")
+                    line_api_limited = True
                     # 制限エラーの場合は、認証完了のみを通知
                     try:
                         print(f"[oauth2callback] 簡潔メッセージ送信試行: user_id={user_id}")
@@ -227,29 +232,33 @@ def oauth2callback():
                     traceback.print_exc()
             
             # 操作メニューも送信（制限エラーの場合はスキップ）
-            try:
-                from linebot.models import FlexSendMessage
-                print(f"[oauth2callback] Flexメニュー生成開始: user_id={user_id}")
-                flex_message = get_simple_flex_menu(str(user_id))
-                print(f"[oauth2callback] Flexメニュー生成完了: {flex_message}")
-                print(f"[oauth2callback] Flexメニュー送信試行: user_id={user_id}")
-                line_bot_api.push_message(
-                    str(user_id),
-                    FlexSendMessage(
-                        alt_text="操作メニュー",
-                        contents=flex_message
+            if not line_api_limited:
+                try:
+                    from linebot.models import FlexSendMessage
+                    print(f"[oauth2callback] Flexメニュー生成開始: user_id={user_id}")
+                    flex_message = get_simple_flex_menu(str(user_id))
+                    print(f"[oauth2callback] Flexメニュー生成完了: {flex_message}")
+                    print(f"[oauth2callback] Flexメニュー送信試行: user_id={user_id}")
+                    line_bot_api.push_message(
+                        str(user_id),
+                        FlexSendMessage(
+                            alt_text="操作メニュー",
+                            contents=flex_message
+                        )
                     )
-                )
-                print("[oauth2callback] Flexメニュー送信成功")
-            except Exception as e:
-                print(f"[oauth2callback] Flexメニュー送信エラー詳細: {e}")
-                if "429" in str(e) or "monthly limit" in str(e):
-                    print(f"[oauth2callback] Flexメニュー送信制限エラー: {e}")
-                    print("[oauth2callback] Flexメニュー送信をスキップしました")
+                    print("[oauth2callback] Flexメニュー送信成功")
+                except Exception as e:
+                    print(f"[oauth2callback] Flexメニュー送信エラー詳細: {e}")
+                    if "429" in str(e) or "monthly limit" in str(e):
+                        print(f"[oauth2callback] Flexメニュー送信制限エラー: {e}")
+                        print("[oauth2callback] Flexメニュー送信をスキップしました")
+                        line_api_limited = True
+                    else:
+                        print(f"[oauth2callback] Flexメニュー送信エラー: {e}")
+                        import traceback
+                        traceback.print_exc()
                 else:
-                    print(f"[oauth2callback] Flexメニュー送信エラー: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    print("[oauth2callback] LINE API制限により、Flexメニュー送信をスキップしました")
             
             print("[oauth2callback] 認証完了処理完了")
         except Exception as e:
@@ -336,6 +345,7 @@ def oauth2callback():
                 .instruction { background: #E3F2FD; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3; }
                 .highlight { color: #2196F3; font-weight: bold; }
                 .note { color: #FF9800; font-size: 14px; margin-top: 20px; }
+                .warning { background: #FFF3E0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF9800; }
             </style>
         </head>
         <body>
@@ -351,8 +361,13 @@ def oauth2callback():
                     3. 「タスク追加」ボタンを押してタスクを追加<br>
                     4. または「タスク一覧」で既存タスクを確認
                 </div>
+                <div class="warning">
+                    <strong>⚠️ メッセージが表示されない場合：</strong><br>
+                    LINE APIの制限により、自動メッセージが送信できない場合があります。<br>
+                    その場合は、手動で「タスク追加」と送信してください。
+                </div>
                 <div class="note">
-                    ※ メッセージが表示されない場合は、「タスク追加」と手動で送信してください。
+                    ※ 認証は正常に完了しています。手動でメッセージを送信すれば利用可能です。
                 </div>
             </div>
         </body>
