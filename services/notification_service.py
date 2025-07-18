@@ -18,6 +18,9 @@ class NotificationService:
         self.task_service = TaskService()
         self.scheduler_thread = None
         self.is_running = False
+        # データベース初期化
+        from models.database import init_db
+        self.db = init_db()
 
     def send_daily_task_notification(self):
         """毎日のタスク通知を送信（タスク一覧コマンドと同じ形式）"""
@@ -278,7 +281,13 @@ class NotificationService:
         """
         アクティブなユーザーID一覧を取得（DBから取得）
         """
-        return db.get_all_user_ids()
+        try:
+            from models.database import init_db
+            db_instance = init_db()
+            return db_instance.get_all_user_ids()
+        except Exception as e:
+            print(f"Error getting active user ids: {e}")
+            return []
 
     def _send_weekly_reports_to_all_users(self):
         """全ユーザーに週次レポートを送信"""

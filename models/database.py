@@ -73,6 +73,13 @@ class Database:
         except sqlite3.OperationalError:
             print("[init_database] task_typeカラムは既に存在します")
         
+        # 既存のテーブルにpriorityカラムが存在しない場合は追加
+        try:
+            cursor.execute('ALTER TABLE tasks ADD COLUMN priority TEXT DEFAULT "normal"')
+            print("[init_database] priorityカラムを追加しました")
+        except sqlite3.OperationalError:
+            print("[init_database] priorityカラムは既に存在します")
+        
         # 未来タスクテーブルの作成
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS future_tasks (

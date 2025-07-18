@@ -1,63 +1,88 @@
 #!/usr/bin/env python3
-"""
-スケジューラーの動作をテストするスクリプト
-"""
-
+import os
+import sys
+from datetime import datetime, timedelta
+import pytz
 import schedule
 import time
-from datetime import datetime
-import pytz
+import threading
+
+# プロジェクトのルートディレクトリをパスに追加
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from services.notification_service import NotificationService
+from models.database import init_db
 
 def test_scheduler():
-    """スケジューラーの動作をテスト"""
+    """スケジューラーのテスト"""
     print("=== スケジューラーテスト開始 ===")
     
-    # 現在時刻を取得
-    jst = pytz.timezone('Asia/Tokyo')
-    now = datetime.now(jst)
-    print(f"現在時刻 (JST): {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    # データベース初期化
+    init_db()
     
-    # スケジューラーをクリア
-    schedule.clear()
+    # 通知サービス初期化
+    notification_service = NotificationService()
     
-    # テスト用のジョブを追加
-    def job_8am():
-        print("✅ 8:00のジョブが実行されました")
+    # 現在時刻を表示
+    utc_now = datetime.now(pytz.UTC)
+    jst_now = datetime.now(pytz.timezone('Asia/Tokyo'))
+    print(f"現在時刻 - UTC: {utc_now.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"現在時刻 - JST: {jst_now.strftime('%Y-%m-%d %H:%M:%S')}")
     
-    def job_21pm():
-        print("✅ 21:00のジョブが実行されました")
+    # スケジューラーの状態確認
+    print(f"スケジューラー動作中: {notification_service.is_running}")
+    print(f"スケジューラースレッド存在: {notification_service.scheduler_thread is not None}")
+    if notification_service.scheduler_thread:
+        print(f"スケジューラースレッド動作中: {notification_service.scheduler_thread.is_alive()}")
     
-    # スケジュール設定
-    schedule.every().day.at("08:00").do(job_8am)
-    schedule.every().day.at("21:00").do(job_21pm)
+    # アクティブユーザー確認
+    try:
+        user_ids = notification_service._get_active_user_ids()
+        print(f"アクティブユーザー数: {len(user_ids)}")
+        for user_id in user_ids:
+            print(f"  - {user_id}")
+    except Exception as e:
+        print(f"ユーザー取得エラー: {e}")
     
-    print("設定されたジョブ:")
-    for job in schedule.jobs:
-        print(f"  - {job.next_run} (JST)")
+    # スケジューラー開始
+    print("\n=== スケジューラー開始 ===")
+    notification_service.start_scheduler()
     
-    # 次の実行時刻を計算
-    next_8am = schedule.jobs[0].next_run
-    next_21pm = schedule.jobs[1].next_run
+    # 5分間動作確認
+    print("\n=== 5分間動作確認 ===")
+    for i in range(5):
+        print(f"{i+1}分経過: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"  スケジューラー動作中: {notification_service.is_running}")
+        if notification_service.scheduler_thread:
+            print(f"  スケジューラースレッド動作中: {notification_service.scheduler_thread.is_alive()}")
+        
+        # 次の実行時刻を確認
+        next_run = schedule.next_run()
+        if next_run:
+            print(f"  次回実行予定: {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        time.sleep(60)
     
-    print(f"\n次の8:00実行予定: {next_8am}")
-    print(f"次の21:00実行予定: {next_21pm}")
-    
-    # 現在時刻と比較（タイムゾーンを合わせる）
-    if next_8am:
-        next_8am_jst = next_8am.replace(tzinfo=jst)
-        if next_8am_jst > now:
-            time_until_8am = next_8am_jst - now
-            print(f"8:00まであと: {time_until_8am}")
+    # 手動で通知テスト
+    print("\n=== 手動通知テスト ===")
+    try:
+        user_ids = notification_service._get_active_user_ids()
+        if user_ids:
+            test_user_id = user_ids[0]
+            print(f"テストユーザー {test_user_id} に通知送信")
+            notification_service.send_custom_notification(
+                test_user_id, 
+                f"🧪 スケジューラーテスト通知\n\n時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nこの通知が届けば、通知システムは正常に動作しています。"
+            )
+            print("テスト通知送信完了")
         else:
-            print("8:00は今日既に過ぎています")
+            print("テスト対象のユーザーが見つかりません")
+    except Exception as e:
+        print(f"テスト通知送信エラー: {e}")
+        import traceback
+        traceback.print_exc()
     
-    if next_21pm:
-        next_21pm_jst = next_21pm.replace(tzinfo=jst)
-        if next_21pm_jst > now:
-            time_until_21pm = next_21pm_jst - now
-            print(f"21:00まであと: {time_until_21pm}")
-        else:
-            print("21:00は今日既に過ぎています")
+    print("\n=== テスト完了 ===")
 
 if __name__ == "__main__":
     test_scheduler() 
