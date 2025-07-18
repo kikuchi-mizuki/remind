@@ -51,7 +51,7 @@ class OpenAIService:
             "この日時は、すべての自然言語の解釈において常に絶対的な基準としてください。\n"
             "会話の流れや前回の入力に引きずられることなく、毎回この現在日時を最優先にしてください。\n"
         )
-        prompt += self._create_schedule_prompt(task_info, total_duration, free_time_str, week_info)
+        prompt += self._create_schedule_prompt(task_info, total_duration, free_time_str, week_info, now_str)
         
         try:
             response = self.client.chat.completions.create(
@@ -114,7 +114,7 @@ class OpenAIService:
             print(f"OpenAI API error: {e}")
             return "スケジュールの修正に失敗しました。"
 
-    def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "", week_info: str = "") -> str:
+    def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "", week_info: str = "", now_str: str = "") -> str:
         """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止・本文必須・優先度考慮）"""
         # 優先度に応じたアイコンを追加
         priority_icons = {
@@ -143,6 +143,8 @@ class OpenAIService:
 - 必ず全てのタスクを使い切る必要はありません（空き時間に収まる範囲で）。
 - 出力は必ず下記のフォーマット例に厳密に従ってください。
 - 各タスクには必ず「日付（M/D）・曜日・時間帯（開始時刻・終了時刻）」を明記してください。
+- 日付と曜日の計算は必ず現在日時（{now_str}）を基準に正確に行ってください。
+- 7月21日は月曜日、7月22日は火曜日、7月23日は水曜日、7月24日は木曜日、7月25日は金曜日、7月26日は土曜日、7月27日は日曜日です。
 - スケジュール本文（🕒や📝の行）は必ず1つ以上出力してください。本文が1つもない場合は「エラー: スケジュール本文が生成できませんでした」とだけ出力してください。
 - 最後に必ず「✅理由・まとめ」を記載してください。
 - 「このスケジュールでよろしければ…」などの案内文や「理由・まとめ」は1回だけ記載し、繰り返さないでください。
