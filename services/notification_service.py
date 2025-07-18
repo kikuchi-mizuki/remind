@@ -18,36 +18,45 @@ class NotificationService:
         self.task_service = TaskService()
         self.scheduler_thread = None
         self.is_running = False
+        # 重複実行防止用のタイムスタンプ
+        self.last_notification_times = {}
         # データベース初期化
         from models.database import init_db
         self.db = init_db()
 
+    def _check_duplicate_execution(self, notification_type: str, cooldown_minutes: int = 5) -> bool:
+        """重複実行をチェックし、必要に応じて実行を防ぐ"""
+        now = datetime.now()
+        last_time = self.last_notification_times.get(notification_type)
+        
+        if last_time and (now - last_time).total_seconds() < cooldown_minutes * 60:
+            print(f"[_check_duplicate_execution] {notification_type} の重複実行を防止: 前回実行から {(now - last_time).total_seconds():.1f}秒")
+            return True
+        
+        self.last_notification_times[notification_type] = now
+        return False
+
     def send_daily_task_notification(self):
         """毎日のタスク通知を送信（タスク一覧コマンドと同じ形式）"""
         print(f"[send_daily_task_notification] 開始: {datetime.now()}")
-        try:
-            user_ids = self._get_active_user_ids()
-            print(f"[send_daily_task_notification] ユーザー数: {len(user_ids)}")
-            for user_id in user_ids:
-                try:
-                    print(f"[send_daily_task_notification] ユーザー {user_id} に送信中...")
-                    # タスク一覧を取得
-                    all_tasks = self.task_service.get_user_tasks(user_id)
-                    print(f"[send_daily_task_notification] タスク数: {len(all_tasks)}")
-                    # タスク一覧コマンドと同じ形式で出力
-                    message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
-                    print(f"[send_daily_task_notification] メッセージ送信: {message[:100]}...")
-                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
-                    print(f"[send_daily_task_notification] ユーザー {user_id} に送信完了")
-                except Exception as e:
-                    print(f"[send_daily_task_notification] ユーザー {user_id} への送信エラー: {e}")
-                    import traceback
-                    traceback.print_exc()
-            print(f"[send_daily_task_notification] 完了: {datetime.now()}")
-        except Exception as e:
-            print(f"Error sending daily notifications: {e}")
-            import traceback
-            traceback.print_exc()
+        
+        # 重複実行防止チェック
+        if self._check_duplicate_execution("daily_task_notification", cooldown_minutes=5):
+            print(f"[send_daily_task_notification] 重複実行をスキップ")
+            return
+        
+        user_ids = self._get_active_user_ids()
+        print(f"[send_daily_task_notification] ユーザー数: {len(user_ids)}")
+        for user_id in user_ids:
+            try:
+                print(f"[send_daily_task_notification] ユーザー {user_id} に送信中...")
+                self._send_task_notification_to_user(user_id)
+                print(f"[send_daily_task_notification] ユーザー {user_id} に送信完了")
+            except Exception as e:
+                print(f"[send_daily_task_notification] ユーザー {user_id} への送信エラー: {e}")
+                import traceback
+                traceback.print_exc()
+        print(f"[send_daily_task_notification] 完了: {datetime.now()}")
 
     def _is_google_authenticated(self, user_id):
         """tokenの存在と有効性をDBでチェック"""
@@ -291,9 +300,17 @@ class NotificationService:
 
     def _send_weekly_reports_to_all_users(self):
         """全ユーザーに週次レポートを送信"""
+        print(f"[_send_weekly_reports_to_all_users] 開始: {datetime.now()}")
+        
+        # 重複実行防止チェック
+        if self._check_duplicate_execution("weekly_reports", cooldown_minutes=5):
+            print(f"[_send_weekly_reports_to_all_users] 重複実行をスキップ")
+            return
+        
         user_ids = self._get_active_user_ids()
         for user_id in user_ids:
             self.send_weekly_report(user_id)
+        print(f"[_send_weekly_reports_to_all_users] 完了: {datetime.now()}")
 
     def _get_completed_tasks_this_week(self, user_id: str) -> List[Task]:
         """今週完了したタスクを取得"""
@@ -374,6 +391,12 @@ class NotificationService:
     def send_carryover_check(self):
         """毎日21時に今日のタスク確認（タスク確認コマンドと同じ形式）"""
         print(f"[send_carryover_check] 開始: {datetime.now()}")
+        
+        # 重複実行防止チェック
+        if self._check_duplicate_execution("carryover_check", cooldown_minutes=5):
+            print(f"[send_carryover_check] 重複実行をスキップ")
+            return
+        
         import pytz
         user_ids = self._get_active_user_ids()
         print(f"[send_carryover_check] ユーザー数: {len(user_ids)}")
@@ -400,11 +423,17 @@ class NotificationService:
                 print(f"[send_carryover_check] ユーザー {user_id} への送信エラー: {e}")
                 import traceback
                 traceback.print_exc()
-        print(f"[send_carryover_check] 完了: {datetime.now()}") 
+        print(f"[send_carryover_check] 完了: {datetime.now()}")
 
     def send_future_task_selection(self):
         """未来タスク選択通知を送信（毎週日曜日18時）"""
         print(f"[send_future_task_selection] 開始: {datetime.now()}")
+        
+        # 重複実行防止チェック
+        if self._check_duplicate_execution("future_task_selection", cooldown_minutes=5):
+            print(f"[send_future_task_selection] 重複実行をスキップ")
+            return
+        
         try:
             user_ids = self._get_active_user_ids()
             print(f"[send_future_task_selection] ユーザー数: {len(user_ids)}")
