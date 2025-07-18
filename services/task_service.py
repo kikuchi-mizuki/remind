@@ -155,6 +155,8 @@ class TaskService:
                 due_date = self._parse_natural_date_expression(message)
                 if due_date:
                     print(f"[parse_task_message] 自然言語日付処理: {due_date}")
+                    # 日付表現をメッセージから除去
+                    message = self._remove_date_expressions(message)
                 else:
                     try:
                         from services.openai_service import OpenAIService
@@ -307,6 +309,33 @@ class TaskService:
             return target_date.strftime('%Y-%m-%d')
         
         return None
+
+    def _remove_date_expressions(self, text: str) -> str:
+        """日付表現をテキストから除去"""
+        # 週の曜日マッピング
+        weekday_map = {
+            '月', '火', '水', '木', '金', '土', '日',
+            '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日',
+            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+        }
+        
+        # 週表現
+        week_expressions = ['今週', '来週', '再来週', '翌週', '今週末', '来週末']
+        
+        # 日付表現を除去
+        for expression in week_expressions:
+            for weekday in weekday_map:
+                pattern = f"{expression}{weekday}"
+                text = text.replace(pattern, '')
+        
+        # 単独の週表現も除去
+        for expression in week_expressions:
+            text = text.replace(expression, '')
+        
+        # 余分な空白を整理
+        text = re.sub(r'[\s　]+', ' ', text).strip()
+        
+        return text
 
     def _determine_priority(self, task_name: str, due_date: str, duration_minutes: int) -> str:
         """タスクの優先度を判定（AIを使用）"""
