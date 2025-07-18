@@ -221,14 +221,22 @@ def oauth2callback():
             
             # 操作メニューも送信
             from linebot.models import FlexSendMessage
+            print(f"[oauth2callback] Flexメニュー生成開始: user_id={user_id}")
             flex_message = get_simple_flex_menu(str(user_id))
-            line_bot_api.push_message(
-                str(user_id),
-                FlexSendMessage(
-                    alt_text="操作メニュー",
-                    contents=flex_message
+            print(f"[oauth2callback] Flexメニュー生成完了: {flex_message}")
+            try:
+                line_bot_api.push_message(
+                    str(user_id),
+                    FlexSendMessage(
+                        alt_text="操作メニュー",
+                        contents=flex_message
+                    )
                 )
-            )
+                print("[oauth2callback] Flexメニュー送信成功")
+            except Exception as e:
+                print(f"[oauth2callback] Flexメニュー送信エラー: {e}")
+                import traceback
+                traceback.print_exc()
             print("[oauth2callback] 認証完了ガイドとメニューを送信しました")
         except Exception as e:
             print(f"[oauth2callback] 認証完了ガイド送信エラー: {e}")
@@ -2001,17 +2009,26 @@ def callback():
 
                         # どのコマンドにも該当しない場合はガイドメッセージを返信
                         print(f"[DEBUG] 認識されていないコマンド: {user_message}")
+                        print(f"[DEBUG] 認証状態確認: user_id={user_id}")
+                        auth_status = is_google_authenticated(user_id)
+                        print(f"[DEBUG] 認証状態: {auth_status}")
                         print(f"[DEBUG] メニュー生成開始: user_id={user_id}")
                         from linebot.models import FlexSendMessage
                         flex_message = get_simple_flex_menu(user_id)
                         print(f"[DEBUG] メニュー生成完了: {flex_message}")
-                        line_bot_api.reply_message(
-                            reply_token,
-                            FlexSendMessage(
-                                alt_text="ご利用案内・操作メニュー",
-                                contents=flex_message
+                        try:
+                            line_bot_api.reply_message(
+                                reply_token,
+                                FlexSendMessage(
+                                    alt_text="ご利用案内・操作メニュー",
+                                    contents=flex_message
+                                )
                             )
-                        )
+                            print("[DEBUG] Flexメニュー送信成功")
+                        except Exception as e:
+                            print(f"[DEBUG] Flexメニュー送信エラー: {e}")
+                            import traceback
+                            traceback.print_exc()
                         continue
                     except Exception as e:
                         print("エラー:", e)
