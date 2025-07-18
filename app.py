@@ -1337,6 +1337,7 @@ def callback():
 
                         # 「タスク削除」と送信された場合、通常タスクと未来タスクの両方を表示
                         if user_message.strip() == "タスク削除":
+                            print(f"[DEBUG] タスク削除コマンド処理開始: user_id={user_id}")
                             # 通常のタスクと未来タスクを取得
                             all_tasks = task_service.get_user_tasks(user_id)
                             future_tasks = task_service.get_user_future_tasks(user_id)
@@ -1389,10 +1390,12 @@ def callback():
                             # 削除モードファイルを作成
                             import os
                             delete_mode_file = f"delete_mode_{user_id}.json"
+                            print(f"[DEBUG] 削除モードファイル作成開始: {delete_mode_file}")
                             with open(delete_mode_file, "w") as f:
                                 import json
                                 import datetime
                                 json.dump({"mode": "delete", "timestamp": datetime.datetime.now().isoformat()}, f)
+                            print(f"[DEBUG] 削除モードファイル作成完了: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}")
                             
                             line_bot_api.reply_message(
                                 reply_token,
