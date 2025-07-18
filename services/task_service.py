@@ -312,23 +312,25 @@ class TaskService:
 
     def _remove_date_expressions(self, text: str) -> str:
         """日付表現をテキストから除去"""
-        # 週の曜日マッピング
-        weekday_map = {
-            '月', '火', '水', '木', '金', '土', '日',
-            '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日',
-            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
-        }
+        # 完全な日付表現パターンを先に除去
+        date_patterns = [
+            '来週月曜日', '来週火曜日', '来週水曜日', '来週木曜日', '来週金曜日', '来週土曜日', '来週日曜日',
+            '今週月曜日', '今週火曜日', '今週水曜日', '今週木曜日', '今週金曜日', '今週土曜日', '今週日曜日',
+            '再来週月曜日', '再来週火曜日', '再来週水曜日', '再来週木曜日', '再来週金曜日', '再来週土曜日', '再来週日曜日',
+            '翌週月曜日', '翌週火曜日', '翌週水曜日', '翌週木曜日', '翌週金曜日', '翌週土曜日', '翌週日曜日',
+            '今週末', '来週末'
+        ]
         
-        # 週表現
-        week_expressions = ['今週', '来週', '再来週', '翌週', '今週末', '来週末']
+        for pattern in date_patterns:
+            text = text.replace(pattern, '')
         
-        # 日付表現を除去
-        for expression in week_expressions:
-            for weekday in weekday_map:
-                pattern = f"{expression}{weekday}"
-                text = text.replace(pattern, '')
+        # 単独の曜日表現も除去
+        weekday_patterns = ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日']
+        for pattern in weekday_patterns:
+            text = text.replace(pattern, '')
         
         # 単独の週表現も除去
+        week_expressions = ['今週', '来週', '再来週', '翌週']
         for expression in week_expressions:
             text = text.replace(expression, '')
         
