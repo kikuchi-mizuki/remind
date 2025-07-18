@@ -151,15 +151,20 @@ class TaskService:
             
             # AIによる日付抽出（自然言語で見つからない場合）
             if not due_date:
-                try:
-                    from services.openai_service import OpenAIService
-                    ai_service = OpenAIService()
-                    ai_date = ai_service.extract_due_date_from_text(message)
-                    if ai_date:
-                        due_date = ai_date
-                        print(f"[parse_task_message] AI日付抽出: {due_date}")
-                except Exception as e:
-                    print(f"[parse_task_message] AI日付抽出エラー: {e}")
+                # より確実な自然言語日付処理を先に試行
+                due_date = self._parse_natural_date_expression(message)
+                if due_date:
+                    print(f"[parse_task_message] 自然言語日付処理: {due_date}")
+                else:
+                    try:
+                        from services.openai_service import OpenAIService
+                        ai_service = OpenAIService()
+                        ai_date = ai_service.extract_due_date_from_text(message)
+                        if ai_date:
+                            due_date = ai_date
+                            print(f"[parse_task_message] AI日付抽出: {due_date}")
+                    except Exception as e:
+                        print(f"[parse_task_message] AI日付抽出エラー: {e}")
             
             # タスク名の抽出
             task_name = re.sub(r'[\s　]+', ' ', message).strip()
@@ -242,6 +247,66 @@ class TaskService:
             import traceback
             traceback.print_exc()
             raise
+
+    def _parse_natural_date_expression(self, text: str) -> Optional[str]:
+        """自然言語の日付表現を解析してYYYY-MM-DD形式で返す"""
+        import pytz
+        from datetime import datetime, timedelta
+        jst = pytz.timezone('Asia/Tokyo')
+        today = datetime.now(jst)
+        
+        # 週の曜日マッピング
+        weekday_map = {
+            '月': 0, '火': 1, '水': 2, '木': 3, '金': 4, '土': 5, '日': 6,
+            '月曜日': 0, '火曜日': 1, '水曜日': 2, '木曜日': 3, '金曜日': 4, '土曜日': 5, '日曜日': 6,
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6
+        }
+        
+        # 今週の処理
+        if '今週' in text:
+            for weekday_name, weekday_num in weekday_map.items():
+                if weekday_name in text:
+                    # 今週の該当曜日を計算
+                    days_ahead = weekday_num - today.weekday()
+                    if days_ahead <= 0:  # 今週の該当曜日が既に過ぎている場合
+                        days_ahead += 7
+                    target_date = today + timedelta(days=days_ahead)
+                    return target_date.strftime('%Y-%m-%d')
+        
+        # 来週の処理
+        if '来週' in text:
+            for weekday_name, weekday_num in weekday_map.items():
+                if weekday_name in text:
+                    # 来週の該当曜日を計算
+                    days_ahead = weekday_num - today.weekday() + 7
+                    target_date = today + timedelta(days=days_ahead)
+                    return target_date.strftime('%Y-%m-%d')
+        
+        # 再来週の処理
+        if '再来週' in text or '翌週' in text:
+            for weekday_name, weekday_num in weekday_map.items():
+                if weekday_name in text:
+                    # 再来週の該当曜日を計算
+                    days_ahead = weekday_num - today.weekday() + 14
+                    target_date = today + timedelta(days=days_ahead)
+                    return target_date.strftime('%Y-%m-%d')
+        
+        # 今週末・来週末の処理
+        if '今週末' in text:
+            # 今週の土曜日を計算
+            days_ahead = 5 - today.weekday()  # 土曜日は5
+            if days_ahead <= 0:
+                days_ahead += 7
+            target_date = today + timedelta(days=days_ahead)
+            return target_date.strftime('%Y-%m-%d')
+        
+        if '来週末' in text:
+            # 来週の土曜日を計算
+            days_ahead = 5 - today.weekday() + 7
+            target_date = today + timedelta(days=days_ahead)
+            return target_date.strftime('%Y-%m-%d')
+        
+        return None
 
     def _determine_priority(self, task_name: str, due_date: str, duration_minutes: int) -> str:
         """タスクの優先度を判定（AIを使用）"""
@@ -609,3 +674,57 @@ class TaskService:
             'duration_minutes': duration_minutes,
             'priority': priority
         } 
+
+    def format_schedule_list(self, tasks: List[Task], show_select_guide: bool = True) -> str:
+        """ユーザーの好みに合わせたスケジュール表示形式"""
+        if not tasks:
+            return "✅本日のスケジュールです！\n📅 タスクはありません"
+        
+        # 今日の日付を取得
+        jst = pytz.timezone('Asia/Tokyo')
+        today = datetime.now(jst)
+        today_str = today.strftime('%Y-%m-%d')
+        
+        # 今日のタスクのみを抽出
+        today_tasks = [task for task in tasks if task.due_date == today_str]
+        
+        if not today_tasks:
+            return "✅本日のスケジュールです！\n📅 タスクはありません"
+        
+        # 優先度でソート
+        def sort_key(task):
+            priority_order = {
+                "urgent_important": 0,
+                "urgent_not_important": 1,
+                "not_urgent_important": 2,
+                "normal": 3
+            }
+            return priority_order.get(task.priority, 3)
+        
+        today_tasks_sorted = sorted(today_tasks, key=sort_key)
+        
+        # 日付フォーマット
+        weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+        weekday = weekday_names[today.weekday()]
+        date_str = f"{today.year}/{today.month:02d}/{today.day:02d} ({weekday})"
+        
+        # スケジュール表示
+        schedule_text = "✅本日のスケジュールです！\n"
+        schedule_text += f"📅 {date_str}\n"
+        schedule_text += "━━━━━━━━━━\n"
+        
+        # タスクリスト（新しく追加されたタスクには🔥を付ける）
+        for idx, task in enumerate(today_tasks_sorted, 1):
+            # 新しく追加されたタスクかどうかを判定（作成日が今日の場合）
+            is_new = task.created_at.date() == today.date()
+            fire_emoji = "🔥" if is_new else ""
+            
+            schedule_text += f"{idx}. {task.name} {fire_emoji}\n"
+            schedule_text += f"   🕐 {task.duration_minutes}分\n"
+        
+        schedule_text += "━━━━━━━━━━"
+        
+        if show_select_guide:
+            schedule_text += "\n終わったタスクを選んでください！\n例：１、３、５"
+        
+        return schedule_text 
