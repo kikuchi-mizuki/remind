@@ -342,12 +342,6 @@ def oauth2callback():
                 .container { background: white; border-radius: 10px; padding: 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
                 .success { color: #4CAF50; font-size: 28px; margin-bottom: 20px; font-weight: bold; }
                 .message { color: #666; margin-bottom: 20px; line-height: 1.6; }
-                .instruction { background: #E3F2FD; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3; }
-                .highlight { color: #2196F3; font-weight: bold; }
-                .note { color: #FF9800; font-size: 14px; margin-top: 20px; }
-                .warning { background: #FFF3E0; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #FF9800; }
-                .action-box { background: #E8F5E8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50; }
-                .action-text { font-size: 18px; font-weight: bold; color: #2E7D32; }
             </style>
         </head>
         <body>
@@ -355,30 +349,6 @@ def oauth2callback():
                 <div class="success">✅ 認証完了</div>
                 <div class="message">
                     Googleカレンダーとの連携が完了しました！
-                </div>
-                <div class="action-box">
-                    <div class="action-text">🚀 すぐに使い始めましょう！</div>
-                    <p style="margin: 10px 0 0 0; color: #2E7D32;">
-                        1. LINEアプリに戻る<br>
-                        2. <strong>「タスク追加」</strong>と送信<br>
-                        3. タスク名・時間・期限を入力
-                    </p>
-                </div>
-                <div class="instruction">
-                    <strong>📱 LINEアプリでの操作：</strong><br>
-                    • 「タスク追加」→ 新しいタスクを登録<br>
-                    • 「タスク一覧」→ 登録済みタスクを確認<br>
-                    • 「緊急タスク追加」→ 今日の空き時間に自動スケジュール<br>
-                    • 「未来タスク追加」→ 投資につながるタスクを登録<br>
-                    • 「タスク削除」→ 不要なタスクを削除
-                </div>
-                <div class="warning">
-                    <strong>⚠️ 重要：</strong><br>
-                    LINE APIの制限により、自動メッセージが送信されませんでした。<br>
-                    <strong>手動で「タスク追加」と送信してください。</strong>
-                </div>
-                <div class="note">
-                    ※ 認証は正常に完了しています。手動でメッセージを送信すれば利用可能です。
                 </div>
             </div>
         </body>
