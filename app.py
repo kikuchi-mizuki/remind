@@ -1226,6 +1226,11 @@ def callback():
                                                     title = ev['title']
                                                     title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
                                                     
+                                                    # タスク名から⭐️を除去し、⭐に統一
+                                                    while '⭐️⭐️' in title_clean:
+                                                        title_clean = title_clean.replace('⭐️⭐️', '⭐')
+                                                    title_clean = title_clean.replace('⭐️', '⭐')
+                                                    
                                                     # 優先度アイコンを追加（🔥を削除、⭐️を⭐に統一）
                                                     priority_emoji = "⭐" if '[added_by_bot]' in title else ""
                                                     
@@ -1250,6 +1255,12 @@ def callback():
                                             for i, ev in enumerate(events, 1):
                                                 title = ev['title']
                                                 title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
+                                                
+                                                # タスク名から⭐️を除去し、⭐に統一
+                                                while '⭐️⭐️' in title_clean:
+                                                    title_clean = title_clean.replace('⭐️⭐️', '⭐')
+                                                title_clean = title_clean.replace('⭐️', '⭐')
+                                                
                                                 # 優先度アイコンを追加（🔥を削除、⭐️を⭐に統一）
                                                 priority_emoji = "⭐" if '[added_by_bot]' in title else ""
                                                 reply_text += f"{i}. {priority_emoji} {title_clean}\n"
