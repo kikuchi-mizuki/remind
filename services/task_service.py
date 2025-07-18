@@ -555,8 +555,6 @@ class TaskService:
             grouped[task.due_date or '未設定'].append(task)
         
         formatted_list = "📋 タスク一覧\n━━━━━━━━━━━━\n"
-        # ABC説明を追加（-: その他を削除）
-        formatted_list += "A: 緊急かつ重要  B: 緊急  C: 重要\n\n"
         idx = 1
         jst = pytz.timezone('Asia/Tokyo')
         today = datetime.now(jst)
@@ -600,9 +598,9 @@ class TaskService:
             formatted_list += "\n"
         formatted_list += "━━━━━━━━━━━━"
         if for_deletion:
-            formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５\nA: 緊急かつ重要  B: 緊急  C: 重要"
+            formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５"
         elif show_select_guide:
-            formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５\nA: 緊急かつ重要  B: 緊急  C: 重要"
+            formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５"
         return formatted_list
 
     def get_daily_tasks(self, user_id: str) -> List[Task]:
