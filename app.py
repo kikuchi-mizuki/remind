@@ -1527,6 +1527,7 @@ def callback():
                         # 削除モードでの処理（未来タスク追加モードより前に配置）
                         import os
                         delete_mode_file = f"delete_mode_{user_id}.json"
+                        print(f"[DEBUG] 削除モードファイル確認: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}")
                         if os.path.exists(delete_mode_file):
                             print(f"[DEBUG] 削除モード開始: user_message='{user_message}'")
                             try:
