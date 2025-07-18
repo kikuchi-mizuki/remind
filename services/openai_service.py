@@ -116,7 +116,7 @@ class OpenAIService:
 
     def _create_schedule_prompt(self, task_info: List[Dict], total_duration: int, free_time_str: str = "", week_info: str = "", now_str: str = "") -> str:
         """スケジュール提案用のプロンプトを作成（空き時間対応・表記厳密化・重複禁止・本文必須・優先度考慮）"""
-        # 優先度に応じたアイコンを追加
+        # 優先度に応じたアイコンを追加（🔥を削除、⭐️を⭐に変更）
         priority_icons = {
             "urgent_important": "🚨",
             "not_urgent_important": "⭐",
@@ -356,7 +356,8 @@ class OpenAIService:
                 result.append(f'🕒 {m3.group(1).zfill(2)}:{m3.group(2)}〜{m3.group(3).zfill(2)}:{m3.group(4)}')
                 result.append(f'📝 {m3.group(5).strip()}')
                 continue
-            # その他
+            # 🔥を除去し、⭐️を⭐に変更
+            line = line.replace('🔥', '').replace('⭐️', '⭐')
             result.append(line)
         # 3. 理由・まとめがなければ追加
         if not seen_reason:
