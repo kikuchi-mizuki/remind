@@ -186,6 +186,7 @@ def oauth2callback():
         
         # 認証完了メッセージと使い方ガイドを送信
         try:
+            print(f"[oauth2callback] 認証完了メッセージ送信開始: user_id={user_id}")
             # 簡潔な認証完了メッセージを送信
             guide_text = """✅ Googleカレンダー連携完了！
 
@@ -199,16 +200,19 @@ def oauth2callback():
 何かご質問があれば、いつでもお気軽にお声かけください！"""
             
             try:
+                print(f"[oauth2callback] ガイドメッセージ送信試行: user_id={user_id}")
                 line_bot_api.push_message(
                     str(user_id),
                     TextSendMessage(text=guide_text)
                 )
                 print("[oauth2callback] 認証完了ガイド送信成功")
             except Exception as e:
+                print(f"[oauth2callback] ガイドメッセージ送信エラー: {e}")
                 if "429" in str(e) or "monthly limit" in str(e):
                     print(f"[oauth2callback] LINE API制限エラー: {e}")
                     # 制限エラーの場合は、認証完了のみを通知
                     try:
+                        print(f"[oauth2callback] 簡潔メッセージ送信試行: user_id={user_id}")
                         line_bot_api.push_message(
                             str(user_id),
                             TextSendMessage(text="✅ Googleカレンダー連携完了！\n\n「タスク追加」と送信してタスクを追加してください。")
@@ -216,8 +220,11 @@ def oauth2callback():
                         print("[oauth2callback] 簡潔な認証完了メッセージ送信成功")
                     except Exception as e2:
                         print(f"[oauth2callback] 簡潔メッセージ送信も失敗: {e2}")
+                        print("[oauth2callback] LINE API制限により、すべてのメッセージ送信が失敗しました")
                 else:
                     print(f"[oauth2callback] その他の送信エラー: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # 操作メニューも送信（制限エラーの場合はスキップ）
             try:
@@ -225,6 +232,7 @@ def oauth2callback():
                 print(f"[oauth2callback] Flexメニュー生成開始: user_id={user_id}")
                 flex_message = get_simple_flex_menu(str(user_id))
                 print(f"[oauth2callback] Flexメニュー生成完了: {flex_message}")
+                print(f"[oauth2callback] Flexメニュー送信試行: user_id={user_id}")
                 line_bot_api.push_message(
                     str(user_id),
                     FlexSendMessage(
@@ -234,6 +242,7 @@ def oauth2callback():
                 )
                 print("[oauth2callback] Flexメニュー送信成功")
             except Exception as e:
+                print(f"[oauth2callback] Flexメニュー送信エラー詳細: {e}")
                 if "429" in str(e) or "monthly limit" in str(e):
                     print(f"[oauth2callback] Flexメニュー送信制限エラー: {e}")
                     print("[oauth2callback] Flexメニュー送信をスキップしました")
@@ -320,15 +329,31 @@ def oauth2callback():
             <title>認証完了</title>
             <meta charset="utf-8">
             <style>
-                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                .success { color: green; font-size: 24px; margin-bottom: 20px; }
-                .message { color: #666; margin-bottom: 30px; }
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f5f5f5; }
+                .container { background: white; border-radius: 10px; padding: 40px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+                .success { color: #4CAF50; font-size: 28px; margin-bottom: 20px; font-weight: bold; }
+                .message { color: #666; margin-bottom: 20px; line-height: 1.6; }
+                .instruction { background: #E3F2FD; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196F3; }
+                .highlight { color: #2196F3; font-weight: bold; }
+                .note { color: #FF9800; font-size: 14px; margin-top: 20px; }
             </style>
         </head>
         <body>
-            <div class="success">✅ 認証完了</div>
-            <div class="message">
-                Googleカレンダーとの連携が完了しました。
+            <div class="container">
+                <div class="success">✅ 認証完了</div>
+                <div class="message">
+                    Googleカレンダーとの連携が完了しました！
+                </div>
+                <div class="instruction">
+                    <strong>次のステップ：</strong><br>
+                    1. LINEアプリに戻ってください<br>
+                    2. 認証完了メッセージと操作ボタンが表示されます<br>
+                    3. 「タスク追加」ボタンを押してタスクを追加<br>
+                    4. または「タスク一覧」で既存タスクを確認
+                </div>
+                <div class="note">
+                    ※ メッセージが表示されない場合は、「タスク追加」と手動で送信してください。
+                </div>
             </div>
         </body>
         </html>
