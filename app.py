@@ -988,7 +988,7 @@ def callback():
                                                     "normal": "📝"
                                                 }.get(task['priority'], "📝")
                                                 
-                                                reply_text += f"{i}. {priority_emoji} {task['name']} 🔥\n"
+                                                reply_text += f"{i}. {priority_emoji} {task['name']}\n"
                                                 reply_text += f"📅 {task['date_str']} 🕐 {task['time_str']}\n\n"
                                             
                                             reply_text += "━━━━━━━━━━\n"
@@ -1060,7 +1060,7 @@ def callback():
                                                 "normal": "📝"
                                             }.get(task['priority'], "📝")
                                             
-                                            reply_text += f"{i}. {priority_emoji} {task['name']} 🔥\n"
+                                            reply_text += f"{i}. {priority_emoji} {task['name']}\n"
                                             reply_text += f"🕐 {task['time_str']}\n\n"
                                         
                                         reply_text += "━━━━━━━━━━\n"
