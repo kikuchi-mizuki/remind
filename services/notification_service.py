@@ -417,7 +417,7 @@ class NotificationService:
                     print(f"[send_future_task_selection] 未来タスク数: {len(future_tasks)}")
                     
                     if not future_tasks:
-                        message = "⭐️未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
+                        message = "⭐未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
                     else:
                         message = self.task_service.format_future_task_list(future_tasks, show_select_guide=True)
                         

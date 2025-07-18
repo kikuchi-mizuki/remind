@@ -447,7 +447,7 @@ def callback():
                                 print(f"[日曜18時テスト] 未来タスク数: {len(future_tasks)}")
                                 
                                 if not future_tasks:
-                                    reply_text = "⭐️未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
+                                    reply_text = "⭐未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
                                 else:
                                     reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=True)
                                     
@@ -1226,10 +1226,10 @@ def callback():
                                                     title = ev['title']
                                                     title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
                                                     
-                                                    # 優先度アイコンを追加
+                                                    # 優先度アイコンを追加（🔥を削除、⭐️を⭐に統一）
                                                     priority_emoji = "⭐" if '[added_by_bot]' in title else ""
                                                     
-                                                    reply_text += f"{task_counter}. {priority_emoji} {title_clean}🔥\n"
+                                                    reply_text += f"{task_counter}. {priority_emoji} {title_clean}\n"
                                                     
                                                     # 時刻を表示
                                                     def fmt_time(dtstr):
@@ -1250,10 +1250,9 @@ def callback():
                                             for i, ev in enumerate(events, 1):
                                                 title = ev['title']
                                                 title_clean = title.replace('📝', '').replace('[added_by_bot]', '').strip()
-                                                reply_text += f"{i}. {title_clean}"
-                                                if '[added_by_bot]' in title:
-                                                    reply_text += "🔥"
-                                                reply_text += "\n"
+                                                # 優先度アイコンを追加（🔥を削除、⭐️を⭐に統一）
+                                                priority_emoji = "⭐" if '[added_by_bot]' in title else ""
+                                                reply_text += f"{i}. {priority_emoji} {title_clean}\n"
                                                 
                                                 def fmt_time(dtstr):
                                                     m = regex.search(r'T(\d{2}):(\d{2})', dtstr)
