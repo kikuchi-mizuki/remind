@@ -266,20 +266,39 @@ class Database:
             return None
 
     def update_task_status(self, task_id: str, status: str) -> bool:
-        """タスクのステータスを更新"""
+        """タスクのステータスを更新（通常タスクと未来タスクの両方に対応）"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
+            # 通常タスクテーブルで更新を試行
             cursor.execute('''
                 UPDATE tasks
                 SET status = ?
                 WHERE task_id = ?
             ''', (status, task_id))
             
+            # 更新された行数を確認
+            rows_updated = cursor.rowcount
+            
+            # 通常タスクで更新されなかった場合、未来タスクテーブルで更新を試行
+            if rows_updated == 0:
+                cursor.execute('''
+                    UPDATE future_tasks
+                    SET status = ?
+                    WHERE task_id = ?
+                ''', (status, task_id))
+                rows_updated = cursor.rowcount
+            
             conn.commit()
             conn.close()
-            return True
+            
+            if rows_updated > 0:
+                print(f"[update_task_status] 成功: task_id={task_id}, status={status}, rows_updated={rows_updated}")
+                return True
+            else:
+                print(f"[update_task_status] 失敗: task_id={task_id} が見つかりません")
+                return False
         except Exception as e:
             print(f"Error updating task status: {e}")
             return False
