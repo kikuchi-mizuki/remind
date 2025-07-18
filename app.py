@@ -627,47 +627,111 @@ def callback():
 
                         # タスク選択（番号のみのメッセージ: 半角/全角数字・カンマ・ピリオド・スペース対応）
                         import re
-                        if regex.fullmatch(r'[\d\s,、.．]+', user_message.strip()):
+                        if regex.fullmatch(r'[\d\s,、.．]+', user_message.strip()) or "タスク" in user_message or "未来タスク" in user_message:
                             # 削除モードかどうかをチェック
                             import os
                             delete_mode_file = f"delete_mode_{user_id}.json"
                             is_delete_mode = os.path.exists(delete_mode_file)
                             
-                            selected_tasks = task_service.get_selected_tasks(user_id, user_message)
-                            if selected_tasks:
-                                if is_delete_mode:
-                                    # 削除モードの場合
-                                    try:
-                                        # 選択されたタスクを削除
-                                        deleted_count = 0
-                                        for task in selected_tasks:
-                                            if task_service.archive_task(task.task_id):
-                                                deleted_count += 1
-                                        
-                                        # 削除モードファイルを削除
-                                        if os.path.exists(delete_mode_file):
-                                            os.remove(delete_mode_file)
-                                        
-                                        # 削除結果を表示
-                                        reply_text = f"✅ {deleted_count}個のタスクを削除しました！\n\n"
-                                        reply_text += "削除されたタスク：\n"
-                                        for task in selected_tasks:
+                            if is_delete_mode:
+                                # 削除モードの場合
+                                try:
+                                    # 「タスク 1、3」「未来タスク 2」のような形式を解析
+                                    selected_normal_tasks = []
+                                    selected_future_tasks = []
+                                    
+                                    # 通常のタスクと未来タスクを取得
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    future_tasks = task_service.get_user_future_tasks(user_id)
+                                    
+                                    # メッセージを解析
+                                    import re
+                                    
+                                    # 「タスク 1、3」のような形式を検索
+                                    normal_matches = re.findall(r'タスク\s*(\d+)', user_message)
+                                    for match in normal_matches:
+                                        idx = int(match) - 1
+                                        if 0 <= idx < len(all_tasks):
+                                            selected_normal_tasks.append(all_tasks[idx])
+                                    
+                                    # 「未来タスク 2」のような形式を検索
+                                    future_matches = re.findall(r'未来タスク\s*(\d+)', user_message)
+                                    for match in future_matches:
+                                        idx = int(match) - 1
+                                        if 0 <= idx < len(future_tasks):
+                                            selected_future_tasks.append(future_tasks[idx])
+                                    
+                                    # 数字のみの場合は従来の処理（通常タスクのみ）
+                                    if not normal_matches and not future_matches:
+                                        selected_normal_tasks = task_service.get_selected_tasks(user_id, user_message)
+                                    
+                                    # タスクを削除
+                                    deleted_normal_count = 0
+                                    deleted_future_count = 0
+                                    
+                                    for task in selected_normal_tasks:
+                                        if task_service.archive_task(task.task_id):
+                                            deleted_normal_count += 1
+                                    
+                                    for task in selected_future_tasks:
+                                        if task_service.archive_task(task.task_id):
+                                            deleted_future_count += 1
+                                    
+                                    # 削除モードファイルを削除
+                                    if os.path.exists(delete_mode_file):
+                                        os.remove(delete_mode_file)
+                                    
+                                    # 削除結果を表示
+                                    total_deleted = deleted_normal_count + deleted_future_count
+                                    reply_text = f"✅ {total_deleted}個のタスクを削除しました！\n\n"
+                                    
+                                    if deleted_normal_count > 0:
+                                        reply_text += "削除された通常タスク：\n"
+                                        for task in selected_normal_tasks:
                                             reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
+                                        reply_text += "\n"
+                                    
+                                    if deleted_future_count > 0:
+                                        reply_text += "削除された未来タスク：\n"
+                                        for task in selected_future_tasks:
+                                            reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
+                                        reply_text += "\n"
+                                    
+                                    # 残りのタスク一覧を表示
+                                    remaining_tasks = task_service.get_user_tasks(user_id)
+                                    remaining_future_tasks = task_service.get_user_future_tasks(user_id)
+                                    
+                                    if remaining_tasks or remaining_future_tasks:
+                                        reply_text += "📋 残りのタスク\n━━━━━━━━━━━━\n"
                                         
-                                        # 残りのタスク一覧を表示
-                                        remaining_tasks = task_service.get_user_tasks(user_id)
                                         if remaining_tasks:
-                                            reply_text += "\n" + task_service.format_task_list(remaining_tasks, show_select_guide=False)
-                                        else:
-                                            reply_text += "\n📋 タスク一覧\n＝＝＝＝＝＝\n登録されているタスクはありません。\n＝＝＝＝＝＝"
+                                            reply_text += "通常タスク：\n"
+                                            for idx, task in enumerate(remaining_tasks, 1):
+                                                priority_icon = {
+                                                    "urgent_important": "A",
+                                                    "urgent_not_important": "B",
+                                                    "not_urgent_important": "C",
+                                                    "normal": "-"
+                                                }.get(task.priority, "-")
+                                                reply_text += f"{idx}. {priority_icon} {task.name} ({task.duration_minutes}分)\n"
+                                            reply_text += "\n"
                                         
-                                    except Exception as e:
-                                        reply_text = f"❌ タスク削除中にエラーが発生しました: {e}"
-                                        # 削除モードファイルを削除
-                                        if os.path.exists(delete_mode_file):
-                                            os.remove(delete_mode_file)
-                                else:
-                                    # スケジュール選択モードの場合（既存の処理）
+                                        if remaining_future_tasks:
+                                            reply_text += "未来タスク：\n"
+                                            for idx, task in enumerate(remaining_future_tasks, 1):
+                                                reply_text += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
+                                    else:
+                                        reply_text += "📋 タスク一覧\n＝＝＝＝＝＝\n登録されているタスクはありません。\n＝＝＝＝＝＝"
+                                    
+                                except Exception as e:
+                                    reply_text = f"❌ タスク削除中にエラーが発生しました: {e}"
+                                    # 削除モードファイルを削除
+                                    if os.path.exists(delete_mode_file):
+                                        os.remove(delete_mode_file)
+                            else:
+                                # スケジュール選択モードの場合（既存の処理）
+                                selected_tasks = task_service.get_selected_tasks(user_id, user_message)
+                                if selected_tasks:
                                     with open(f"selected_tasks_{user_id}.json", "w") as f:
                                         import json
                                         json.dump([t.task_id for t in selected_tasks], f)
@@ -675,12 +739,12 @@ def callback():
                                     reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
                                     reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
                                     reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
-                                
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                continue
+                                    
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
                         # 「はい」と返信された場合は自動でスケジュール提案
                         if user_message.strip() == "はい":
                             print(f"[はい処理] 開始: user_id={user_id}")
@@ -1372,10 +1436,56 @@ def callback():
 
 
 
-                        # 「タスク削除」と送信された場合、案内文付きでタスク一覧を表示
+                        # 「タスク削除」と送信された場合、通常タスクと未来タスクの両方を表示
                         if user_message.strip() == "タスク削除":
+                            # 通常のタスクと未来タスクを取得
                             all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=False, for_deletion=True)
+                            future_tasks = task_service.get_user_future_tasks(user_id)
+                            
+                            reply_text = "🗑️ タスク削除\n━━━━━━━━━━━━\n"
+                            
+                            # 通常のタスクを表示
+                            if all_tasks:
+                                reply_text += "📋 通常タスク\n"
+                                for idx, task in enumerate(all_tasks, 1):
+                                    # 優先度アイコン（A/B/C/-）
+                                    priority_icon = {
+                                        "urgent_important": "A",
+                                        "urgent_not_important": "B",
+                                        "not_urgent_important": "C",
+                                        "normal": "-"
+                                    }.get(task.priority, "-")
+                                    
+                                    # 期日表示
+                                    if task.due_date:
+                                        try:
+                                            y, m, d = task.due_date.split('-')
+                                            due_date_obj = datetime(int(y), int(m), int(d))
+                                            weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+                                            weekday = weekday_names[due_date_obj.weekday()]
+                                            due_str = f"{int(m)}月{int(d)}日({weekday})"
+                                        except Exception:
+                                            due_str = task.due_date
+                                    else:
+                                        due_str = "期日未設定"
+                                    
+                                    reply_text += f"タスク {idx}. {priority_icon} {task.name} ({task.duration_minutes}分) - {due_str}\n"
+                                reply_text += "\n"
+                            else:
+                                reply_text += "📋 通常タスク\n登録されているタスクはありません。\n\n"
+                            
+                            # 未来タスクを表示
+                            if future_tasks:
+                                reply_text += "🔮 未来タスク\n"
+                                for idx, task in enumerate(future_tasks, 1):
+                                    reply_text += f"未来タスク {idx}. {task.name} ({task.duration_minutes}分)\n"
+                                reply_text += "\n"
+                            else:
+                                reply_text += "🔮 未来タスク\n登録されている未来タスクはありません。\n\n"
+                            
+                            reply_text += "━━━━━━━━━━━━\n"
+                            reply_text += "削除するタスクを選んでください！\n"
+                            reply_text += "例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」\n"
                             
                             # 削除モードファイルを作成
                             import os
