@@ -129,9 +129,17 @@ class CalendarService:
         if not self.authenticate_user(user_id):
             return False
         try:
+            # タスク名から⭐️を除去し、⭐に統一
+            import re
+            clean_task_name = task_name
+            # 複数の⭐️を⭐に統一
+            while '⭐️⭐️' in clean_task_name:
+                clean_task_name = clean_task_name.replace('⭐️⭐️', '⭐')
+            clean_task_name = clean_task_name.replace('⭐️', '⭐')
+            
             end_time = start_time + timedelta(minutes=duration_minutes)
             event = {
-                'summary': f'📝 {task_name} [added_by_bot]',
+                'summary': f'📝 {clean_task_name} [added_by_bot]',
                 'description': description,
                 'start': {
                     'dateTime': start_time.isoformat(),
