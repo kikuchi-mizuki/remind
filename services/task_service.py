@@ -334,6 +334,17 @@ class TaskService:
         for expression in week_expressions:
             text = text.replace(expression, '')
         
+        # 日付形式のパターンを除去（M/D、M/D、YYYY/M/Dなど）
+        date_format_patterns = [
+            r'\d{1,2}/\d{1,2}',  # 7/22, 12/25
+            r'\d{4}/\d{1,2}/\d{1,2}',  # 2025/7/22
+            r'\d{1,2}-\d{1,2}',  # 7-22, 12-25
+            r'\d{4}-\d{1,2}-\d{1,2}',  # 2025-7-22
+        ]
+        
+        for pattern in date_format_patterns:
+            text = re.sub(pattern, '', text)
+        
         # 余分な空白を整理
         text = re.sub(r'[\s　]+', ' ', text).strip()
         
