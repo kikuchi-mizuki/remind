@@ -168,6 +168,12 @@ class TaskService:
                     except Exception as e:
                         print(f"[parse_task_message] AI日付抽出エラー: {e}")
             
+            # 日付が抽出された場合（AIまたは自然言語）、日付表現をメッセージから除去
+            if due_date:
+                print(f"[parse_task_message] 日付表現除去前: '{message}'")
+                message = self._remove_date_expressions(message)
+                print(f"[parse_task_message] 日付表現除去後: '{message}'")
+            
             # タスク名の抽出
             task_name = re.sub(r'[\s　]+', ' ', message).strip()
             print(f"[parse_task_message] タスク名抽出前: '{message}'")
