@@ -1011,15 +1011,20 @@ def callback():
                                             if today_schedule:
                                                 reply_text += "📅 今日のスケジュール：\n"
                                                 reply_text += "━━━━━━━━━━━━━━\n"
+                                                from datetime import datetime
                                                 for event in today_schedule:
-                                                    start_time = event['start_time'].strftime('%H:%M')
-                                                    end_time = event['end_time'].strftime('%H:%M')
-                                                    summary = event['summary']
+                                                    try:
+                                                        start_time = datetime.fromisoformat(event['start']).strftime('%H:%M')
+                                                        end_time = datetime.fromisoformat(event['end']).strftime('%H:%M')
+                                                    except Exception:
+                                                        start_time = event['start']
+                                                        end_time = event['end']
+                                                    summary = event['title']
                                                     reply_text += f"🕐 {start_time}〜{end_time}\n"
                                                     reply_text += f"📝 {summary}\n"
                                                     reply_text += "━━━━━━━━━━━━━━\n"
                                             else:
-                                                reply_text += "📅 今日のスケジュールはありません。"
+                                                reply_text += "�� 今日のスケジュールはありません。"
                                             
                                             # ファイルを削除
                                             if os.path.exists(schedule_proposal_file):
