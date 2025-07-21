@@ -1448,7 +1448,29 @@ def callback():
                             continue
 
                         # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
-                        print(f"[DEBUG] タスク追加分岐判定: '{user_message.strip()}'", flush=True)
+                        if user_message.strip() == "タスク追加":
+                            print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}", flush=True)
+                            
+                            reply_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                            reply_text += "\n\n📝 タスク追加モード\n\n"
+                            reply_text += "タスク名・所要時間・期限を入力してください！\n\n"
+                            reply_text += "💡 例：\n"
+                            reply_text += "• 「資料作成 30分 明日」\n"
+                            reply_text += "• 「会議準備 1時間 今日」\n"
+                            reply_text += "• 「筋トレ 20分 明日」\n\n"
+                            reply_text += "⚠️ 所要時間は必須です！\n\n"
+                            reply_text += "💡 タスクを選択後、「空き時間に配置」で自動スケジュールできます！"
+                            print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
+                            print("[DEBUG] LINE API reply_message直前", flush=True)
+                            res = line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            print(f"[DEBUG] LINE API reply_message直後: {res}", flush=True)
+                            continue
+
                         # 「緊急タスク追加」と送信された場合、緊急タスク追加モードを開始
                         if user_message.strip() == "緊急タスク追加":
                             # Google認証チェック
@@ -1475,8 +1497,6 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-
-
 
                         # 「タスク削除」と送信された場合、通常タスクと未来タスクの両方を表示
                         if user_message.strip() == "タスク削除":
@@ -1545,132 +1565,6 @@ def callback():
                                 TextSendMessage(text=reply_text)
                             )
                             continue
-
-                        # 「緊急タスク追加」と送信された場合、緊急タスク追加モードを開始
-                        if user_message.strip() == "緊急タスク追加":
-                            # Google認証チェック
-                            if not is_google_authenticated(user_id):
-                                auth_url = get_google_auth_url(user_id)
-                                reply_text = f"📅 カレンダー連携が必要です\n\nGoogleカレンダーにアクセスして認証してください：\n{auth_url}"
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                continue
-                            
-                            # 緊急タスク追加モードファイルを作成
-                            import os
-                            from datetime import datetime
-                            urgent_mode_file = f"urgent_task_mode_{user_id}.json"
-                            with open(urgent_mode_file, "w") as f:
-                                import json
-                                json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
-                            
-                            reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            continue
-
-                        # 「未来タスク追加」と送信された場合、未来タスク追加モードを開始
-                        if user_message.strip() == "未来タスク追加":
-                            # 未来タスク追加モードファイルを作成
-                            import os
-                            from datetime import datetime
-                            future_mode_file = f"future_task_mode_{user_id}.json"
-                            with open(future_mode_file, "w") as f:
-                                import json
-                                json.dump({"mode": "future_task", "timestamp": datetime.now().isoformat()}, f)
-                            
-                            reply_text = "🔮 未来タスク追加モード\n\n"
-                            reply_text += "投資につながるタスク名と所要時間を送信してください！\n\n"
-                            reply_text += "📝 例：\n"
-                            reply_text += "• 新規事業計画 2時間\n"
-                            reply_text += "• 営業資料の見直し 1時間半\n"
-                            reply_text += "• 〇〇という本を読む 30分\n"
-                            reply_text += "• 3カ年事業計画をつくる 3時間\n\n"
-                            reply_text += "⚠️ 所要時間は必須です！\n"
-                            reply_text += "※毎週日曜日18時に来週やるタスクを選択できます"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            continue
-
-                        # 通常のタスク追加処理（未来タスク追加コマンドより後に配置）
-                        if "タスク追加" in user_message.replace(' ', '').replace('　', ''):
-                            try:
-                                print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}", flush=True)
-                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=False)
-                                if not reply_text:
-                                    reply_text = "📋 タスク一覧\n＝＝＝＝＝＝\n登録されているタスクはありません。\n＝＝＝＝＝＝"
-                                reply_text += "\n\n📝 タスク追加モード\n\n"
-                                reply_text += "タスク名・所要時間・期限を送信してください！\n\n"
-                                reply_text += "📝 例：\n"
-                                reply_text += "• 資料作成 30分 明日\n"
-                                reply_text += "• 会議準備 1時間半 今日\n"
-                                reply_text += "• メール返信 15分 明日\n"
-                                reply_text += "• プロジェクト計画 2時間 来週月曜日\n\n"
-                                reply_text += "🎯 優先度設定（任意）：\n"
-                                reply_text += "• A: 緊急かつ重要\n"
-                                reply_text += "• B: 緊急\n"
-                                reply_text += "• C: 重要\n"
-                                reply_text += "• -: その他\n\n"
-                                reply_text += "例：「資料作成 30分 明日 A」\n\n"
-                                reply_text += "⚠️ 所要時間は必須です！\n\n"
-                                reply_text += "💡 タスクを選択後、「空き時間に配置」で自動スケジュールできます！"
-                                print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
-                                print("[DEBUG] LINE API reply_message直前", flush=True)
-                                res = line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                print(f"[DEBUG] LINE API reply_message直後: {res}", flush=True)
-                            except Exception as e:
-                                import traceback
-                                print(f"[ERROR] タスク追加分岐: {e}", flush=True)
-                                traceback.print_exc()
-                                try:
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=f"⚠️ 内部エラーが発生しました: {e}")
-                                    )
-                                except Exception as ee:
-                                    print(f"[ERROR] LINEへのエラー通知も失敗: {ee}", flush=True)
-                                continue
-                            continue
-
-                        # 「タスク確認」コマンド（スペース・改行除去の部分一致で判定）
-                        if "タスク確認" in user_message.replace(' ', '').replace('　', '').replace('\n', ''):
-                            import pytz
-                            from datetime import datetime
-                            import os
-                            jst = pytz.timezone('Asia/Tokyo')
-                            today_str = datetime.now(jst).strftime('%Y-%m-%d')
-                            # 今日が〆切のタスクのみ抽出
-                            tasks = task_service.get_user_tasks(user_id)
-                            today_tasks = [t for t in tasks if t.due_date == today_str]
-                            print(f"[DEBUG] today_str={today_str}, today_tasks={[{'name': t.name, 'due_date': t.due_date} for t in today_tasks]}")
-                            # タスク確認モードフラグを一時ファイルで保存
-                            with open(f"task_check_mode_{user_id}.flag", "w") as f:
-                                f.write("1")
-                            if not today_tasks:
-                                reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
-                            else:
-                                reply_text = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n"
-                                for idx, t in enumerate(today_tasks, 1):
-                                    reply_text += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
-                                reply_text += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
-                            line_bot_api.reply_message(
-                                reply_token,
-                                TextSendMessage(text=reply_text)
-                            )
-                            continue
-
-
 
                         # 未来タスク追加モードでの処理
                         import os
