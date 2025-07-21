@@ -551,6 +551,18 @@ def callback():
                                     free_times = calendar_service.get_free_busy_times(user_id, today)
                                     if free_times:
                                         proposal = openai_service.generate_schedule_proposal([task], free_times)
+                                        
+                                        # スケジュール提案ファイルを作成
+                                        schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
+                                        with open(schedule_proposal_file, "w", encoding="utf-8") as f:
+                                            f.write(proposal)
+                                        
+                                        # 選択されたタスクファイルを作成
+                                        selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                        import json
+                                        with open(selected_tasks_file, "w", encoding="utf-8") as f:
+                                            json.dump([task.task_id], f, ensure_ascii=False)
+                                        
                                         reply_text = "⚡ 緊急タスクを追加しました！\n\n"
                                         reply_text += "📅 今日の空き時間に自動スケジュール：\n\n"
                                         reply_text += proposal
