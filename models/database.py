@@ -207,9 +207,9 @@ class Database:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT task_id, user_id, name, duration_minutes, status, created_at, priority, category
-                FROM future_tasks
-                WHERE user_id = ? AND status = ?
+                SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type
+                FROM tasks
+                WHERE user_id = ? AND status = ? AND task_type = 'future'
                 ORDER BY created_at DESC
             ''', (user_id, status))
             
@@ -220,12 +220,12 @@ class Database:
                     user_id=row[1],
                     name=row[2],
                     duration_minutes=row[3],
-                    repeat=False,  # 未来タスクは繰り返しなし
-                    status=row[4],
-                    created_at=datetime.fromisoformat(row[5]),
-                    due_date=None,  # 未来タスクは期日なし
-                    priority=row[6] if row[6] else "normal",
-                    task_type="future"
+                    repeat=bool(row[4]),
+                    status=row[5],
+                    created_at=datetime.fromisoformat(row[6]),
+                    due_date=row[7],
+                    priority=row[8] if row[8] else "normal",
+                    task_type=row[9] if row[9] else "future"
                 )
                 tasks.append(task)
             
