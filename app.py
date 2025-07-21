@@ -775,19 +775,18 @@ def callback():
                             # スケジュール選択モードの場合（既存の処理）
                             selected_tasks = task_service.get_selected_tasks(user_id, user_message)
                             if selected_tasks:
-                                    with open(f"selected_tasks_{user_id}.json", "w") as f:
-                                        import json
-                                        json.dump([t.task_id for t in selected_tasks], f)
-                                    # --- テキストメッセージのみで確認案内 ---
-                                    reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
-                                    reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
-                                    reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
-                                
-                                line_bot_api.reply_message(
-                                    reply_token,
-                                    TextSendMessage(text=reply_text)
-                                )
-                                continue
+                                with open(f"selected_tasks_{user_id}.json", "w") as f:
+                                    import json
+                                    json.dump([t.task_id for t in selected_tasks], f)
+                                # --- テキストメッセージのみで確認案内 ---
+                                reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
+                                reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
+                                reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
+                            line_bot_api.reply_message(
+                                reply_token,
+                                TextSendMessage(text=reply_text)
+                            )
+                            continue
                         # 「はい」と返信された場合は自動でスケジュール提案
                         if user_message.strip() == "はい":
                             print(f"[はい処理] 開始: user_id={user_id}")
@@ -1986,13 +1985,19 @@ def callback():
                             from linebot.models import FlexSendMessage
                             flex_message = get_simple_flex_menu(user_id)
                             print(f"[DEBUG] メニュー生成完了: {flex_message}")
-                            line_bot_api.reply_message(
-                                reply_token,
-                                FlexSendMessage(
-                                    alt_text="ご利用案内・操作メニュー",
-                                    contents=flex_message
+                            try:
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    FlexSendMessage(
+                                        alt_text="ご利用案内・操作メニュー",
+                                        contents=flex_message
+                                    )
                                 )
-                            )
+                                print("[DEBUG] Flexメニュー送信成功")
+                            except Exception as e:
+                                print(f"[DEBUG] Flexメニュー送信エラー: {e}")
+                                import traceback
+                                traceback.print_exc()
                             continue
 
                         # 21時の繰り越し確認への返信処理
@@ -2043,13 +2048,13 @@ def callback():
                         flex_message = get_simple_flex_menu(user_id)
                         print(f"[DEBUG] メニュー生成完了: {flex_message}")
                         try:
-                        line_bot_api.reply_message(
-                            reply_token,
-                            FlexSendMessage(
-                                alt_text="ご利用案内・操作メニュー",
-                                contents=flex_message
+                            line_bot_api.reply_message(
+                                reply_token,
+                                FlexSendMessage(
+                                    alt_text="ご利用案内・操作メニュー",
+                                    contents=flex_message
+                                )
                             )
-                        )
                             print("[DEBUG] Flexメニュー送信成功")
                         except Exception as e:
                             print(f"[DEBUG] Flexメニュー送信エラー: {e}")
