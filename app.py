@@ -422,21 +422,27 @@ def callback():
                                     
                                     # 「タスク 1、3」のような形式を検索
                                     normal_matches = re.findall(r'タスク\s*(\d+)', user_message)
-                                    for match in normal_matches:
-                                        idx = int(match) - 1
-                                        if 0 <= idx < len(all_tasks):
-                                            selected_normal_tasks.append(all_tasks[idx])
-                                    
-                                    # 「未来タスク 2」のような形式を検索
-                                    future_matches = re.findall(r'未来タスク\s*(\d+)', user_message)
-                                    for match in future_matches:
-                                        idx = int(match) - 1
-                                        if 0 <= idx < len(future_tasks):
-                                            selected_future_tasks.append(future_tasks[idx])
+                                    print(f"[DEBUG] 通常タスクマッチ結果: {normal_matches}")
                                     
                                     # 数字のみの場合は従来の処理（通常タスクのみ）
                                     if not normal_matches and not future_matches:
                                         selected_normal_tasks = task_service.get_selected_tasks(user_id, user_message)
+                                    else:
+                                        # マッチした数字のインデックスでタスクを選択
+                                        for match in normal_matches:
+                                            idx = int(match) - 1
+                                            if 0 <= idx < len(all_tasks):
+                                                selected_normal_tasks.append(all_tasks[idx])
+                                                print(f"[DEBUG] 通常タスク選択: インデックス{idx}, タスク名={all_tasks[idx].name}")
+                                    # 「未来タスク 2」のような形式を検索
+                                    future_matches = re.findall(r'未来タスク\s*(\d+)', user_message)
+                                    print(f"[DEBUG] 未来タスクマッチ結果: {future_matches}")
+                                    
+                                    for match in future_matches:
+                                        idx = int(match) - 1
+                                        if 0 <= idx < len(future_tasks):
+                                            selected_future_tasks.append(future_tasks[idx])
+                                            print(f"[DEBUG] 未来タスク選択: インデックス{idx}, タスク名={future_tasks[idx].name}")
                                     
                                     # タスクを削除
                                     deleted_normal_count = 0
