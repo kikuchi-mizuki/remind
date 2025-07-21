@@ -1103,6 +1103,79 @@ def callback():
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
+
+                            # 「はい」コマンドの処理
+                            if user_message.strip() == "はい":
+                                import os
+                                import json
+                                selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                if os.path.exists(selected_tasks_file):
+                                    try:
+                                        # 選択されたタスクを読み込み
+                                        with open(selected_tasks_file, "r") as f:
+                                            task_ids = json.load(f)
+                                        
+                                        all_tasks = task_service.get_user_tasks(user_id)
+                                        selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                        
+                                        if not selected_tasks:
+                                            reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
+                                            line_bot_api.reply_message(
+                                                reply_token,
+                                                TextSendMessage(text=reply_text)
+                                            )
+                                            continue
+                                        
+                                        # スケジュール提案を生成
+                                        from services.calendar_service import CalendarService
+                                        from services.openai_service import OpenAIService
+                                        from datetime import datetime
+                                        import pytz
+                                        
+                                        calendar_service = CalendarService()
+                                        openai_service = OpenAIService()
+                                        
+                                        jst = pytz.timezone('Asia/Tokyo')
+                                        today = datetime.now(jst)
+                                        free_times = calendar_service.get_free_busy_times(user_id, today)
+                                        
+                                        if not free_times:
+                                            reply_text = "❌ 空き時間の取得に失敗しました。"
+                                            line_bot_api.reply_message(
+                                                reply_token,
+                                                TextSendMessage(text=reply_text)
+                                            )
+                                            continue
+                                        
+                                        # スケジュール提案を生成
+                                        proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                                        
+                                        # 提案をファイルに保存
+                                        with open(f"schedule_proposal_{user_id}.txt", "w") as f:
+                                            f.write(proposal)
+                                        
+                                        # 提案を送信
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            TextSendMessage(text=proposal)
+                                        )
+                                        continue
+                                        
+                                    except Exception as e:
+                                        print(f"[DEBUG] はいコマンド処理エラー: {e}")
+                                        reply_text = f"⚠️ スケジュール提案生成中にエラーが発生しました: {e}"
+                                        line_bot_api.reply_message(
+                                            reply_token,
+                                            TextSendMessage(text=reply_text)
+                                        )
+                                        continue
+                                else:
+                                    reply_text = "⚠️ 先にタスクを選択してください。"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                    continue
                             if user_message.strip() == "日曜18時テスト":
                                 try:
                                     notification_service.send_future_task_selection()
