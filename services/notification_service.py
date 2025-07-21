@@ -219,8 +219,6 @@ class NotificationService:
         
         print(f"[start_scheduler] スケジューラー開始: {datetime.now()}")
         
-        # デバッグ用: 1分ごとに通知を送信
-        schedule.every(1).minutes.do(self.send_daily_task_notification)  # デバッグ用
         # Railway等UTCサーバーの場合、JST 8:00 = UTC 23:00、JST 21:00 = UTC 12:00、JST 18:00 = UTC 09:00
         schedule.every().day.at("23:00").do(self.send_daily_task_notification)  # JST 8:00
         schedule.every().sunday.at("09:00").do(self.send_future_task_selection)  # JST 18:00
