@@ -46,6 +46,8 @@ class Database:
 
     def init_database(self):
         """データベースとテーブルの初期化"""
+        # データベースファイルの親ディレクトリを必ず作成
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         print(f"[init_database] 開始: {self.db_path}")
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
