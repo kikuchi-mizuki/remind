@@ -1447,9 +1447,10 @@ def callback():
                             )
                             continue
 
-                        # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示
+                        # 「タスク追加」と送信された場合、案内文付きでタスク一覧を表示（最優先処理）
+                        print(f"[DEBUG] コマンド判定開始: '{user_message.strip()}'", flush=True)
                         if user_message.strip() == "タスク追加":
-                            print("[DEBUG] タスク追加分岐: get_user_tasks呼び出し", flush=True)
+                            print("[DEBUG] タスク追加分岐: 処理開始", flush=True)
                             all_tasks = task_service.get_user_tasks(user_id)
                             print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}", flush=True)
                             
