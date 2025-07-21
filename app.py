@@ -420,8 +420,8 @@ def callback():
                                     # メッセージを解析
                                     import re
                                     
-                                    # 「タスク 1、3」のような形式を検索
-                                    normal_matches = re.findall(r'タスク\s*(\d+)', user_message)
+                                    # 「タスク 1、3」のような形式を検索（全角・半角数字対応）
+                                    normal_matches = re.findall(r'タスク\s*([１２３４５６７８９０\d]+)', user_message)
                                     print(f"[DEBUG] 通常タスクマッチ結果: {normal_matches}")
                                     
                                     # 数字のみの場合は従来の処理（通常タスクのみ）
@@ -430,10 +430,15 @@ def callback():
                                     else:
                                         # マッチした数字のインデックスでタスクを選択
                                         for match in normal_matches:
-                                            idx = int(match) - 1
-                                            if 0 <= idx < len(all_tasks):
-                                                selected_normal_tasks.append(all_tasks[idx])
-                                                print(f"[DEBUG] 通常タスク選択: インデックス{idx}, タスク名={all_tasks[idx].name}")
+                                            # 全角数字を半角数字に変換
+                                            match_normalized = match.translate(str.maketrans('１２３４５６７８９０', '1234567890'))
+                                            # カンマ区切りの数字を個別に処理
+                                            numbers = re.findall(r'\d+', match_normalized)
+                                            for number in numbers:
+                                                idx = int(number) - 1
+                                                if 0 <= idx < len(all_tasks):
+                                                    selected_normal_tasks.append(all_tasks[idx])
+                                                    print(f"[DEBUG] 通常タスク選択: インデックス{idx}, タスク名={all_tasks[idx].name}")
                                     # 「未来タスク 2」のような形式を検索
                                     future_matches = re.findall(r'未来タスク\s*(\d+)', user_message)
                                     print(f"[DEBUG] 未来タスクマッチ結果: {future_matches}")
