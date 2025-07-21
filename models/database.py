@@ -35,7 +35,7 @@ class Database:
             import os
             # Railway環境の検出を改善
             if os.path.exists('/app') or os.environ.get('RAILWAY_ENVIRONMENT'):
-                self.db_path = "/app/tasks.db"
+                self.db_path = "/app/vol/tasks.db"
                 print(f"[Database] Railway環境を検出: {self.db_path}")
             else:
                 self.db_path = "tasks.db"
