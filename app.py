@@ -539,6 +539,12 @@ def callback():
                                     # 今日の空き時間に自動スケジュール
                                     from datetime import datetime
                                     import pytz
+                                    from services.calendar_service import CalendarService
+                                    from services.openai_service import OpenAIService
+                                    
+                                    calendar_service = CalendarService()
+                                    openai_service = OpenAIService()
+                                    
                                     jst = pytz.timezone('Asia/Tokyo')
                                     today = datetime.now(jst)
                                     
