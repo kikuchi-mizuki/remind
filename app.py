@@ -928,7 +928,6 @@ def callback():
                                         
                                         # 未来タスク選択モードファイルを作成
                                         import os
-                                        from datetime import datetime
                                         future_selection_file = f"future_task_selection_{user_id}.json"
                                         with open(future_selection_file, "w") as f:
                                             import json
@@ -943,6 +942,83 @@ def callback():
                                     import traceback
                                     traceback.print_exc()
                                     reply_text = f"⚠️ 日曜18時テスト中にエラーが発生しました: {e}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                continue
+
+                            # スケジュール提案への返信処理
+                            if user_message.strip() == "承認する":
+                                try:
+                                    # スケジュール提案ファイルを確認
+                                    import os
+                                    schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
+                                    if os.path.exists(schedule_proposal_file):
+                                        # スケジュール提案を読み込み
+                                        with open(schedule_proposal_file, "r") as f:
+                                            proposal = f.read()
+                                        
+                                        # Googleカレンダーにスケジュールを追加
+                                        from services.calendar_service import CalendarService
+                                        calendar_service = CalendarService()
+                                        
+                                        # 選択されたタスクを取得
+                                        selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                        if os.path.exists(selected_tasks_file):
+                                            import json
+                                            with open(selected_tasks_file, "r") as f:
+                                                task_ids = json.load(f)
+                                            
+                                            all_tasks = task_service.get_user_tasks(user_id)
+                                            selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                            
+                                            # カレンダーに追加
+                                            success_count = 0
+                                            for task in selected_tasks:
+                                                if calendar_service.add_task_to_calendar(user_id, task):
+                                                    success_count += 1
+                                            
+                                            reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。"
+                                            
+                                            # ファイルを削除
+                                            if os.path.exists(schedule_proposal_file):
+                                                os.remove(schedule_proposal_file)
+                                            if os.path.exists(selected_tasks_file):
+                                                os.remove(selected_tasks_file)
+                                        else:
+                                            reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
+                                    else:
+                                        reply_text = "⚠️ スケジュール提案が見つかりませんでした。"
+                                    
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                except Exception as e:
+                                    print(f"[ERROR] 承認処理: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    reply_text = f"⚠️ 承認処理中にエラーが発生しました: {e}"
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                continue
+
+                            if user_message.strip() == "修正する":
+                                try:
+                                    reply_text = "📝 スケジュール修正モード\n\n修正したい内容を送信してください！\n\n例：\n• 「資料作成を14時に変更」\n• 「会議準備を15時30分に変更」"
+                                    
+                                    line_bot_api.reply_message(
+                                        reply_token,
+                                        TextSendMessage(text=reply_text)
+                                    )
+                                except Exception as e:
+                                    print(f"[ERROR] 修正処理: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    reply_text = f"⚠️ 修正処理中にエラーが発生しました: {e}"
                                     line_bot_api.reply_message(
                                         reply_token,
                                         TextSendMessage(text=reply_text)
