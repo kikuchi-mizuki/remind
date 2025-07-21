@@ -14,3 +14,4 @@ oauth2client>=4.1.3
 schedule>=1.2.0
 requests>=2.31.0 
 pytz 
+gevent>=21.1.0 
