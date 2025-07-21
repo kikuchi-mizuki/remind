@@ -994,7 +994,7 @@ def callback():
                                             # カレンダーに追加
                                             success_count = 0
                                             for task in selected_tasks:
-                                                if calendar_service.add_task_to_calendar(user_id, task):
+                                                if calendar_service.add_event_to_calendar(user_id, task):
                                                     success_count += 1
                                             
                                             reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。"
