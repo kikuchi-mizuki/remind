@@ -1008,6 +1008,10 @@ def callback():
                                             
                                             # 今日のスケジュール一覧を取得して表示
                                             today_schedule = calendar_service.get_today_schedule(user_id)
+                                            print(f"[DEBUG] 今日のスケジュール取得結果: {len(today_schedule)}件")
+                                            for i, event in enumerate(today_schedule):
+                                                print(f"[DEBUG] イベント{i+1}: {event}")
+                                            
                                             if today_schedule:
                                                 reply_text += "📅 今日のスケジュール：\n"
                                                 reply_text += "━━━━━━━━━━━━━━\n"
