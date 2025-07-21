@@ -1004,7 +1004,22 @@ def callback():
                                                 if calendar_service.add_event_to_calendar(user_id, task.name, start_time, task.duration_minutes):
                                                     success_count += 1
                                             
-                                            reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。"
+                                            reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。\n\n"
+                                            
+                                            # 今日のスケジュール一覧を取得して表示
+                                            today_schedule = calendar_service.get_today_schedule(user_id)
+                                            if today_schedule:
+                                                reply_text += "📅 今日のスケジュール：\n"
+                                                reply_text += "━━━━━━━━━━━━━━\n"
+                                                for event in today_schedule:
+                                                    start_time = event['start_time'].strftime('%H:%M')
+                                                    end_time = event['end_time'].strftime('%H:%M')
+                                                    summary = event['summary']
+                                                    reply_text += f"🕐 {start_time}〜{end_time}\n"
+                                                    reply_text += f"📝 {summary}\n"
+                                                    reply_text += "━━━━━━━━━━━━━━\n"
+                                            else:
+                                                reply_text += "📅 今日のスケジュールはありません。"
                                             
                                             # ファイルを削除
                                             if os.path.exists(schedule_proposal_file):
