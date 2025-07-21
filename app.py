@@ -187,10 +187,10 @@ def oauth2callback():
         # 認証完了メッセージと使い方ガイドを送信
         try:
             print(f"[oauth2callback] 認証完了メッセージ送信開始: user_id={user_id}")
-            
+
             # LINE API制限チェック用フラグ
             line_api_limited = False
-            
+
             # 簡潔な認証完了メッセージを送信
             guide_text = """✅ Googleカレンダー連携完了！
 
@@ -257,8 +257,6 @@ def oauth2callback():
                         print(f"[oauth2callback] Flexメニュー送信エラー: {e}")
                         import traceback
                         traceback.print_exc()
-                else:
-                    print("[oauth2callback] LINE API制限により、Flexメニュー送信をスキップしました")
             
             print("[oauth2callback] 認証完了処理完了")
         except Exception as e:
@@ -346,8 +344,8 @@ def oauth2callback():
         </head>
         <body>
             <div class="container">
-                <div class="success">✅ 認証完了</div>
-                <div class="message">
+            <div class="success">✅ 認証完了</div>
+            <div class="message">
                     Googleカレンダーとの連携が完了しました！
                 </div>
             </div>
@@ -777,13 +775,13 @@ def callback():
                             # スケジュール選択モードの場合（既存の処理）
                             selected_tasks = task_service.get_selected_tasks(user_id, user_message)
                             if selected_tasks:
-                                with open(f"selected_tasks_{user_id}.json", "w") as f:
-                                    import json
-                                    json.dump([t.task_id for t in selected_tasks], f)
-                                # --- テキストメッセージのみで確認案内 ---
-                                reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
-                                reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
-                                reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
+                                    with open(f"selected_tasks_{user_id}.json", "w") as f:
+                                        import json
+                                        json.dump([t.task_id for t in selected_tasks], f)
+                                    # --- テキストメッセージのみで確認案内 ---
+                                    reply_text = "🤖今日やるタスクはこちらで良いですか？\n\n"
+                                    reply_text += "\n".join([f"・{t.name}（{t.duration_minutes}分）" for t in selected_tasks])
+                                    reply_text += "\n\n「はい」もしくは「修正する」でお答えください！"
                                 
                                 line_bot_api.reply_message(
                                     reply_token,
@@ -2045,13 +2043,13 @@ def callback():
                         flex_message = get_simple_flex_menu(user_id)
                         print(f"[DEBUG] メニュー生成完了: {flex_message}")
                         try:
-                            line_bot_api.reply_message(
-                                reply_token,
-                                FlexSendMessage(
-                                    alt_text="ご利用案内・操作メニュー",
-                                    contents=flex_message
-                                )
+                        line_bot_api.reply_message(
+                            reply_token,
+                            FlexSendMessage(
+                                alt_text="ご利用案内・操作メニュー",
+                                contents=flex_message
                             )
+                        )
                             print("[DEBUG] Flexメニュー送信成功")
                         except Exception as e:
                             print(f"[DEBUG] Flexメニュー送信エラー: {e}")
@@ -2125,6 +2123,8 @@ def get_simple_flex_menu(user_id=None):
 
 if __name__ == "__main__":
     # アプリケーション起動
+    import os
+    from datetime import datetime
     port = int(os.getenv('PORT', 5000))
     print(f"[app.py] Flaskアプリケーション起動: port={port}, time={datetime.now()}")
-    app.run(debug=True, host='0.0.0.0', port=port) 
+    app.run(debug=False, host='0.0.0.0', port=port) 
