@@ -710,8 +710,8 @@ def callback():
                             try:
                                 print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
                                 
-                                # 複数タスクかチェック（改行、カンマ、数字を含む形式）
-                                if '\n' in user_message or '、' in user_message or any(char.isdigit() for char in user_message):
+                                # 複数タスクかチェック（改行、カンマを含む形式、ただし数字のみは除外）
+                                if ('\n' in user_message or '、' in user_message) and not user_message.strip().isdigit():
                                     print(f"[DEBUG] 複数タスク処理開始")
                                     # 複数タスク処理
                                     task_infos = task_service.parse_multiple_tasks(user_message)
