@@ -420,21 +420,126 @@ def callback():
                                     # メッセージを解析
                                     import re
                                     
-                                    # 「タスク 1、3」のような形式を検索（全角・半角数字対応）
-                                    normal_matches = re.findall(r'タスク\s*([１２３４５６７８９０\d]+)', user_message)
-                                    print(f"[DEBUG] 通常タスクマッチ結果: {normal_matches}")
-                                    
-                                    # 数字のみの場合は従来の処理（通常タスクのみ）
-                                    if not normal_matches and not future_matches:
-                                        selected_normal_tasks = task_service.get_selected_tasks(user_id, user_message)
-                                    else:
-                                        # マッチした数字のインデックスでタスクを選択
-                                        for match in normal_matches:
+                                    # AIを使った数字抽出（優先）
+                                    try:
+                                        from services.openai_service import OpenAIService
+                                        openai_service = OpenAIService()
+                                        
+                                        # AIに数字抽出を依頼
+                                        prompt = f"""
+以下のメッセージから削除対象のタスク番号を抽出してください。
+通常タスクは「タスク1」「タスク2」、未来タスクは「未来タスク1」「未来タスク2」の形式です。
+
+メッセージ: {user_message}
+
+抽出ルール:
+1. 通常タスクの番号のみを抽出（例: 1, 2, 3）
+2. 未来タスクの番号のみを抽出（例: 1, 2）
+3. 数字のみをカンマ区切りで返す
+4. 通常タスクと未来タスクを区別して返す
+
+形式:
+通常タスク: 1,2,3
+未来タスク: 1,2
+
+メッセージに該当するタスクがない場合は「なし」と返してください。
+"""
+                                        
+                                        # OpenAI APIを直接呼び出し
+                                        response = openai_service.client.chat.completions.create(
+                                            model=openai_service.model,
+                                            messages=[
+                                                {
+                                                    "role": "system",
+                                                    "content": "あなたはタスク管理システムの数字抽出専門家です。与えられたメッセージから削除対象のタスク番号を正確に抽出してください。"
+                                                },
+                                                {
+                                                    "role": "user",
+                                                    "content": prompt
+                                                }
+                                            ],
+                                            max_tokens=100,
+                                            temperature=0.1
+                                        )
+                                        ai_response = response.choices[0].message.content or ""
+                                        print(f"[DEBUG] AI数字抽出結果: {ai_response}")
+                                        
+                                        # AIの回答を解析
+                                        normal_numbers = []
+                                        future_numbers = []
+                                        
+                                        if "通常タスク:" in ai_response and "未来タスク:" in ai_response:
+                                            # 通常タスクと未来タスクの両方が含まれている場合
+                                            parts = ai_response.split("未来タスク:")
+                                            if len(parts) >= 2:
+                                                normal_part = parts[0].replace("通常タスク:", "").strip()
+                                                future_part = parts[1].strip()
+                                                
+                                                # 通常タスクの数字を抽出
+                                                if normal_part != "なし":
+                                                    normal_numbers = [int(n.strip()) for n in normal_part.split(",") if n.strip().isdigit()]
+                                                
+                                                # 未来タスクの数字を抽出
+                                                if future_part != "なし":
+                                                    future_numbers = [int(n.strip()) for n in future_part.split(",") if n.strip().isdigit()]
+                                        else:
+                                            # 単純な数字リストの場合
+                                            numbers = re.findall(r'\d+', ai_response)
+                                            normal_numbers = [int(n) for n in numbers]
+                                        
+                                        print(f"[DEBUG] AI解析結果 - 通常タスク: {normal_numbers}, 未来タスク: {future_numbers}")
+                                        
+                                        # AIの結果を使用
+                                        for number in normal_numbers:
+                                            idx = number - 1
+                                            if 0 <= idx < len(all_tasks):
+                                                selected_normal_tasks.append(all_tasks[idx])
+                                                print(f"[DEBUG] AI通常タスク選択: インデックス{idx}, タスク名={all_tasks[idx].name}")
+                                        
+                                        for number in future_numbers:
+                                            idx = number - 1
+                                            if 0 <= idx < len(future_tasks):
+                                                selected_future_tasks.append(future_tasks[idx])
+                                                print(f"[DEBUG] AI未来タスク選択: インデックス{idx}, タスク名={future_tasks[idx].name}")
+                                        
+                                        # AIで抽出できた場合は従来の処理をスキップ
+                                        if normal_numbers or future_numbers:
+                                            print(f"[DEBUG] AI抽出成功、従来処理をスキップ")
+                                        else:
+                                            raise Exception("AI抽出失敗、従来処理にフォールバック")
+                                            
+                                    except Exception as e:
+                                        print(f"[DEBUG] AI抽出エラー: {e}, 従来処理を使用")
+                                        
+                                        # 従来の正規表現処理（フォールバック）
+                                        # 「タスク 1、3」のような形式を検索（全角・半角数字対応）
+                                        normal_match = re.search(r'タスク\s*([１２３４５６７８９０\d、\s]+)', user_message)
+                                        normal_matches = []
+                                        if normal_match:
+                                            # マッチした部分から数字を抽出
+                                            numbers_text = normal_match.group(1)
                                             # 全角数字を半角数字に変換
-                                            match_normalized = match.translate(str.maketrans('１２３４５６７８９０', '1234567890'))
-                                            # カンマ区切りの数字を個別に処理
-                                            numbers = re.findall(r'\d+', match_normalized)
-                                            for number in numbers:
+                                            numbers_text_normalized = numbers_text.translate(str.maketrans('１２３４５６７８９０', '1234567890'))
+                                            # 数字を個別に抽出
+                                            normal_matches = re.findall(r'\d+', numbers_text_normalized)
+                                        print(f"[DEBUG] 通常タスクマッチ結果: {normal_matches}")
+                                        
+                                        # 「未来タスク 2」のような形式を検索
+                                        future_matches = re.findall(r'未来タスク\s*(\d+)', user_message)
+                                        print(f"[DEBUG] 未来タスクマッチ結果: {future_matches}")
+                                        
+                                        for match in future_matches:
+                                            idx = int(match) - 1
+                                            if 0 <= idx < len(future_tasks):
+                                                selected_future_tasks.append(future_tasks[idx])
+                                                print(f"[DEBUG] 未来タスク選択: インデックス{idx}, タスク名={future_tasks[idx].name}")
+                                        
+                                        # 数字のみの場合は従来の処理（通常タスクのみ）
+                                        if not normal_matches and not future_matches:
+                                            selected_normal_tasks = task_service.get_selected_tasks(user_id, user_message)
+                                        else:
+                                            # マッチした数字のインデックスでタスクを選択
+                                            for number in normal_matches:
                                                 idx = int(number) - 1
                                                 if 0 <= idx < len(all_tasks):
                                                     selected_normal_tasks.append(all_tasks[idx])
