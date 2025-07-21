@@ -994,7 +994,14 @@ def callback():
                                             # カレンダーに追加
                                             success_count = 0
                                             for task in selected_tasks:
-                                                if calendar_service.add_event_to_calendar(user_id, task):
+                                                # スケジュール提案から開始時刻を抽出（簡易版：14:00を固定）
+                                                from datetime import datetime, timedelta
+                                                import pytz
+                                                jst = pytz.timezone('Asia/Tokyo')
+                                                today = datetime.now(jst)
+                                                start_time = today.replace(hour=14, minute=0, second=0, microsecond=0)
+                                                
+                                                if calendar_service.add_event_to_calendar(user_id, task.name, start_time, task.duration_minutes):
                                                     success_count += 1
                                             
                                             reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。"
