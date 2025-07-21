@@ -890,86 +890,65 @@ def callback():
                                 )
                                 continue
 
-                            # デバッグ用コマンド
+                            # デバッグ用コマンド (認証確認, DB確認, 21時テスト, 8時テスト, 日曜18時テスト)
                             if user_message.strip() == "認証確認":
                                 auth_status = is_google_authenticated(user_id)
-                                reply_text = f"🔍 認証状態確認\n\n"
-                                reply_text += f"ユーザーID: {user_id}\n"
-                                reply_text += f"認証状態: {'✅ 認証済み' if auth_status else '❌ 未認証'}\n\n"
-                                if not auth_status:
-                                    auth_url = get_google_auth_url(user_id)
-                                    reply_text += f"認証が必要です:\n{auth_url}"
+                                reply_text = f"認証状態: {auth_status}"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
-
                             if user_message.strip() == "DB確認":
-                                from models.database import db
-                                reply_text = f"🔍 データベース確認\n\n"
-                                reply_text += f"DBファイルパス: {db.db_path}\n"
-                                user_ids = db.get_all_user_ids()
-                                reply_text += f"登録ユーザー数: {len(user_ids)}\n"
-                                if user_ids:
-                                    reply_text += f"ユーザーID: {user_ids}\n"
-                                token = db.get_token(user_id)
-                                reply_text += f"トークン存在: {'✅' if token else '❌'}\n"
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                reply_text = f"通常タスク: {len(all_tasks)}件\n未来タスク: {len(future_tasks)}件"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
-
                             if user_message.strip() == "21時テスト":
-                                notification_service.send_carryover_check()
-                                reply_text = "✅ 21時通知を手動実行しました"
+                                try:
+                                    notification_service.send_carryover_check()
+                                    reply_text = "21時テスト通知を送信しました"
+                                except Exception as e:
+                                    reply_text = f"21時テストエラー: {e}"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
-
                             if user_message.strip() == "8時テスト":
-                                notification_service.send_daily_task_notification()
-                                reply_text = "✅ 8時通知を手動実行しました"
+                                try:
+                                    notification_service.send_daily_task_notification()
+                                    reply_text = "8時テスト通知を送信しました"
+                                except Exception as e:
+                                    reply_text = f"8時テストエラー: {e}"
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
-
                             if user_message.strip() == "日曜18時テスト":
                                 try:
-                                    # 未来タスク一覧を取得
-                                    future_tasks = task_service.get_user_future_tasks(user_id)
-                                    print(f"[日曜18時テスト] 未来タスク数: {len(future_tasks)}")
-                                    
-                                    if not future_tasks:
-                                        reply_text = "⭐未来タスク一覧\n━━━━━━━━━━━━\n登録されている未来タスクはありません。\n\n新しい未来タスクを追加してください！\n例: 「新規事業を考える 2時間」"
-                                    else:
-                                        reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=True)
-                                        
-                                        # 未来タスク選択モードファイルを作成
-                                        import os
-                                        future_selection_file = f"future_task_selection_{user_id}.json"
-                                        with open(future_selection_file, "w") as f:
-                                            import json
-                                            json.dump({"mode": "future_selection", "timestamp": datetime.now().isoformat()}, f)
-                                    
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=reply_text)
-                                    )
+                                    notification_service.send_future_task_selection()
+                                    reply_text = "日曜18時テスト通知を送信しました"
                                 except Exception as e:
-                                    print(f"[ERROR] 日曜18時テスト: {e}")
-                                    import traceback
-                                    traceback.print_exc()
-                                    reply_text = f"⚠️ 日曜18時テスト中にエラーが発生しました: {e}"
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=reply_text)
-                                    )
+                                    reply_text = f"日曜18時テストエラー: {e}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
+                                continue
+                            if user_message.strip() == "スケジューラー確認":
+                                scheduler_status = notification_service.is_running
+                                thread_status = notification_service.scheduler_thread.is_alive() if notification_service.scheduler_thread else False
+                                reply_text = f"スケジューラー状態:\n- is_running: {scheduler_status}\n- スレッド動作: {thread_status}"
+                                line_bot_api.reply_message(
+                                    reply_token,
+                                    TextSendMessage(text=reply_text)
+                                )
                                 continue
 
                             # スケジュール提案への返信処理
