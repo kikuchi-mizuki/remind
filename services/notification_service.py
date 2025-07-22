@@ -140,10 +140,20 @@ class NotificationService:
             
             # JSTで今日の日付を取得
             jst = pytz.timezone('Asia/Tokyo')
-            today_str = datetime.now(jst).strftime('%Y-%m-%d')
-            
-            # 今日が期日のタスクのみ抽出
-            today_tasks = [t for t in all_tasks if t.due_date == today_str]
+            today = datetime.now(jst)
+            today_str = today.strftime('%Y-%m-%d')
+
+            # タスクのdue_dateもJSTでパースしてdate型で比較
+            today_tasks = []
+            for t in all_tasks:
+                try:
+                    if not t.due_date:
+                        continue
+                    task_due = datetime.strptime(t.due_date, '%Y-%m-%d').date()
+                    if task_due == today.date():
+                        today_tasks.append(t)
+                except Exception:
+                    continue
             
             if not today_tasks:
                 message = "📋 今日のタスク\n\n本日分のタスクはありません。\n\n新しいタスクを登録してください！\n例: 「筋トレ 20分 明日」"
