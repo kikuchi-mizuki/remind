@@ -394,12 +394,15 @@ def callback():
                         # コマンドでない場合のみタスク登録処理を実行
                         if user_message.strip() not in commands:
                             print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
-                            from linebot.v3.messaging import FlexMessage
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
                             flex_message = get_simple_flex_menu(user_id)
                             print(f"[DEBUG] FlexMessage生成: {flex_message}")
                             if flex_message:
                                 try:
-                                    flex_msg = FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
+                                    # FlexContainerを正しく構築
+                                    flex_container = FlexContainer(**flex_message)
+                                    print(f"[DEBUG] FlexContainer作成完了: {flex_container}")
+                                    flex_msg = FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_container)
                                     print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
