@@ -148,16 +148,16 @@ class Database:
             return False
 
     def create_future_task(self, task: Task) -> bool:
-        """未来タスクを作成"""
+        """未来タスクを作成（tasksテーブルに統一）"""
         try:
-            print(f"[create_future_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, priority={task.priority}, status={task.status}, created_at={task.created_at}")
+            print(f"[create_future_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, priority={task.priority}, status={task.status}, created_at={task.created_at}, task_type={task.task_type}")
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO future_tasks (task_id, user_id, name, duration_minutes, priority, status, created_at, category)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
-                  task.priority, task.status, task.created_at, 'investment'))
+                  task.repeat, task.status, task.created_at, task.due_date, task.priority, task.task_type))
             conn.commit()
             conn.close()
             return True
