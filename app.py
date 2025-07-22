@@ -1352,12 +1352,23 @@ def callback():
 
                         # どのコマンドにも該当しない場合やガイドメニュー返却部
                         flex_message = get_simple_flex_menu(user_id)
+                        print(f"[DEBUG] FlexMessage生成: {flex_message}")
                         if flex_message:
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(replyToken=reply_token, messages=[
-                                    FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
-                                ])
-                            )
+                            try:
+                                flex_msg = FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
+                                print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
+                                )
+                                print("[DEBUG] FlexMessage送信完了")
+                            except Exception as flex_e:
+                                print(f"[DEBUG] FlexMessage送信エラー: {flex_e}")
+                                # FlexMessage送信に失敗した場合はテキストで案内
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[
+                                        TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")
+                                    ])
+                                )
                         else:
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(replyToken=reply_token, messages=[
@@ -1391,12 +1402,26 @@ def get_simple_flex_menu(user_id=None):
     """認証状態に応じてメニューを動的に生成（dict型で返す）"""
     return {
         "type": "bubble",
+        "size": "kilo",
         "body": {
             "type": "box",
             "layout": "vertical",
+            "spacing": "md",
             "contents": [
-                {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "xl"},
-                {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+                {
+                    "type": "text",
+                    "text": "タスク管理Bot",
+                    "weight": "bold",
+                    "size": "lg",
+                    "color": "#1DB446"
+                },
+                {
+                    "type": "text",
+                    "text": "何をお手伝いしますか？",
+                    "size": "sm",
+                    "color": "#666666",
+                    "wrap": True
+                }
             ]
         },
         "footer": {
@@ -1404,10 +1429,45 @@ def get_simple_flex_menu(user_id=None):
             "layout": "vertical",
             "spacing": "sm",
             "contents": [
-                {"type": "button", "style": "primary", "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"}},
-                {"type": "button", "style": "primary", "color": "#FF6B6B", "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"}},
-                {"type": "button", "style": "primary", "color": "#4ECDC4", "action": {"type": "message", "label": "未来タスクを追加する", "text": "未来タスク追加"}},
-                {"type": "button", "style": "secondary", "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"}}
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#1DB446",
+                    "action": {
+                        "type": "message",
+                        "label": "タスクを追加する",
+                        "text": "タスク追加"
+                    }
+                },
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#FF6B6B",
+                    "action": {
+                        "type": "message",
+                        "label": "緊急タスクを追加する",
+                        "text": "緊急タスク追加"
+                    }
+                },
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#4ECDC4",
+                    "action": {
+                        "type": "message",
+                        "label": "未来タスクを追加する",
+                        "text": "未来タスク追加"
+                    }
+                },
+                {
+                    "type": "button",
+                    "style": "secondary",
+                    "action": {
+                        "type": "message",
+                        "label": "タスクを削除する",
+                        "text": "タスク削除"
+                    }
+                }
             ]
         }
     }
