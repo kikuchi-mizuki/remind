@@ -1005,6 +1005,50 @@ def callback():
                                 )
                                 continue
                         
+                        # 未来タスク追加モードでの処理
+                        future_mode_file = f"future_task_mode_{user_id}.json"
+                        print(f"[DEBUG] 未来タスク追加モードファイル確認: {future_mode_file}, exists={os.path.exists(future_mode_file)}")
+                        if os.path.exists(future_mode_file):
+                            print(f"[DEBUG] 未来タスク追加モード開始: user_message='{user_message}'")
+                            try:
+                                # 未来タスクとして登録
+                                task_info = task_service.parse_task_message(user_message)
+                                task_info['priority'] = 'not_urgent_important'  # 重要なタスクとして設定
+                                task_info['due_date'] = None  # 期限なし（未来タスク）
+                                
+                                task = task_service.create_future_task(user_id, task_info)
+                                print(f"[DEBUG] 未来タスク作成完了: task_id={task.task_id}")
+                                
+                                # 未来タスク一覧を取得して表示
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                print(f"[DEBUG] 未来タスク一覧取得完了: {len(future_tasks)}件")
+                                
+                                reply_text = "🔮 未来タスクを追加しました！\n\n"
+                                reply_text += "📋 未来タスク一覧\n"
+                                reply_text += "＝＝＝＝＝＝\n"
+                                for idx, task in enumerate(future_tasks, 1):
+                                    reply_text += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
+                                reply_text += "＝＝＝＝＝＝\n\n"
+                                reply_text += "※毎週日曜日18時に来週やるタスクを選択できます"
+                                
+                                # 未来タスク追加モードファイルを削除
+                                if os.path.exists(future_mode_file):
+                                    os.remove(future_mode_file)
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                )
+                                continue
+                            except Exception as e:
+                                print(f"[DEBUG] 未来タスク追加モード処理エラー: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                )
+                                continue
+                        
                         # タスク登録処理を試行
                         try:
                             print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
