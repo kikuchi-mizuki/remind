@@ -1104,8 +1104,8 @@ def callback():
                                         free_times = calendar_service.get_free_busy_times(user_id, next_week)
                                         
                                         if free_times:
-                                            # スケジュール提案を生成
-                                            proposal = openai_service.generate_schedule_proposal([selected_task], free_times)
+                                            # スケジュール提案を生成（来週のスケジュールとして）
+                                            proposal = openai_service.generate_schedule_proposal([selected_task], free_times, week_info="来週")
                                             
                                             # スケジュール提案ファイルを作成
                                             schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
