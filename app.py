@@ -636,7 +636,15 @@ def callback():
                                     print(f"[DEBUG] 未来タスク追加モード処理エラー: {e}")
                                     import traceback
                                     traceback.print_exc()
-                                    reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                    # 所要時間エラーの場合は分かりやすい案内
+                                    if "所要時間が見つかりません" in str(e):
+                                        reply_text = (
+                                            "⚠️ 所要時間が見つかりませんでした。\n"
+                                            "タスク名と所要時間をセットで入力してください。\n"
+                                            "例：『新規事業計画 2時間』『資料作成 30分』"
+                                        )
+                                    else:
+                                        reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
                                     line_bot_api.reply_message(
                                         reply_token,
                                         TextSendMessage(text=reply_text)
