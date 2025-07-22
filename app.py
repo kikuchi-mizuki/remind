@@ -837,8 +837,10 @@ def callback():
                                                         start_time = event['start']
                                                         end_time = event['end']
                                                     summary = event['title']
+                                                    # 📝と[added_by_bot]を削除
+                                                    clean_summary = summary.replace('📝 ', '').replace(' [added_by_bot]', '')
                                                     reply_text += f"🕐 {start_time}〜{end_time}\n"
-                                                    reply_text += f"📝 {summary}\n"
+                                                    reply_text += f"📝 {clean_summary}\n"
                                                     reply_text += "━━━━━━━━━━━━━━\n"
                                             else:
                                                 reply_text += " 今日のスケジュールはありません。"
