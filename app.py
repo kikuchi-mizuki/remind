@@ -237,7 +237,7 @@ def oauth2callback():
                     print(f"[oauth2callback] Flexメニュー送信試行: user_id={user_id}")
                     from linebot.v3.messaging import FlexMessage, FlexContainer
                     flex_message = get_simple_flex_menu(str(user_id))
-                    flex_container = FlexContainer(**flex_message)
+                    flex_container = FlexContainer.from_dict(flex_message)
                     line_bot_api.push_message(
                         PushMessageRequest(to=str(user_id), messages=[FlexMessage(
                             alt_text="操作メニュー",
@@ -399,8 +399,8 @@ def callback():
                             flex_message = get_simple_flex_menu(user_id)
                             print(f"[DEBUG] FlexMessage生成: {flex_message}")
                             try:
-                                # FlexContainerを作成してからFlexMessageに渡す
-                                flex_container = FlexContainer(**flex_message)
+                                # FlexContainer.from_dict()を使用して正しく作成
+                                flex_container = FlexContainer.from_dict(flex_message)
                                 flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
                                 print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
                                 line_bot_api.reply_message(
@@ -836,7 +836,7 @@ def callback():
                                         # エラー時はFlexMessageで案内
                                         from linebot.v3.messaging import FlexMessage, FlexContainer
                                         flex_message = get_simple_flex_menu(user_id)
-                                        flex_container = FlexContainer(**flex_message)
+                                        flex_container = FlexContainer.from_dict(flex_message)
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
                                                 alt_text="ご利用案内・操作メニュー",
@@ -1365,7 +1365,7 @@ def callback():
                         flex_message = get_simple_flex_menu(user_id)
                         print(f"[DEBUG] FlexMessage生成: {flex_message}")
                         try:
-                            flex_container = FlexContainer(**flex_message)
+                            flex_container = FlexContainer.from_dict(flex_message)
                             flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
                             print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
                             line_bot_api.reply_message(
