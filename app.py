@@ -822,7 +822,8 @@ def callback():
                                                     'name': future_task.name,
                                                     'duration_minutes': future_task.duration_minutes,
                                                     'priority': 'not_urgent_important',
-                                                    'due_date': None
+                                                    'due_date': None,
+                                                    'repeat': False
                                                 }
                                                 converted_task = task_service.create_task(user_id, task_info)
                                                 selected_tasks.append(converted_task)
