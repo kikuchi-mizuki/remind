@@ -1042,6 +1042,12 @@ def callback():
                                 future_tasks = task_service.get_user_future_tasks(user_id)
                                 print(f"[DEBUG] 未来タスク一覧取得完了: {len(future_tasks)}件")
                                 
+                                # 新しく追加したタスクの情報を確認
+                                print(f"[DEBUG] 新しく追加したタスク: task_id={task.task_id}, name={task.name}, duration={task.duration_minutes}分")
+                                print(f"[DEBUG] 未来タスク一覧詳細:")
+                                for i, ft in enumerate(future_tasks):
+                                    print(f"[DEBUG] 未来タスク{i+1}: task_id={ft.task_id}, name={ft.name}, duration={ft.duration_minutes}分, created_at={ft.created_at}")
+                                
                                 reply_text = "🔮 未来タスクを追加しました！\n\n"
                                 reply_text += "📋 未来タスク一覧\n"
                                 reply_text += "＝＝＝＝＝＝\n"
@@ -1054,9 +1060,11 @@ def callback():
                                 if os.path.exists(future_mode_file):
                                     os.remove(future_mode_file)
                                 
+                                print(f"[DEBUG] 未来タスク追加モード返信メッセージ送信開始: {reply_text[:100]}...")
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
+                                print(f"[DEBUG] 未来タスク追加モード返信メッセージ送信完了")
                                 continue
                             except Exception as e:
                                 print(f"[DEBUG] 未来タスク追加モード処理エラー: {e}")
