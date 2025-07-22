@@ -391,6 +391,9 @@ def callback():
                             "8時テスト", "８時テスト", "21時テスト", "日曜18時テスト", "はい", "修正する", "承認する"
                         ]
                         
+                        print(f"[DEBUG] コマンド判定: user_message='{user_message.strip()}', in commands={user_message.strip() in commands}")
+                        print(f"[DEBUG] コマンド一覧: {commands}")
+                        
                         # コマンドでない場合のみタスク登録処理を実行
                         if user_message.strip() not in commands:
                             print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
