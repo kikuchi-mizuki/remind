@@ -8,7 +8,7 @@ from typing import List
 # --- v3 importへ ---
 # from linebot import LineBotApi
 # from linebot.models import TextSendMessage
-from linebot.v3.messaging import MessagingApi, PushMessageRequest, TextMessage, FlexMessage
+from linebot.v3.messaging import MessagingApi, PushMessageRequest, TextMessage, FlexMessage, Configuration, ApiClient
 from models.database import db, Task
 from services.task_service import TaskService
 
@@ -22,8 +22,9 @@ class NotificationService:
         if not os.getenv('LINE_CHANNEL_ACCESS_TOKEN'):
             print("[ERROR] LINE_CHANNEL_ACCESS_TOKENが環境変数に設定されていません！")
         # --- v3インスタンス生成 ---
-        # self.line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
-        self.line_bot_api = MessagingApi()
+        configuration = Configuration(access_token=os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
+        api_client = ApiClient(configuration)
+        self.line_bot_api = MessagingApi(api_client)
         self.task_service = TaskService()
         self.scheduler_thread = None
         self.is_running = False

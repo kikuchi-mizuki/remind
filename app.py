@@ -6,7 +6,7 @@ from services.calendar_service import CalendarService
 from services.openai_service import OpenAIService
 from services.notification_service import NotificationService
 from models.database import init_db, Task
-from linebot.v3.messaging import MessagingApi, ReplyMessageRequest, PushMessageRequest, TextMessage, FlexMessage, ImageMessage
+from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, ReplyMessageRequest, PushMessageRequest, TextMessage, FlexMessage, ImageMessage
 from linebot.v3.webhook import WebhookHandler
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
@@ -35,7 +35,9 @@ notification_service = NotificationService()
 
 # --- 修正 ---
 # line_bot_api = MessagingApi(channel_access_token=os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
-line_bot_api = MessagingApi()
+configuration = Configuration(access_token=os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
+api_client = ApiClient(configuration)
+line_bot_api = MessagingApi(api_client)
 
 # スケジューラーを確実に開始（重複開始を防ぐ）
 if not notification_service.is_running:
