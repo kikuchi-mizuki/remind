@@ -962,6 +962,7 @@ def callback():
                             traceback.print_exc()
                             # 所要時間エラーの場合は分かりやすい案内
                             if "所要時間が見つかりません" in str(e):
+                                print(f"[DEBUG] 所要時間エラー検出、エラーメッセージを送信")
                                 reply_text = (
                                     "⚠️ 所要時間が見つかりませんでした。\n"
                                     "タスク名と所要時間をセットで入力してください。\n"
@@ -970,9 +971,10 @@ def callback():
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
+                                print(f"[DEBUG] エラーメッセージ送信完了、continue実行")
                                 continue
                             # その他のエラーの場合はFlexMessageで案内
-                        
+                            print(f"[DEBUG] その他のエラー、FlexMessage処理へ")
                         # FlexMessageでボタン付きメニューを送信
                         from linebot.v3.messaging import FlexMessage, FlexContainer
                         flex_message = get_simple_flex_menu(user_id)
