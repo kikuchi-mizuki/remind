@@ -125,7 +125,7 @@ class CalendarService:
 
     def add_event_to_calendar(self, user_id: str, task_name: str, start_time: datetime, 
                             duration_minutes: int, description: str = "") -> bool:
-        """カレンダーにイベントを追加（bot追加分はsummaryに[added_by_bot]を付与）"""
+        """カレンダーにイベントを追加"""
         if not self.authenticate_user(user_id):
             return False
         try:
@@ -139,7 +139,7 @@ class CalendarService:
             
             end_time = start_time + timedelta(minutes=duration_minutes)
             event = {
-                'summary': f'📝 {clean_task_name} [added_by_bot]',
+                'summary': f'📝 {clean_task_name}',
                 'description': description,
                 'start': {
                     'dateTime': start_time.isoformat(),
