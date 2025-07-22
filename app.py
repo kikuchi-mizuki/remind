@@ -6,7 +6,7 @@ from services.calendar_service import CalendarService
 from services.openai_service import OpenAIService
 from services.notification_service import NotificationService
 from models.database import init_db, Task
-from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, ReplyMessageRequest, PushMessageRequest, TextMessage, FlexMessage, ImageMessage
+from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, ReplyMessageRequest, PushMessageRequest, TextMessage, FlexMessage, ImageMessage, BubbleContainer, BoxComponent, TextComponent, ButtonComponent, MessageAction
 from linebot.v3.webhook import WebhookHandler
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
@@ -234,7 +234,6 @@ def oauth2callback():
             # 操作メニューも送信（制限エラーの場合はスキップ）
             if not line_api_limited:
                 try:
-                    from linebot.models import FlexSendMessage
                     print(f"[oauth2callback] Flexメニュー生成開始: user_id={user_id}")
                     flex_message = get_simple_flex_menu(str(user_id))
                     print(f"[oauth2callback] Flexメニュー生成完了: {flex_message}")
@@ -1404,62 +1403,27 @@ def callback():
 
 # --- Flex Message メニュー定義 ---
 def get_simple_flex_menu(user_id=None):
-    """認証状態に応じてメニューを動的に生成"""
+    """認証状態に応じてメニューを動的に生成（v3 SDK型安全版）"""
     print(f"[get_simple_flex_menu] user_id={user_id}")
-    # 全ボタンを表示（緊急タスクボタン含む）
-    basic_buttons = [
-        {
-            "type": "button",
-            "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"},
-            "style": "primary"
-        },
-        {
-            "type": "button",
-            "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"},
-            "style": "primary",
-            "color": "#FF6B6B"
-        },
-        {
-            "type": "button",
-            "action": {"type": "message", "label": "未来タスクを追加する", "text": "未来タスク追加"},
-            "style": "primary",
-            "color": "#4ECDC4"
-        },
-        {
-            "type": "button",
-            "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"},
-            "style": "secondary"
-        }
-    ]
-    # ボタンが空ならダミーを追加
-    if not basic_buttons:
-        basic_buttons = [{
-            "type": "button",
-            "action": {"type": "message", "label": "メニュー", "text": "メニュー"},
-            "style": "secondary"
-        }]
-    body_contents = [
-        {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "xl"},
-        {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
-    ]
-    # body.contentsが空ならダミーテキストを追加
-    if not body_contents:
-        body_contents = [{"type": "text", "text": "メニュー"}]
-    print(f"[get_simple_flex_menu] 全ボタンを表示（緊急タスクボタン含む）")
-    return {
-        "type": "bubble",
-        "body": {
-            "type": "box",
-            "layout": "vertical",
-            "contents": body_contents
-        },
-        "footer": {
-            "type": "box",
-            "layout": "vertical",
-            "spacing": "sm",
-            "contents": basic_buttons
-        }
-    }
+    body = BoxComponent(
+        layout="vertical",
+        contents=[
+            TextComponent(text="タスク管理Bot", weight="bold", size="xl"),
+            TextComponent(text="何をお手伝いしますか？", size="md", margin="md", color="#666666")
+        ]
+    )
+    footer = BoxComponent(
+        layout="vertical",
+        spacing="sm",
+        contents=[
+            ButtonComponent(style="primary", action=MessageAction(label="タスクを追加する", text="タスク追加")),
+            ButtonComponent(style="primary", color="#FF6B6B", action=MessageAction(label="緊急タスクを追加する", text="緊急タスク追加")),
+            ButtonComponent(style="primary", color="#4ECDC4", action=MessageAction(label="未来タスクを追加する", text="未来タスク追加")),
+            ButtonComponent(style="secondary", action=MessageAction(label="タスクを削除する", text="タスク削除")),
+        ]
+    )
+    bubble = BubbleContainer(body=body, footer=footer)
+    return bubble
 
 if __name__ == "__main__":
     # アプリケーション起動
