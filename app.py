@@ -235,12 +235,13 @@ def oauth2callback():
             if not line_api_limited:
                 try:
                     print(f"[oauth2callback] Flexメニュー送信試行: user_id={user_id}")
-                    from linebot.v3.messaging import FlexMessage
+                    from linebot.v3.messaging import FlexMessage, FlexContainer
                     flex_message = get_simple_flex_menu(str(user_id))
+                    flex_container = FlexContainer(**flex_message)
                     line_bot_api.push_message(
                         PushMessageRequest(to=str(user_id), messages=[FlexMessage(
                             alt_text="操作メニュー",
-                            contents=flex_message
+                            contents=flex_container
                         )])
                     )
                     print("[oauth2callback] Flexメニュー送信成功")
@@ -394,12 +395,13 @@ def callback():
                         if user_message.strip() not in commands:
                             print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
                             # FlexMessageでボタン付きメニューを送信
-                            from linebot.v3.messaging import FlexMessage
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
                             flex_message = get_simple_flex_menu(user_id)
                             print(f"[DEBUG] FlexMessage生成: {flex_message}")
                             try:
-                                # FlexMessageのcontentsに直接dict型を渡す
-                                flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_message)
+                                # FlexContainerを作成してからFlexMessageに渡す
+                                flex_container = FlexContainer(**flex_message)
+                                flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
                                 print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
@@ -832,12 +834,13 @@ def callback():
                                         print(f"[DEBUG] エラートレースバック:")
                                         traceback.print_exc()
                                         # エラー時はFlexMessageで案内
-                                        from linebot.v3.messaging import FlexMessage
+                                        from linebot.v3.messaging import FlexMessage, FlexContainer
                                         flex_message = get_simple_flex_menu(user_id)
+                                        flex_container = FlexContainer(**flex_message)
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
                                                 alt_text="ご利用案内・操作メニュー",
-                                                contents=flex_message
+                                                contents=flex_container
                                             )])
                                         )
                                         continue
@@ -1358,11 +1361,12 @@ def callback():
                             continue
 
                         # どのコマンドにも該当しない場合やガイドメニュー返却部
-                        from linebot.v3.messaging import FlexMessage
+                        from linebot.v3.messaging import FlexMessage, FlexContainer
                         flex_message = get_simple_flex_menu(user_id)
                         print(f"[DEBUG] FlexMessage生成: {flex_message}")
                         try:
-                            flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_message)
+                            flex_container = FlexContainer(**flex_message)
+                            flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
                             print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
