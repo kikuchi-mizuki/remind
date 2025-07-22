@@ -1350,35 +1350,20 @@ def callback():
                             line_bot_api.reply_message(ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)]))
                             continue
 
-                        # どのコマンドにも該当しない場合はガイドメッセージを返信
-                        print(f"[DEBUG] 認識されていないコマンド: {user_message}")
-                        print(f"[DEBUG] 認証状態確認: user_id={user_id}")
-                        auth_status = is_google_authenticated(user_id)
-                        print(f"[DEBUG] 認証状態: {auth_status}")
-                        print(f"[DEBUG] メニュー生成開始: user_id={user_id}")
-                        from linebot.v3.messaging import FlexMessage
+                        # どのコマンドにも該当しない場合やガイドメニュー返却部
                         flex_message = get_simple_flex_menu(user_id)
-                        print(f"[DEBUG] メニュー生成完了: {flex_message}")
-                        try:
-                            # FlexMessageのbody/footerのcontentsが空でないかチェック
-                            if flex_message and flex_message.get('body', {}).get('contents') and flex_message.get('footer', {}).get('contents'):
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                        alt_text="ご利用案内・操作メニュー",
-                                        contents=flex_message
-                                    )])
-                                )
-                            else:
-                                # 万一FlexMessageが不正な場合はテキストで案内
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")])
-                                )
-                            print("[DEBUG] Flexメニュー送信成功")
-                        except Exception as e:
-                            print(f"[DEBUG] Flexメニュー送信エラー: {e}")
-                            import traceback
-                            traceback.print_exc()
-                        continue
+                        if flex_message:
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(replyToken=reply_token, messages=[
+                                    FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
+                                ])
+                            )
+                        else:
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(replyToken=reply_token, messages=[
+                                    TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")
+                                ])
+                            )
                     except Exception as e:
                         print("エラー:", e)
                         # 例外発生時もユーザーにエラー内容を返信
