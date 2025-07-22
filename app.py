@@ -555,14 +555,18 @@ def callback():
                                             print(f"[DEBUG] 未来タスク選択: インデックス{idx}, タスク名={future_tasks[idx].name}")
                                     
                                     # タスクを削除
+                                    # 重複排除（task_idで一意化）
+                                    unique_normal_tasks = {task.task_id: task for task in selected_normal_tasks}.values()
+                                    unique_future_tasks = {task.task_id: task for task in selected_future_tasks}.values()
+
                                     deleted_normal_count = 0
                                     deleted_future_count = 0
                                     
-                                    for task in selected_normal_tasks:
+                                    for task in unique_normal_tasks:
                                         if task_service.archive_task(task.task_id):
                                             deleted_normal_count += 1
                                     
-                                    for task in selected_future_tasks:
+                                    for task in unique_future_tasks:
                                         if task_service.archive_task(task.task_id):
                                             deleted_future_count += 1
                                     
@@ -576,13 +580,13 @@ def callback():
                                     
                                     if deleted_normal_count > 0:
                                         reply_text += "削除された通常タスク：\n"
-                                        for task in selected_normal_tasks:
+                                        for task in unique_normal_tasks:
                                             reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
                                         reply_text += "\n"
                                     
                                     if deleted_future_count > 0:
                                         reply_text += "削除された未来タスク：\n"
-                                        for task in selected_future_tasks:
+                                        for task in unique_future_tasks:
                                             reply_text += f"・{task.name}（{task.duration_minutes}分）\n"
                                         reply_text += "\n"
                                     
