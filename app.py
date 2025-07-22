@@ -929,6 +929,50 @@ def callback():
                         # コマンドでない場合のみタスク登録処理を実行
                         print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
                         
+                        # タスク登録処理を試行
+                        try:
+                            print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
+                            # 通常のタスク登録処理
+                            task_info = task_service.parse_task_message(user_message)
+                            print(f"[DEBUG] タスク情報解析完了: {task_info}")
+                            task = task_service.create_task(user_id, task_info)
+                            print(f"[DEBUG] タスク作成完了: task_id={task.task_id}")
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            print(f"[DEBUG] タスク一覧取得完了: {len(all_tasks)}件")
+                            priority_messages = {
+                                "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
+                                "not_urgent_important": "⭐重要なタスクを追加しました！",
+                                "urgent_not_important": "⚡緊急タスクを追加しました！",
+                                "normal": "✅タスクを追加しました！"
+                            }
+                            priority = task_info.get('priority', 'normal')
+                            reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
+                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                            reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                            print(f"[DEBUG] 返信メッセージ送信開始")
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text.strip())])
+                            )
+                            print(f"[DEBUG] 返信メッセージ送信完了")
+                            continue
+                        except Exception as e:
+                            print(f"[DEBUG] タスク登録エラー詳細: {e}")
+                            import traceback
+                            print(f"[DEBUG] エラートレースバック:")
+                            traceback.print_exc()
+                            # 所要時間エラーの場合は分かりやすい案内
+                            if "所要時間が見つかりません" in str(e):
+                                reply_text = (
+                                    "⚠️ 所要時間が見つかりませんでした。\n"
+                                    "タスク名と所要時間をセットで入力してください。\n"
+                                    "例：『新規事業計画 2時間』『資料作成 30分』"
+                                )
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                )
+                                continue
+                            # その他のエラーの場合はFlexMessageで案内
+                        
                         # FlexMessageでボタン付きメニューを送信
                         from linebot.v3.messaging import FlexMessage, FlexContainer
                         flex_message = get_simple_flex_menu(user_id)
