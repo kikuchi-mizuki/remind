@@ -241,7 +241,7 @@ def oauth2callback():
                     print(f"[oauth2callback] Flexメニュー送信試行: user_id={user_id}")
                     line_bot_api.push_message(
                         PushMessageRequest(to=str(user_id), messages=[FlexMessage(
-                            altText="操作メニュー",
+                            alt_text="操作メニュー",
                             contents=flex_message
                         )])
                     )
@@ -400,7 +400,7 @@ def callback():
                             if flex_message and flex_message.get('body', {}).get('contents') and flex_message.get('footer', {}).get('contents'):
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                        altText="ご利用案内・操作メニュー",
+                                        alt_text="ご利用案内・操作メニュー",
                                         contents=flex_message
                                     )])
                                 )
@@ -830,7 +830,7 @@ def callback():
                                         flex_message = get_simple_flex_menu(user_id)
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                                altText="ご利用案内・操作メニュー",
+                                                alt_text="ご利用案内・操作メニュー",
                                                 contents=flex_message
                                             )])
                                         )
@@ -883,7 +883,7 @@ def callback():
                                         if flex_message and flex_message.get('body', {}).get('contents') and flex_message.get('footer', {}).get('contents'):
                                             line_bot_api.reply_message(
                                                 ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                                    altText="ご利用案内・操作メニュー",
+                                                    alt_text="ご利用案内・操作メニュー",
                                                     contents=flex_message
                                                 )])
                                             )
@@ -1365,7 +1365,7 @@ def callback():
                             if flex_message and flex_message.get('body', {}).get('contents') and flex_message.get('footer', {}).get('contents'):
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                        altText="ご利用案内・操作メニュー",
+                                        alt_text="ご利用案内・操作メニュー",
                                         contents=flex_message
                                     )])
                                 )
