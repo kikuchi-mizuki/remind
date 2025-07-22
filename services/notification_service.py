@@ -155,16 +155,11 @@ class NotificationService:
                 except Exception:
                     continue
             
-            if not today_tasks:
-                message = "📋 今日のタスク\n\n本日分のタスクはありません。\n\n新しいタスクを登録してください！\n例: 「筋トレ 20分 明日」"
-            else:
-                # タスク一覧コマンドと同じ詳細な形式で送信
-                message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
-                
-                # 期限切れタスクが移動された場合は通知を追加
-                if moved_count > 0:
-                    message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
-            
+            # タスク一覧コマンドと同じ詳細な形式で送信
+            message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
+            # 期限切れタスクが移動された場合は通知を追加
+            if moved_count > 0:
+                message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
             # LINEでメッセージを送信
             self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
             
