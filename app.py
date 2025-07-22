@@ -801,8 +801,27 @@ def callback():
                                             with open(selected_tasks_file, "r") as f:
                                                 task_ids = json.load(f)
                                             
+                                            # 通常のタスクと未来タスクの両方を確認
                                             all_tasks = task_service.get_user_tasks(user_id)
+                                            future_tasks = task_service.get_user_future_tasks(user_id)
+                                            
                                             selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+                                            selected_future_tasks = [t for t in future_tasks if t.task_id in task_ids]
+                                            
+                                            # 未来タスクがある場合は通常のタスクに変換
+                                            for future_task in selected_future_tasks:
+                                                task_info = {
+                                                    'name': future_task.name,
+                                                    'duration_minutes': future_task.duration_minutes,
+                                                    'priority': 'not_urgent_important',
+                                                    'due_date': None
+                                                }
+                                                converted_task = task_service.create_task(user_id, task_info)
+                                                selected_tasks.append(converted_task)
+                                                
+                                                # 元の未来タスクを削除
+                                                task_service.delete_future_task(future_task.task_id)
+                                                print(f"[DEBUG] 未来タスクを通常タスクに変換: {future_task.name} -> {converted_task.task_id}")
                                             
                                             # カレンダーに追加
                                             success_count = 0
@@ -1068,31 +1087,47 @@ def callback():
                                         selected_task = future_tasks[task_number - 1]
                                         print(f"[DEBUG] 選択された未来タスク: {selected_task.name}")
                                         
-                                        # 選択された未来タスクを通常のタスクに変換
-                                        task_info = {
-                                            'name': selected_task.name,
-                                            'duration_minutes': selected_task.duration_minutes,
-                                            'priority': 'not_urgent_important',
-                                            'due_date': None  # 期限は設定しない
-                                        }
+                                        # 選択された未来タスクをスケジュール提案用に準備
+                                        from services.calendar_service import CalendarService
+                                        from services.openai_service import OpenAIService
+                                        from datetime import datetime, timedelta
+                                        import pytz
                                         
-                                        # 通常のタスクとして登録
-                                        task = task_service.create_task(user_id, task_info)
-                                        print(f"[DEBUG] 未来タスクを通常タスクに変換完了: task_id={task.task_id}")
+                                        calendar_service = CalendarService()
+                                        openai_service = OpenAIService()
                                         
-                                        # 元の未来タスクを削除
-                                        task_service.delete_future_task(selected_task.task_id)
-                                        print(f"[DEBUG] 元の未来タスク削除完了: task_id={selected_task.task_id}")
+                                        jst = pytz.timezone('Asia/Tokyo')
+                                        today = datetime.now(jst)
                                         
-                                        reply_text = f"✅ 未来タスク「{selected_task.name}」を来週のタスクに追加しました！\n\n"
-                                        reply_text += "📋 来週のタスク一覧\n"
-                                        reply_text += "＝＝＝＝＝＝\n"
+                                        # 来週の空き時間を取得（今日から7日後）
+                                        next_week = today + timedelta(days=7)
+                                        free_times = calendar_service.get_free_busy_times(user_id, next_week)
                                         
-                                        # 来週のタスク一覧を表示
-                                        all_tasks = task_service.get_user_tasks(user_id)
-                                        for idx, task in enumerate(all_tasks, 1):
-                                            reply_text += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
-                                        reply_text += "＝＝＝＝＝＝"
+                                        if free_times:
+                                            # スケジュール提案を生成
+                                            proposal = openai_service.generate_schedule_proposal([selected_task], free_times)
+                                            
+                                            # スケジュール提案ファイルを作成
+                                            schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
+                                            with open(schedule_proposal_file, "w", encoding="utf-8") as f:
+                                                f.write(proposal)
+                                            
+                                            # 選択されたタスクファイルを作成（未来タスクIDを含める）
+                                            selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                            import json
+                                            with open(selected_tasks_file, "w", encoding="utf-8") as f:
+                                                json.dump([selected_task.task_id], f, ensure_ascii=False)
+                                            
+                                            reply_text = f"【来週のスケジュール提案】\n\n"
+                                            reply_text += proposal
+                                            reply_text += "\n\n承認する場合は「承認する」、修正する場合は「修正する」と送信してください。"
+                                        else:
+                                            reply_text = f"⚠️ 来週の空き時間が見つかりませんでした。\n"
+                                            reply_text += f"未来タスク「{selected_task.name}」は手動でスケジュールを調整してください。"
+                                        
+                                        # 未来タスク選択モードファイルを削除
+                                        if os.path.exists(future_selection_file):
+                                            os.remove(future_selection_file)
                                         
                                         # 未来タスク選択モードファイルを削除
                                         if os.path.exists(future_selection_file):
