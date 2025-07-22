@@ -352,6 +352,64 @@ class CalendarService:
             print(f'Calendar API error: {error}')
             return []
 
+    def get_week_schedule(self, user_id: str, start_date: datetime) -> List[Dict]:
+        """指定週のスケジュールを取得（7日間）"""
+        if not self.authenticate_user(user_id):
+            return []
+        try:
+            # 週の開始と終了時間
+            week_start = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_end = week_start + timedelta(days=7)
+            
+            events_result = self.service.events().list(
+                calendarId='primary',
+                timeMin=week_start.isoformat(),
+                timeMax=week_end.isoformat(),
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            events = events_result.get('items', [])
+            
+            # 日付ごとにグループ化
+            schedule_by_day = {}
+            for i in range(7):
+                day_date = week_start + timedelta(days=i)
+                schedule_by_day[day_date.date()] = []
+            
+            # イベントを日付ごとに分類
+            for event in events:
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                end = event['end'].get('dateTime', event['end'].get('date'))
+                
+                # 日付を抽出
+                if 'T' in start:  # dateTime形式
+                    event_date = datetime.fromisoformat(start.replace('Z', '+00:00')).date()
+                else:  # date形式
+                    event_date = datetime.fromisoformat(start).date()
+                
+                if event_date in schedule_by_day:
+                    schedule_by_day[event_date].append({
+                        'title': event.get('summary', 'タイトルなし'),
+                        'start': start,
+                        'end': end,
+                        'description': event.get('description', '')
+                    })
+            
+            # 結果を日付順に整理
+            result = []
+            for i in range(7):
+                day_date = week_start + timedelta(days=i)
+                day_events = schedule_by_day[day_date.date()]
+                result.append({
+                    'date': day_date,
+                    'events': day_events
+                })
+            
+            return result
+        except Exception as error:
+            print(f'Calendar API error: {error}')
+            return []
+
     def check_time_conflict(self, user_id: str, start_time: datetime, 
                           duration_minutes: int) -> bool:
         """時間の重複をチェック"""

@@ -862,11 +862,11 @@ def callback():
                                             
                                             # 未来タスクの場合は来週のスケジュール、通常タスクの場合は今日のスケジュールを表示
                                             if selected_future_tasks:
-                                                # 未来タスクの場合：来週のスケジュールを表示
+                                                # 未来タスクの場合：来週全体のスケジュールを表示
                                                 schedule_date = target_date
-                                                schedule_list = calendar_service.get_day_schedule(user_id, schedule_date)
-                                                date_label = f"📅 来週のスケジュール ({schedule_date.strftime('%m/%d')}):"
-                                                print(f"[DEBUG] 来週のスケジュール取得結果: {len(schedule_list)}件")
+                                                week_schedule = calendar_service.get_week_schedule(user_id, schedule_date)
+                                                date_label = f"📅 来週のスケジュール ({schedule_date.strftime('%m/%d')}〜):"
+                                                print(f"[DEBUG] 来週のスケジュール取得結果: {len(week_schedule)}日分")
                                             else:
                                                 # 通常タスクの場合：今日のスケジュールを表示
                                                 schedule_date = target_date
@@ -874,29 +874,61 @@ def callback():
                                                 date_label = "📅 今日のスケジュール："
                                                 print(f"[DEBUG] 今日のスケジュール取得結果: {len(schedule_list)}件")
                                             
-                                            for i, event in enumerate(schedule_list):
-                                                print(f"[DEBUG] イベント{i+1}: {event}")
-                                            
-                                            if schedule_list:
-                                                reply_text += date_label + "\n"
-                                                reply_text += "━━━━━━━━━━━━━━\n"
-                                                from datetime import datetime
-                                                for event in schedule_list:
-                                                    try:
-                                                        start_time = datetime.fromisoformat(event['start']).strftime('%H:%M')
-                                                        end_time = datetime.fromisoformat(event['end']).strftime('%H:%M')
-                                                    except Exception:
-                                                        start_time = event['start']
-                                                        end_time = event['end']
-                                                    summary = event['title']
-                                                    # 📝と[added_by_bot]を削除
-                                                    clean_summary = summary.replace('📝 ', '').replace(' [added_by_bot]', '')
-                                                    reply_text += f"🕐 {start_time}〜{end_time}\n"
-                                                    reply_text += f"📝 {clean_summary}\n"
+                                            if selected_future_tasks:
+                                                # 未来タスクの場合：来週全体のスケジュールを表示
+                                                if week_schedule:
+                                                    reply_text += date_label + "\n"
                                                     reply_text += "━━━━━━━━━━━━━━\n"
-                                            else:
-                                                if selected_future_tasks:
+                                                    from datetime import datetime
+                                                    for day_data in week_schedule:
+                                                        day_date = day_data['date']
+                                                        day_events = day_data['events']
+                                                        
+                                                        # 日付ヘッダーを表示
+                                                        day_label = day_date.strftime('%m/%d')
+                                                        day_of_week = ['月', '火', '水', '木', '金', '土', '日'][day_date.weekday()]
+                                                        reply_text += f"📅 {day_label}({day_of_week})\n"
+                                                        
+                                                        if day_events:
+                                                            for event in day_events:
+                                                                try:
+                                                                    start_time = datetime.fromisoformat(event['start']).strftime('%H:%M')
+                                                                    end_time = datetime.fromisoformat(event['end']).strftime('%H:%M')
+                                                                except Exception:
+                                                                    start_time = event['start']
+                                                                    end_time = event['end']
+                                                                summary = event['title']
+                                                                # 📝と[added_by_bot]を削除
+                                                                clean_summary = summary.replace('📝 ', '').replace(' [added_by_bot]', '')
+                                                                reply_text += f"🕐 {start_time}〜{end_time} 📝 {clean_summary}\n"
+                                                        else:
+                                                            reply_text += " 予定なし\n"
+                                                        
+                                                        reply_text += "━━━━━━━━━━━━━━\n"
+                                                else:
                                                     reply_text += f" 来週のスケジュールはありません。"
+                                            else:
+                                                # 通常タスクの場合：今日のスケジュールを表示
+                                                for i, event in enumerate(schedule_list):
+                                                    print(f"[DEBUG] イベント{i+1}: {event}")
+                                                
+                                                if schedule_list:
+                                                    reply_text += date_label + "\n"
+                                                    reply_text += "━━━━━━━━━━━━━━\n"
+                                                    from datetime import datetime
+                                                    for event in schedule_list:
+                                                        try:
+                                                            start_time = datetime.fromisoformat(event['start']).strftime('%H:%M')
+                                                            end_time = datetime.fromisoformat(event['end']).strftime('%H:%M')
+                                                        except Exception:
+                                                            start_time = event['start']
+                                                            end_time = event['end']
+                                                        summary = event['title']
+                                                        # 📝と[added_by_bot]を削除
+                                                        clean_summary = summary.replace('📝 ', '').replace(' [added_by_bot]', '')
+                                                        reply_text += f"🕐 {start_time}〜{end_time}\n"
+                                                        reply_text += f"📝 {clean_summary}\n"
+                                                        reply_text += "━━━━━━━━━━━━━━\n"
                                                 else:
                                                     reply_text += " 今日のスケジュールはありません。"
                                             
