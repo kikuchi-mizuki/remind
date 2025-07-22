@@ -931,6 +931,7 @@ def callback():
                         
                         # 緊急タスク追加モードでの処理
                         import os
+                        from datetime import datetime
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                         print(f"[DEBUG] 緊急タスク追加モードファイル確認: {urgent_mode_file}, exists={os.path.exists(urgent_mode_file)}")
                         if os.path.exists(urgent_mode_file):
