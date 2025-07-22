@@ -397,9 +397,11 @@ def callback():
                         # タスク選択処理を先に実行（数字入力の場合）
                         import os
                         select_flag = f"task_select_mode_{user_id}.flag"
+                        print(f"[DEBUG] タスク選択フラグ確認: {select_flag}, exists={os.path.exists(select_flag)}")
                         if user_message.strip().isdigit() or (',' in user_message or '、' in user_message):
                             if os.path.exists(select_flag):
                                 print(f"[DEBUG] タスク選択フラグ検出: {select_flag}")
+                                print(f"[DEBUG] タスク選択処理開始: user_message='{user_message}'")
                                 try:
                                     # タスク一覧を取得
                                     all_tasks = task_service.get_user_tasks(user_id)
@@ -447,13 +449,19 @@ def callback():
                                     # 選択されたタスクをファイルに保存
                                     import json
                                     selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                    selected_task_ids = [task.task_id for task in selected_tasks]
+                                    print(f"[DEBUG] 選択されたタスクID: {selected_task_ids}")
                                     with open(selected_tasks_file, "w") as f:
-                                        json.dump([task.task_id for task in selected_tasks], f)
+                                        json.dump(selected_task_ids, f)
+                                    print(f"[DEBUG] 選択されたタスクファイル保存完了: {selected_tasks_file}")
                                     # 選択後はフラグを削除
                                     os.remove(select_flag)
+                                    print(f"[DEBUG] タスク選択フラグ削除完了: {select_flag}")
+                                    print(f"[DEBUG] タスク選択確認メッセージ送信開始: {reply_text[:100]}...")
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                     )
+                                    print(f"[DEBUG] タスク選択確認メッセージ送信完了")
                                     continue
                                 except Exception as e:
                                     print(f"[DEBUG] タスク選択処理エラー: {e}")
@@ -1065,7 +1073,8 @@ def callback():
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
                                 print(f"[DEBUG] 未来タスク追加モード返信メッセージ送信完了")
-                                continue
+                                print(f"[DEBUG] 未来タスク追加モード処理完了、処理を終了")
+                                return "OK", 200
                             except Exception as e:
                                 print(f"[DEBUG] 未来タスク追加モード処理エラー: {e}")
                                 import traceback
