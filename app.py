@@ -1049,6 +1049,81 @@ def callback():
                                 )
                                 continue
                         
+                        # 未来タスク選択モードでの処理
+                        future_selection_file = f"future_task_selection_{user_id}.json"
+                        print(f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}, exists={os.path.exists(future_selection_file)}")
+                        if os.path.exists(future_selection_file):
+                            print(f"[DEBUG] 未来タスク選択モード開始: user_message='{user_message}'")
+                            try:
+                                # 数字の入力かどうかチェック
+                                if user_message.strip().isdigit():
+                                    task_number = int(user_message.strip())
+                                    print(f"[DEBUG] 未来タスク選択番号: {task_number}")
+                                    
+                                    # 未来タスク一覧を取得
+                                    future_tasks = task_service.get_user_future_tasks(user_id)
+                                    print(f"[DEBUG] 未来タスク一覧取得: {len(future_tasks)}件")
+                                    
+                                    if 1 <= task_number <= len(future_tasks):
+                                        selected_task = future_tasks[task_number - 1]
+                                        print(f"[DEBUG] 選択された未来タスク: {selected_task.name}")
+                                        
+                                        # 選択された未来タスクを通常のタスクに変換
+                                        task_info = {
+                                            'name': selected_task.name,
+                                            'duration_minutes': selected_task.duration_minutes,
+                                            'priority': 'not_urgent_important',
+                                            'due_date': None  # 期限は設定しない
+                                        }
+                                        
+                                        # 通常のタスクとして登録
+                                        task = task_service.create_task(user_id, task_info)
+                                        print(f"[DEBUG] 未来タスクを通常タスクに変換完了: task_id={task.task_id}")
+                                        
+                                        # 元の未来タスクを削除
+                                        task_service.delete_future_task(selected_task.task_id)
+                                        print(f"[DEBUG] 元の未来タスク削除完了: task_id={selected_task.task_id}")
+                                        
+                                        reply_text = f"✅ 未来タスク「{selected_task.name}」を来週のタスクに追加しました！\n\n"
+                                        reply_text += "📋 来週のタスク一覧\n"
+                                        reply_text += "＝＝＝＝＝＝\n"
+                                        
+                                        # 来週のタスク一覧を表示
+                                        all_tasks = task_service.get_user_tasks(user_id)
+                                        for idx, task in enumerate(all_tasks, 1):
+                                            reply_text += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
+                                        reply_text += "＝＝＝＝＝＝"
+                                        
+                                        # 未来タスク選択モードファイルを削除
+                                        if os.path.exists(future_selection_file):
+                                            os.remove(future_selection_file)
+                                        
+                                        line_bot_api.reply_message(
+                                            ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                        )
+                                        continue
+                                    else:
+                                        reply_text = f"⚠️ 無効な番号です。1〜{len(future_tasks)}の間で選択してください。"
+                                        line_bot_api.reply_message(
+                                            ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                        )
+                                        continue
+                                else:
+                                    reply_text = "⚠️ 数字で選択してください。例: 1、3、5"
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                    )
+                                    continue
+                            except Exception as e:
+                                print(f"[DEBUG] 未来タスク選択モード処理エラー: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 未来タスク選択中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                )
+                                continue
+                        
                         # タスク登録処理を試行
                         try:
                             print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
