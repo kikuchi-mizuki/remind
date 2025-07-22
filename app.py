@@ -834,30 +834,54 @@ def callback():
                                             
                                             # カレンダーに追加
                                             success_count = 0
+                                            
+                                            # 未来タスクがある場合は来週の日付で処理
+                                            from datetime import datetime, timedelta
+                                            import pytz
+                                            jst = pytz.timezone('Asia/Tokyo')
+                                            
+                                            if selected_future_tasks:
+                                                # 未来タスクの場合：来週の日付で処理
+                                                today = datetime.now(jst)
+                                                next_week = today + timedelta(days=7)
+                                                target_date = next_week
+                                                print(f"[DEBUG] 未来タスク処理: 来週の日付 {target_date.strftime('%Y-%m-%d')} を使用")
+                                            else:
+                                                # 通常タスクの場合：今日の日付で処理
+                                                target_date = datetime.now(jst)
+                                                print(f"[DEBUG] 通常タスク処理: 今日の日付 {target_date.strftime('%Y-%m-%d')} を使用")
+                                            
                                             for task in selected_tasks:
                                                 # スケジュール提案から開始時刻を抽出（簡易版：14:00を固定）
-                                                from datetime import datetime, timedelta
-                                                import pytz
-                                                jst = pytz.timezone('Asia/Tokyo')
-                                                today = datetime.now(jst)
-                                                start_time = today.replace(hour=14, minute=0, second=0, microsecond=0)
+                                                start_time = target_date.replace(hour=14, minute=0, second=0, microsecond=0)
                                                 
                                                 if calendar_service.add_event_to_calendar(user_id, task.name, start_time, task.duration_minutes):
                                                     success_count += 1
                                             
                                             reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。\n\n"
                                             
-                                            # 今日のスケジュール一覧を取得して表示
-                                            today_schedule = calendar_service.get_today_schedule(user_id)
-                                            print(f"[DEBUG] 今日のスケジュール取得結果: {len(today_schedule)}件")
-                                            for i, event in enumerate(today_schedule):
+                                            # 未来タスクの場合は来週のスケジュール、通常タスクの場合は今日のスケジュールを表示
+                                            if selected_future_tasks:
+                                                # 未来タスクの場合：来週のスケジュールを表示
+                                                schedule_date = target_date
+                                                schedule_list = calendar_service.get_day_schedule(user_id, schedule_date)
+                                                date_label = f"📅 来週のスケジュール ({schedule_date.strftime('%m/%d')}):"
+                                                print(f"[DEBUG] 来週のスケジュール取得結果: {len(schedule_list)}件")
+                                            else:
+                                                # 通常タスクの場合：今日のスケジュールを表示
+                                                schedule_date = target_date
+                                                schedule_list = calendar_service.get_today_schedule(user_id)
+                                                date_label = "📅 今日のスケジュール："
+                                                print(f"[DEBUG] 今日のスケジュール取得結果: {len(schedule_list)}件")
+                                            
+                                            for i, event in enumerate(schedule_list):
                                                 print(f"[DEBUG] イベント{i+1}: {event}")
                                             
-                                            if today_schedule:
-                                                reply_text += "📅 今日のスケジュール：\n"
+                                            if schedule_list:
+                                                reply_text += date_label + "\n"
                                                 reply_text += "━━━━━━━━━━━━━━\n"
                                                 from datetime import datetime
-                                                for event in today_schedule:
+                                                for event in schedule_list:
                                                     try:
                                                         start_time = datetime.fromisoformat(event['start']).strftime('%H:%M')
                                                         end_time = datetime.fromisoformat(event['end']).strftime('%H:%M')
@@ -871,7 +895,10 @@ def callback():
                                                     reply_text += f"📝 {clean_summary}\n"
                                                     reply_text += "━━━━━━━━━━━━━━\n"
                                             else:
-                                                reply_text += " 今日のスケジュールはありません。"
+                                                if selected_future_tasks:
+                                                    reply_text += f" 来週のスケジュールはありません。"
+                                                else:
+                                                    reply_text += " 今日のスケジュールはありません。"
                                             
                                             # ファイルを削除
                                             if os.path.exists(schedule_proposal_file):
