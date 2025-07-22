@@ -849,14 +849,33 @@ def callback():
                                         import traceback
                                         print(f"[DEBUG] エラートレースバック:")
                                         traceback.print_exc()
-                                        from linebot.models import FlexSendMessage
-                                        flex_message = get_simple_flex_menu(user_id)
-                                        line_bot_api.reply_message(
-                                            ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                                altText="ご利用案内・操作メニュー",
-                                                contents=flex_message
-                                            )])
-                                        )
+                                        # 所要時間エラーの場合は分かりやすい案内
+                                        if "所要時間が見つかりません" in str(e):
+                                            reply_text = (
+                                                "⚠️ 所要時間が見つかりませんでした。\n"
+                                                "タスク名と所要時間をセットで入力してください。\n"
+                                                "例：『新規事業計画 2時間』『資料作成 30分』"
+                                            )
+                                            line_bot_api.reply_message(
+                                                ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                            )
+                                        else:
+                                            # 不明なエラーやコマンドの場合はFlexメニューを返す
+                                            from linebot.v3.messaging import FlexMessage
+                                            flex_message = get_simple_flex_menu(user_id)
+                                            # FlexMessageのbody/footerのcontentsが空でないかチェック
+                                            if flex_message and flex_message.get('body', {}).get('contents') and flex_message.get('footer', {}).get('contents'):
+                                                line_bot_api.reply_message(
+                                                    ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
+                                                        altText="ご利用案内・操作メニュー",
+                                                        contents=flex_message
+                                                    )])
+                                                )
+                                            else:
+                                                # 万一FlexMessageが不正な場合はテキストで案内
+                                                line_bot_api.reply_message(
+                                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")])
+                                                )
                                         continue
 
                         else:
@@ -1329,16 +1348,23 @@ def callback():
                         auth_status = is_google_authenticated(user_id)
                         print(f"[DEBUG] 認証状態: {auth_status}")
                         print(f"[DEBUG] メニュー生成開始: user_id={user_id}")
-                        from linebot.models import FlexSendMessage
+                        from linebot.v3.messaging import FlexMessage
                         flex_message = get_simple_flex_menu(user_id)
                         print(f"[DEBUG] メニュー生成完了: {flex_message}")
                         try:
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
-                                    altText="ご利用案内・操作メニュー",
-                                    contents=flex_message
-                                )])
-                            )
+                            # FlexMessageのbody/footerのcontentsが空でないかチェック
+                            if flex_message and flex_message.get('body', {}).get('contents') and flex_message.get('footer', {}).get('contents'):
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[FlexMessage(
+                                        altText="ご利用案内・操作メニュー",
+                                        contents=flex_message
+                                    )])
+                                )
+                            else:
+                                # 万一FlexMessageが不正な場合はテキストで案内
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")])
+                                )
                             print("[DEBUG] Flexメニュー送信成功")
                         except Exception as e:
                             print(f"[DEBUG] Flexメニュー送信エラー: {e}")
