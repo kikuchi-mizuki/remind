@@ -394,31 +394,34 @@ def callback():
                         # コマンドでない場合のみタスク登録処理を実行
                         if user_message.strip() not in commands:
                             print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
-                            from linebot.v3.messaging import FlexMessage
-                            flex_message = get_simple_flex_menu(user_id)
-                            print(f"[DEBUG] FlexMessage生成: {flex_message}")
-                            if flex_message:
-                                try:
-                                    # FlexMessageのcontentsに直接dict型を渡す
-                                    flex_msg = FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
-                                    print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
-                                    line_bot_api.reply_message(
-                                        ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
-                                    )
-                                    print("[DEBUG] FlexMessage送信完了")
-                                except Exception as flex_e:
-                                    print(f"[DEBUG] FlexMessage送信エラー: {flex_e}")
-                                    # FlexMessage送信に失敗した場合はテキストで案内
-                                    line_bot_api.reply_message(
-                                        ReplyMessageRequest(replyToken=reply_token, messages=[
-                                            TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")
-                                        ])
-                                    )
-                            else:
-                                print("[DEBUG] FlexMessage生成失敗、テキストで案内")
+                            # シンプルなテキストメニューを送信
+                            menu_text = """🤖 タスク管理Bot
+
+何をお手伝いしますか？
+
+📝 利用可能なコマンド：
+• タスク追加
+• 緊急タスク追加  
+• 未来タスク追加
+• タスク削除
+• タスク一覧
+• 未来タスク一覧
+
+上記のコマンドを送信してください！"""
+                            
+                            try:
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[
-                                        TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")
+                                        TextMessage(text=menu_text)
+                                    ])
+                                )
+                                print("[DEBUG] テキストメニュー送信完了")
+                            except Exception as menu_e:
+                                print(f"[DEBUG] テキストメニュー送信エラー: {menu_e}")
+                                # エラー時はシンプルな案内
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[
+                                        TextMessage(text="「タスク追加」などのコマンドを送信してください。")
                                     ])
                                 )
                             continue
