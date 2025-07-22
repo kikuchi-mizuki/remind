@@ -733,10 +733,28 @@ def callback():
                                         
                                         # 選択されたタスクを処理
                                         selected_tasks = []
+                                        print(f"[DEBUG] タスク選択処理: selected_numbers={selected_numbers}, all_tasks数={len(all_tasks)}")
+                                        
+                                        # タスク一覧を表示順序で取得（format_task_listと同じ順序）
+                                        all_tasks = task_service.get_user_tasks(user_id)
+                                        future_tasks = task_service.get_user_future_tasks(user_id)
+                                        
+                                        # 表示順序でタスクを整理（本日まで + 未来タスク）
+                                        display_tasks = []
+                                        for task in all_tasks:
+                                            display_tasks.append(task)
+                                        for task in future_tasks:
+                                            display_tasks.append(task)
+                                        
+                                        print(f"[DEBUG] 表示順序タスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
+                                        
                                         for num in selected_numbers:
                                             idx = num - 1
-                                            if 0 <= idx < len(all_tasks):
-                                                selected_tasks.append(all_tasks[idx])
+                                            if 0 <= idx < len(display_tasks):
+                                                selected_tasks.append(display_tasks[idx])
+                                                print(f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={display_tasks[idx].name}")
+                                            else:
+                                                print(f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(display_tasks)-1}")
                                         
                                         if not selected_tasks:
                                             reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
