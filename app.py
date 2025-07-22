@@ -929,6 +929,74 @@ def callback():
                         # コマンドでない場合のみタスク登録処理を実行
                         print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
                         
+                        # 緊急タスク追加モードでの処理
+                        import os
+                        urgent_mode_file = f"urgent_task_mode_{user_id}.json"
+                        print(f"[DEBUG] 緊急タスク追加モードファイル確認: {urgent_mode_file}, exists={os.path.exists(urgent_mode_file)}")
+                        if os.path.exists(urgent_mode_file):
+                            print(f"[DEBUG] 緊急タスク追加モード開始: user_message='{user_message}'")
+                            try:
+                                # 緊急タスクとして登録
+                                task_info = task_service.parse_task_message(user_message)
+                                task_info['priority'] = 'urgent_not_important'  # 緊急タスクとして設定
+                                task_info['due_date'] = datetime.now().strftime('%Y-%m-%d')  # 今日の日付に設定
+                                
+                                task = task_service.create_task(user_id, task_info)
+                                print(f"[DEBUG] 緊急タスク作成完了: task_id={task.task_id}")
+                                
+                                # 今日の空き時間に自動スケジュール
+                                from datetime import datetime
+                                import pytz
+                                from services.calendar_service import CalendarService
+                                from services.openai_service import OpenAIService
+                                
+                                calendar_service = CalendarService()
+                                openai_service = OpenAIService()
+                                
+                                jst = pytz.timezone('Asia/Tokyo')
+                                today = datetime.now(jst)
+                                
+                                free_times = calendar_service.get_free_busy_times(user_id, today)
+                                if free_times:
+                                    proposal = openai_service.generate_schedule_proposal([task], free_times)
+                                    
+                                    # スケジュール提案ファイルを作成
+                                    schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
+                                    with open(schedule_proposal_file, "w", encoding="utf-8") as f:
+                                        f.write(proposal)
+                                    
+                                    # 選択されたタスクファイルを作成
+                                    selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                    import json
+                                    with open(selected_tasks_file, "w", encoding="utf-8") as f:
+                                        json.dump([task.task_id], f, ensure_ascii=False)
+                                    
+                                    reply_text = "⚡ 緊急タスクを追加しました！\n\n"
+                                    reply_text += "📅 今日の空き時間に自動スケジュール：\n\n"
+                                    reply_text += proposal
+                                else:
+                                    reply_text = "⚡ 緊急タスクを追加しました！\n\n"
+                                    reply_text += "⚠️ 今日の空き時間が見つかりませんでした。\n"
+                                    reply_text += "手動でスケジュールを調整してください。"
+                                
+                                # 緊急タスク追加モードファイルを削除
+                                if os.path.exists(urgent_mode_file):
+                                    os.remove(urgent_mode_file)
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                )
+                                continue
+                            except Exception as e:
+                                print(f"[DEBUG] 緊急タスク追加モード処理エラー: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                )
+                                continue
+                        
                         # タスク登録処理を試行
                         try:
                             print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
