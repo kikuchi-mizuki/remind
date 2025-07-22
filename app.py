@@ -1406,7 +1406,6 @@ def callback():
 def get_simple_flex_menu(user_id=None):
     """認証状態に応じてメニューを動的に生成"""
     print(f"[get_simple_flex_menu] user_id={user_id}")
-    
     # 全ボタンを表示（緊急タスクボタン含む）
     basic_buttons = [
         {
@@ -1432,17 +1431,27 @@ def get_simple_flex_menu(user_id=None):
             "style": "secondary"
         }
     ]
-    
+    # ボタンが空ならダミーを追加
+    if not basic_buttons:
+        basic_buttons = [{
+            "type": "button",
+            "action": {"type": "message", "label": "メニュー", "text": "メニュー"},
+            "style": "secondary"
+        }]
+    body_contents = [
+        {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "xl"},
+        {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+    ]
+    # body.contentsが空ならダミーテキストを追加
+    if not body_contents:
+        body_contents = [{"type": "text", "text": "メニュー"}]
     print(f"[get_simple_flex_menu] 全ボタンを表示（緊急タスクボタン含む）")
     return {
         "type": "bubble",
         "body": {
             "type": "box",
             "layout": "vertical",
-            "contents": [
-                {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "xl"},
-                {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
-            ]
+            "contents": body_contents
         },
         "footer": {
             "type": "box",
