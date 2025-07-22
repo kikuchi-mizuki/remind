@@ -16,6 +16,11 @@ class NotificationService:
     """通知サービスクラス"""
     
     def __init__(self):
+        import os
+        print(f"[DEBUG] (notification_service.py) LINE_CHANNEL_ACCESS_TOKEN: {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}")
+        print(f"[DEBUG] (notification_service.py) os.environ: {os.environ}")
+        if not os.getenv('LINE_CHANNEL_ACCESS_TOKEN'):
+            print("[ERROR] LINE_CHANNEL_ACCESS_TOKENが環境変数に設定されていません！")
         # --- v3インスタンス生成 ---
         # self.line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
         self.line_bot_api = MessagingApi()
