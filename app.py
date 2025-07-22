@@ -33,7 +33,9 @@ calendar_service = CalendarService()
 openai_service = OpenAIService()
 notification_service = NotificationService()
 
-line_bot_api = MessagingApi(channel_access_token=os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+# --- 修正 ---
+# line_bot_api = MessagingApi(channel_access_token=os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+line_bot_api = MessagingApi()
 
 # スケジューラーを確実に開始（重複開始を防ぐ）
 if not notification_service.is_running:
