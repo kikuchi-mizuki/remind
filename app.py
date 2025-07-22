@@ -751,11 +751,19 @@ def callback():
                                     print(f"[DEBUG] エラートレースバック:")
                                     traceback.print_exc()
                                     reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
+                                    from linebot.models import FlexSendMessage
+                                    flex_message = get_simple_flex_menu(user_id)
                                     line_bot_api.reply_message(
                                         reply_token,
-                                        TextSendMessage(text=reply_text)
+                                        [
+                                            TextSendMessage(text=reply_text),
+                                            FlexSendMessage(
+                                                alt_text="ご利用案内・操作メニュー",
+                                                contents=flex_message
+                                            )
+                                        ]
                                     )
-                                continue
+                                    continue
 
                         else:
                             # コマンド処理
