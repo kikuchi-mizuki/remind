@@ -999,6 +999,10 @@ def callback():
                             if user_message.strip() == "タスク一覧":
                                 all_tasks = task_service.get_user_tasks(user_id)
                                 reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                                # タスク選択待ちフラグを作成
+                                import os
+                                with open(f"task_select_mode_{user_id}.flag", "w") as f:
+                                    f.write("selecting")
                                 line_bot_api.reply_message(
                                     reply_token,
                                     TextSendMessage(text=reply_text)
