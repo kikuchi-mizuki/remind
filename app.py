@@ -945,36 +945,43 @@ def callback():
                                 task = task_service.create_task(user_id, task_info)
                                 print(f"[DEBUG] 緊急タスク作成完了: task_id={task.task_id}")
                                 
-                                # 今日の空き時間に自動スケジュール
-                                from datetime import datetime
+                                # 今日の空き時間に直接スケジュール追加
+                                from datetime import datetime, timedelta
                                 import pytz
                                 from services.calendar_service import CalendarService
-                                from services.openai_service import OpenAIService
                                 
                                 calendar_service = CalendarService()
-                                openai_service = OpenAIService()
                                 
                                 jst = pytz.timezone('Asia/Tokyo')
                                 today = datetime.now(jst)
                                 
+                                # 今日の空き時間を取得
                                 free_times = calendar_service.get_free_busy_times(user_id, today)
                                 if free_times:
-                                    proposal = openai_service.generate_schedule_proposal([task], free_times)
+                                    # 最初の空き時間に緊急タスクを追加
+                                    first_free_time = free_times[0]
+                                    start_time = first_free_time['start']
+                                    end_time = start_time + timedelta(minutes=task.duration_minutes)
                                     
-                                    # スケジュール提案ファイルを作成
-                                    schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
-                                    with open(schedule_proposal_file, "w", encoding="utf-8") as f:
-                                        f.write(proposal)
+                                    # カレンダーに直接追加
+                                    success = calendar_service.add_event_to_calendar(
+                                        user_id=user_id,
+                                        task_name=task.name,
+                                        start_time=start_time,
+                                        duration_minutes=task.duration_minutes,
+                                        description=f"緊急タスク: {task.name}"
+                                    )
                                     
-                                    # 選択されたタスクファイルを作成
-                                    selected_tasks_file = f"selected_tasks_{user_id}.json"
-                                    import json
-                                    with open(selected_tasks_file, "w", encoding="utf-8") as f:
-                                        json.dump([task.task_id], f, ensure_ascii=False)
-                                    
-                                    reply_text = "⚡ 緊急タスクを追加しました！\n\n"
-                                    reply_text += "📅 今日の空き時間に自動スケジュール：\n\n"
-                                    reply_text += proposal
+                                    if success:
+                                        reply_text = "⚡ 緊急タスクを追加しました！\n\n"
+                                        reply_text += f"📅 今日のスケジュールに追加：\n"
+                                        reply_text += f"🕐 {start_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}\n"
+                                        reply_text += f"📝 {task.name}\n\n"
+                                        reply_text += "✅ カレンダーに直接追加されました！"
+                                    else:
+                                        reply_text = "⚡ 緊急タスクを追加しました！\n\n"
+                                        reply_text += "⚠️ カレンダーへの追加に失敗しました。\n"
+                                        reply_text += "手動でスケジュールを調整してください。"
                                 else:
                                     reply_text = "⚡ 緊急タスクを追加しました！\n\n"
                                     reply_text += "⚠️ 今日の空き時間が見つかりませんでした。\n"
