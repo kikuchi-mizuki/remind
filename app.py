@@ -721,156 +721,108 @@ def callback():
                             # 通常のタスク登録処理
                             try:
                                 print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
-                                
-                                # 複数タスクかチェック（改行、カンマを含む形式、ただし数字のみは除外）
-                                # 数字のみの場合はタスク選択として処理
-                                if user_message.strip().isdigit():
-                                    # 数字のみの場合はタスク選択として処理
-                                    print(f"[DEBUG] タスク選択処理開始: user_message='{user_message}'")
-                                    try:
+                                import os
+                                select_flag = f"task_select_mode_{user_id}.flag"
+                                # 数字入力時はまずフラグをチェック
+                                if user_message.strip().isdigit() or (',' in user_message or '、' in user_message):
+                                    if os.path.exists(select_flag):
+                                        print(f"[DEBUG] タスク選択フラグ検出: {select_flag}")
+                                        try:
+                                            # タスク一覧を取得
+                                            all_tasks = task_service.get_user_tasks(user_id)
+                                            future_tasks = task_service.get_user_future_tasks(user_id)
+                                            # 選択された数字を解析
+                                            selected_numbers = [int(n.strip()) for n in user_message.replace('、', ',').split(',') if n.strip().isdigit()]
+                                            if not selected_numbers:
+                                                reply_text = "⚠️ 有効な数字を入力してください。\n例: 1、2、3"
+                                                line_bot_api.reply_message(
+                                                    reply_token,
+                                                    TextSendMessage(text=reply_text)
+                                                )
+                                                continue
+                                            # タスク一覧を表示順序で取得
+                                            display_tasks = []
+                                            for task in all_tasks:
+                                                display_tasks.append(task)
+                                            for task in future_tasks:
+                                                display_tasks.append(task)
+                                            print(f"[DEBUG] 表示順序タスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
+                                            selected_tasks = []
+                                            for num in selected_numbers:
+                                                idx = num - 1
+                                                if 0 <= idx < len(display_tasks):
+                                                    selected_tasks.append(display_tasks[idx])
+                                                    print(f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={display_tasks[idx].name}")
+                                                else:
+                                                    print(f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(display_tasks)-1}")
+                                            if not selected_tasks:
+                                                reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
+                                                line_bot_api.reply_message(
+                                                    reply_token,
+                                                    TextSendMessage(text=reply_text)
+                                                )
+                                                continue
+                                            reply_text = "✅ 選択されたタスク:\n\n"
+                                            for i, task in enumerate(selected_tasks, 1):
+                                                reply_text += f"{i}. {task.name} ({task.duration_minutes}分)\n"
+                                            reply_text += "\nこれらのタスクを今日のスケジュールに追加しますか？\n「はい」で承認、「修正する」で修正できます。"
+                                            # 選択されたタスクをファイルに保存
+                                            import json
+                                            selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                            with open(selected_tasks_file, "w") as f:
+                                                json.dump([task.task_id for task in selected_tasks], f)
+                                            # 選択後はフラグを削除
+                                            os.remove(select_flag)
+                                            line_bot_api.reply_message(
+                                                reply_token,
+                                                TextSendMessage(text=reply_text)
+                                            )
+                                            continue
+                                        except Exception as e:
+                                            print(f"[DEBUG] タスク選択処理エラー: {e}")
+                                            reply_text = "⚠️ タスク選択処理中にエラーが発生しました。"
+                                            line_bot_api.reply_message(
+                                                reply_token,
+                                                TextSendMessage(text=reply_text)
+                                            )
+                                            continue
+                                    # フラグがなければ従来の複数タスク登録処理に進む
+                                    print(f"[DEBUG] タスク選択フラグなし: 通常の複数タスク登録処理へ")
+                                    # ↓ここに元の複数タスク登録処理（parse_multiple_tasks）を移動↓
+                                    if '\n' in user_message or '、' in user_message:
+                                        print(f"[DEBUG] 複数タスク処理開始")
+                                        # 複数タスク処理
+                                        task_infos = task_service.parse_multiple_tasks(user_message)
+                                        if not task_infos:
+                                            raise ValueError("有効なタスクが見つかりませんでした")
+                                        # 各タスクをDBに保存
+                                        created_tasks = []
+                                        for task_info in task_infos:
+                                            task = task_service.create_task(user_id, task_info)
+                                            created_tasks.append(task)
                                         # タスク一覧を取得
                                         all_tasks = task_service.get_user_tasks(user_id)
-                                        future_tasks = task_service.get_user_future_tasks(user_id)
-                                        
-                                        # 選択された数字を解析
-                                        selected_numbers = [int(n.strip()) for n in user_message.split(',') if n.strip().isdigit()]
-                                        
-                                        if not selected_numbers:
-                                            reply_text = "⚠️ 有効な数字を入力してください。\n例: 1、2、3"
-                                            line_bot_api.reply_message(
-                                                reply_token,
-                                                TextSendMessage(text=reply_text)
-                                            )
-                                            continue
-                                        
-                                        # 選択されたタスクを処理
-                                        selected_tasks = []
-                                        print(f"[DEBUG] タスク選択処理: selected_numbers={selected_numbers}, all_tasks数={len(all_tasks)}")
-                                        
-                                        # タスク一覧を表示順序で取得（format_task_listと同じ順序）
-                                        all_tasks = task_service.get_user_tasks(user_id)
-                                        future_tasks = task_service.get_user_future_tasks(user_id)
-                                        
-                                        # 表示順序でタスクを整理（本日まで + 未来タスク）
-                                        display_tasks = []
-                                        for task in all_tasks:
-                                            display_tasks.append(task)
-                                        for task in future_tasks:
-                                            display_tasks.append(task)
-                                        
-                                        print(f"[DEBUG] 表示順序タスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
-                                        
-                                        for num in selected_numbers:
-                                            idx = num - 1
-                                            if 0 <= idx < len(display_tasks):
-                                                selected_tasks.append(display_tasks[idx])
-                                                print(f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={display_tasks[idx].name}")
-                                            else:
-                                                print(f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(display_tasks)-1}")
-                                        
-                                        if not selected_tasks:
-                                            reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
-                                            line_bot_api.reply_message(
-                                                reply_token,
-                                                TextSendMessage(text=reply_text)
-                                            )
-                                            continue
-                                        
-                                        # 選択されたタスクを表示
-                                        reply_text = "✅ 選択されたタスク:\n\n"
-                                        for i, task in enumerate(selected_tasks, 1):
-                                            reply_text += f"{i}. {task.name} ({task.duration_minutes}分)\n"
-                                        
-                                        reply_text += "\nこれらのタスクを今日のスケジュールに追加しますか？\n「はい」で承認、「修正する」で修正できます。"
-                                        
-                                        # 選択されたタスクをファイルに保存
-                                        import os
-                                        import json
-                                        selected_tasks_file = f"selected_tasks_{user_id}.json"
-                                        with open(selected_tasks_file, "w") as f:
-                                            json.dump([task.task_id for task in selected_tasks], f)
-                                        
+                                        # 成功メッセージ
+                                        if len(created_tasks) == 1:
+                                            priority = task_infos[0].get('priority', 'normal')
+                                            priority_messages = {
+                                                "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
+                                                "not_urgent_important": "⭐重要なタスクを追加しました！",
+                                                "urgent_not_important": "⚡緊急タスクを追加しました！",
+                                                "normal": "✅タスクを追加しました！"
+                                            }
+                                            reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
+                                        else:
+                                            reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n"
+                                        reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
+                                        reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                                         line_bot_api.reply_message(
                                             reply_token,
-                                            TextSendMessage(text=reply_text)
+                                            TextSendMessage(text=reply_text.strip())
                                         )
                                         continue
-                                        
-                                    except Exception as e:
-                                        print(f"[DEBUG] タスク選択処理エラー: {e}")
-                                        reply_text = "⚠️ タスク選択処理中にエラーが発生しました。"
-                                        line_bot_api.reply_message(
-                                            reply_token,
-                                            TextSendMessage(text=reply_text)
-                                        )
-                                        continue
-                                elif '\n' in user_message or '、' in user_message:
-                                    print(f"[DEBUG] 複数タスク処理開始")
-                                    # 複数タスク処理
-                                    task_infos = task_service.parse_multiple_tasks(user_message)
-                                    if not task_infos:
-                                        raise ValueError("有効なタスクが見つかりませんでした")
-                                    
-                                    # 各タスクをDBに保存
-                                    created_tasks = []
-                                    for task_info in task_infos:
-                                        task = task_service.create_task(user_id, task_info)
-                                        created_tasks.append(task)
-                                    
-                                    # タスク一覧を取得
-                                    all_tasks = task_service.get_user_tasks(user_id)
-                                    
-                                    # 成功メッセージ
-                                    if len(created_tasks) == 1:
-                                        priority = task_infos[0].get('priority', 'normal')
-                                        priority_messages = {
-                                            "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
-                                            "not_urgent_important": "⭐重要なタスクを追加しました！",
-                                            "urgent_not_important": "⚡緊急タスクを追加しました！",
-                                            "normal": "✅タスクを追加しました！"
-                                        }
-                                        reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
-                                    else:
-                                        reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n"
-                                    
-                                    reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
-                                    reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=reply_text.strip())
-                                    )
-                                else:
-                                    print(f"[DEBUG] 単一タスク処理開始")
-                                    # 単一タスク処理（既存の処理）
-                                    task_info = task_service.parse_task_message(user_message)
-                                    print(f"[DEBUG] タスク情報解析完了: {task_info}")
-                                    
-                                    task = task_service.create_task(user_id, task_info)
-                                    print(f"[DEBUG] タスク作成完了: task_id={task.task_id}")
-                                    
-                                    # タスク一覧を取得
-                                    all_tasks = task_service.get_user_tasks(user_id)
-                                    print(f"[DEBUG] タスク一覧取得完了: {len(all_tasks)}件")
-                                    
-                                    # 優先度に応じたメッセージ
-                                    priority_messages = {
-                                       "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
-                                  "not_urgent_important": "⭐重要なタスクを追加しました！",
-                                  "urgent_not_important": "⚡緊急タスクを追加しました！",
-                                  "normal": "✅タスクを追加しました！"
-                                    }
-                                    
-                                    priority = task_info.get('priority', 'normal')
-                                    reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
-                                    reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
-                                    reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
-                                    
-                                    print(f"[DEBUG] 返信メッセージ送信開始")
-                                    line_bot_api.reply_message(
-                                        reply_token,
-                                        TextSendMessage(text=reply_text.strip())
-                                    )
-                                    print(f"[DEBUG] 返信メッセージ送信完了")
+                                # ここまでが数字入力時の分岐修正
+
                             except Exception as e:
                                 # タスク登録エラーの場合は、Flex Messageメニューを返信
                                 print(f"[DEBUG] タスク登録エラー詳細: {e}")
