@@ -5,8 +5,10 @@ import threading
 from datetime import datetime, timedelta
 import pytz
 from typing import List
-from linebot import LineBotApi
-from linebot.models import TextSendMessage
+# --- v3 importへ ---
+# from linebot import LineBotApi
+# from linebot.models import TextSendMessage
+from linebot.v3.messaging import MessagingApi, PushMessageRequest, TextMessage, FlexMessage
 from models.database import db, Task
 from services.task_service import TaskService
 
@@ -14,7 +16,9 @@ class NotificationService:
     """通知サービスクラス"""
     
     def __init__(self):
-        self.line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+        # --- v3インスタンス生成 ---
+        # self.line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
+        self.line_bot_api = MessagingApi()
         self.task_service = TaskService()
         self.scheduler_thread = None
         self.is_running = False
@@ -161,7 +165,7 @@ class NotificationService:
             if moved_count > 0:
                 message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
             # LINEでメッセージを送信
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
             
         except Exception as e:
             print(f"Error sending notification to user {user_id}: {e}")
@@ -170,7 +174,7 @@ class NotificationService:
         """スケジュールリマインダーを送信"""
         try:
             message = f"⏰ スケジュールリマインダー\n\n{schedule_info}\n\n準備を始めましょう！"
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
             
         except Exception as e:
             print(f"Error sending schedule reminder: {e}")
@@ -179,7 +183,7 @@ class NotificationService:
         """タスク完了リマインダーを送信"""
         try:
             message = f"✅ タスク完了確認\n\n「{task_name}」は完了しましたか？\n\n完了した場合は「完了」と返信してください。"
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
             
         except Exception as e:
             print(f"Error sending completion reminder: {e}")
@@ -205,7 +209,7 @@ class NotificationService:
             
             message += "\n来週も頑張りましょう！"
             
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
             
         except Exception as e:
             print(f"Error sending weekly report: {e}")
@@ -327,7 +331,7 @@ class NotificationService:
     def send_custom_notification(self, user_id: str, message: str):
         """カスタム通知を送信（APIレスポンスをprint）"""
         try:
-            res = self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            res = self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
             print(f"[send_custom_notification] push_message response: {res}")
         except Exception as e:
             print(f"Error sending custom notification: {e}")
@@ -338,7 +342,7 @@ class NotificationService:
         """エラー通知を送信"""
         try:
             message = f"⚠️ エラーが発生しました\n\n{error_message}\n\nしばらく時間をおいて再度お試しください。"
-            self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
         except Exception as e:
             print(f"Error sending error notification: {e}")
 
@@ -385,10 +389,9 @@ class NotificationService:
         }
         try:
             self.line_bot_api.push_message(
-                user_id,
-                FlexSendMessage(
-                    alt_text="ご利用案内・操作メニュー",
-                    contents=flex_message
+                PushMessageRequest(
+                    to=user_id,
+                    messages=[FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_message)]
                 )
             )
         except Exception as e:
@@ -423,7 +426,7 @@ class NotificationService:
                         msg += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
                     msg += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
-                self.line_bot_api.push_message(user_id, TextSendMessage(text=msg))
+                self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=msg)]))
                 print(f"[send_carryover_check] ユーザー {user_id} に送信完了")
             except Exception as e:
                 print(f"[send_carryover_check] ユーザー {user_id} への送信エラー: {e}")
@@ -464,7 +467,7 @@ class NotificationService:
                             json.dump({"mode": "future_selection", "timestamp": datetime.now().isoformat()}, f)
                     
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
-                    self.line_bot_api.push_message(user_id, TextSendMessage(text=message))
+                    self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
                     print(f"[send_future_task_selection] ユーザー {user_id} に送信完了")
                     
                 except Exception as e:
