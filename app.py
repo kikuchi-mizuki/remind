@@ -6,7 +6,7 @@ from services.calendar_service import CalendarService
 from services.openai_service import OpenAIService
 from services.notification_service import NotificationService
 from models.database import init_db, Task
-from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, ReplyMessageRequest, PushMessageRequest, TextMessage, FlexMessage, ImageMessage, BubbleContainer, BoxComponent, TextComponent, ButtonComponent, MessageAction
+from linebot.v3.messaging import MessagingApi, Configuration, ApiClient, ReplyMessageRequest, PushMessageRequest, TextMessage, FlexMessage, ImageMessage, FlexContainer
 from linebot.v3.webhook import WebhookHandler
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
@@ -1405,25 +1405,28 @@ def callback():
 def get_simple_flex_menu(user_id=None):
     """認証状態に応じてメニューを動的に生成（v3 SDK型安全版）"""
     print(f"[get_simple_flex_menu] user_id={user_id}")
-    body = BoxComponent(
-        layout="vertical",
-        contents=[
-            TextComponent(text="タスク管理Bot", weight="bold", size="xl"),
-            TextComponent(text="何をお手伝いしますか？", size="md", margin="md", color="#666666")
-        ]
+    return FlexContainer(
+        type="bubble",
+        body={
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": "タスク管理Bot", "weight": "bold", "size": "xl"},
+                {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
+            ]
+        },
+        footer={
+            "type": "box",
+            "layout": "vertical",
+            "spacing": "sm",
+            "contents": [
+                {"type": "button", "style": "primary", "action": {"type": "message", "label": "タスクを追加する", "text": "タスク追加"}},
+                {"type": "button", "style": "primary", "color": "#FF6B6B", "action": {"type": "message", "label": "緊急タスクを追加する", "text": "緊急タスク追加"}},
+                {"type": "button", "style": "primary", "color": "#4ECDC4", "action": {"type": "message", "label": "未来タスクを追加する", "text": "未来タスク追加"}},
+                {"type": "button", "style": "secondary", "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"}}
+            ]
+        }
     )
-    footer = BoxComponent(
-        layout="vertical",
-        spacing="sm",
-        contents=[
-            ButtonComponent(style="primary", action=MessageAction(label="タスクを追加する", text="タスク追加")),
-            ButtonComponent(style="primary", color="#FF6B6B", action=MessageAction(label="緊急タスクを追加する", text="緊急タスク追加")),
-            ButtonComponent(style="primary", color="#4ECDC4", action=MessageAction(label="未来タスクを追加する", text="未来タスク追加")),
-            ButtonComponent(style="secondary", action=MessageAction(label="タスクを削除する", text="タスク削除")),
-        ]
-    )
-    bubble = BubbleContainer(body=body, footer=footer)
-    return bubble
 
 if __name__ == "__main__":
     # アプリケーション起動
