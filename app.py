@@ -1078,9 +1078,13 @@ def callback():
                                     TextSendMessage(text=reply_text)
                                 )
                                 continue
-                            if user_message.strip() == "8時テスト":
+                            if user_message.strip() == "8時テスト" or user_message.strip() == "８時テスト":
                                 try:
                                     notification_service.send_daily_task_notification()
+                                    # タスク選択待ちフラグを作成
+                                    import os
+                                    with open(f"task_select_mode_{user_id}.flag", "w") as f:
+                                        f.write("selecting")
                                     reply_text = "8時テスト通知を送信しました"
                                 except Exception as e:
                                     reply_text = f"8時テストエラー: {e}"
