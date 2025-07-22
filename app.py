@@ -740,12 +740,19 @@ def callback():
                                                     TextSendMessage(text=reply_text)
                                                 )
                                                 continue
-                                            # タスク一覧を表示順序で取得
-                                            display_tasks = []
-                                            for task in all_tasks:
-                                                display_tasks.append(task)
-                                            for task in future_tasks:
-                                                display_tasks.append(task)
+                                            # タスク一覧をformat_task_listと同じ順序で並べる
+                                            all_for_display = all_tasks + future_tasks
+                                            def sort_key(task):
+                                                priority_order = {
+                                                    "urgent_important": 0,
+                                                    "not_urgent_important": 1,
+                                                    "urgent_not_important": 2,
+                                                    "normal": 3
+                                                }
+                                                priority_score = priority_order.get(task.priority, 3)
+                                                due_date = task.due_date or '9999-12-31'
+                                                return (priority_score, due_date, task.name)
+                                            display_tasks = sorted(all_for_display, key=sort_key)
                                             print(f"[DEBUG] 表示順序タスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                             selected_tasks = []
                                             for num in selected_numbers:
