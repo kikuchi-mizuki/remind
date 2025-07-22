@@ -1353,10 +1353,18 @@ def callback():
                         # 例外発生時もユーザーにエラー内容を返信
                         try:
                             line_bot_api.reply_message(
-                                ReplyMessageRequest(reply_token=str(user_id), messages=[TextMessage(text=f"⚠️ エラーが発生しました: {e}\nしばらく時間をおいて再度お試しください。")])
+                                ReplyMessageRequest(reply_token=str(user_id), messages=[TextMessage(text=f"⚠️ エラーが発生しました: {e}\nしばらく時間をおいて再度お試しください。")] )
                             )
                         except Exception as inner_e:
                             print("LINEへのエラー通知も失敗:", inner_e)
+                            # reply_tokenが無効な場合はpush_messageで通知
+                            if user_id:
+                                try:
+                                    line_bot_api.push_message(
+                                        PushMessageRequest(to=user_id, messages=[TextMessage(text=f"⚠️ エラーが発生しました: {e}\nしばらく時間をおいて再度お試しください。")] )
+                                    )
+                                except Exception as push_e:
+                                    print("push_messageも失敗:", push_e)
                         continue
     except Exception as e:
         print("エラー:", e)
