@@ -1416,4 +1416,7 @@ if __name__ == "__main__":
     from datetime import datetime
     port = int(os.getenv('PORT', 5000))
     print(f"[app.py] Flaskアプリケーション起動: port={port}, time={datetime.now()}")
+    print(f"[DEBUG] LINE_CHANNEL_ACCESS_TOKEN: {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}")
+    if not os.getenv('LINE_CHANNEL_ACCESS_TOKEN'):
+        print("[ERROR] LINE_CHANNEL_ACCESS_TOKENが環境変数に設定されていません！")
     app.run(debug=False, host='0.0.0.0', port=port) 
