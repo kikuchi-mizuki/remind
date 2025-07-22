@@ -1388,11 +1388,10 @@ def callback():
 
 # --- Flex Message メニュー定義 ---
 def get_simple_flex_menu(user_id=None):
-    """認証状態に応じてメニューを動的に生成（v3 SDK型安全版）"""
-    print(f"[get_simple_flex_menu] user_id={user_id}")
-    return FlexContainer(
-        type="bubble",
-        body={
+    """認証状態に応じてメニューを動的に生成（dict型で返す）"""
+    return {
+        "type": "bubble",
+        "body": {
             "type": "box",
             "layout": "vertical",
             "contents": [
@@ -1400,7 +1399,7 @@ def get_simple_flex_menu(user_id=None):
                 {"type": "text", "text": "何をお手伝いしますか？", "size": "md", "margin": "md", "color": "#666666"}
             ]
         },
-        footer={
+        "footer": {
             "type": "box",
             "layout": "vertical",
             "spacing": "sm",
@@ -1411,7 +1410,7 @@ def get_simple_flex_menu(user_id=None):
                 {"type": "button", "style": "secondary", "action": {"type": "message", "label": "タスクを削除する", "text": "タスク削除"}}
             ]
         }
-    )
+    }
 
 if __name__ == "__main__":
     # アプリケーション起動
