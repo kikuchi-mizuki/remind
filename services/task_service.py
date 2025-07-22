@@ -1,5 +1,6 @@
 import re
 import uuid
+import sqlite3
 from datetime import datetime, timedelta
 import pytz
 from typing import List, Dict, Optional
@@ -481,6 +482,30 @@ class TaskService:
     def get_user_future_tasks(self, user_id: str, status: str = "active") -> List[Task]:
         """ユーザーの未来タスク一覧を取得"""
         return self.db.get_user_future_tasks(user_id, status)
+
+    def delete_future_task(self, task_id: str) -> bool:
+        """未来タスクを削除"""
+        try:
+            # tasksテーブルからtask_type='future'のタスクを削除
+            conn = sqlite3.connect(self.db.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM tasks
+                WHERE task_id = ? AND task_type = 'future'
+            ''', (task_id,))
+            rows_deleted = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            if rows_deleted > 0:
+                print(f"[delete_future_task] 成功: task_id={task_id}")
+                return True
+            else:
+                print(f"[delete_future_task] 失敗: task_id={task_id} (該当する未来タスクが見つかりません)")
+                return False
+        except Exception as e:
+            print(f"[delete_future_task] エラー: {e}")
+            return False
 
     def get_selected_tasks(self, user_id: str, selection_message: str, task_type: str = "daily") -> List[Task]:
         """選択されたタスクを取得"""
