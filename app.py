@@ -393,15 +393,28 @@ def callback():
                         
                         # コマンドでない場合のみタスク登録処理を実行
                         if user_message.strip() not in commands:
+                            print(f"[DEBUG] コマンド以外のメッセージ処理開始: '{user_message}'")
                             from linebot.v3.messaging import FlexMessage
                             flex_message = get_simple_flex_menu(user_id)
+                            print(f"[DEBUG] FlexMessage生成: {flex_message}")
                             if flex_message:
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[
-                                        FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
-                                    ])
-                                )
+                                try:
+                                    flex_msg = FlexMessage(altText="ご利用案内・操作メニュー", contents=flex_message)
+                                    print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
+                                    )
+                                    print("[DEBUG] FlexMessage送信完了")
+                                except Exception as flex_e:
+                                    print(f"[DEBUG] FlexMessage送信エラー: {flex_e}")
+                                    # FlexMessage送信に失敗した場合はテキストで案内
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(replyToken=reply_token, messages=[
+                                            TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")
+                                        ])
+                                    )
                             else:
+                                print("[DEBUG] FlexMessage生成失敗、テキストで案内")
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[
                                         TextMessage(text="ご利用案内・操作メニューはこちらからご確認ください。")
