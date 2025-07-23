@@ -473,6 +473,48 @@ def callback():
                     # --- ここから下は認証済みユーザーのみ ---
 
                     try:
+                        # 削除モード判定を追加
+                        import os
+                        delete_mode_file = f"delete_mode_{user_id}.json"
+                        if os.path.exists(delete_mode_file):
+                            print(f"[DEBUG] 削除モード判定: {delete_mode_file} 存在")
+                            # ユーザーの入力から削除対象タスクを抽出
+                            # 例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」
+                            import re
+                            task_numbers = re.findall(r"タスク\s*(\d+)", user_message)
+                            future_task_numbers = re.findall(r"未来タスク\s*(\d+)", user_message)
+                            print(f"[DEBUG] 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            future_tasks = task_service.get_user_future_tasks(user_id)
+                            deleted = []
+                            # 通常タスク削除
+                            for num in task_numbers:
+                                idx = int(num) - 1
+                                if 0 <= idx < len(all_tasks):
+                                    task = all_tasks[idx]
+                                    task_service.delete_task(task.task_id)
+                                    deleted.append(f"タスク {num}. {task.name}")
+                            # 未来タスク削除
+                            for num in future_task_numbers:
+                                idx = int(num) - 1
+                                if 0 <= idx < len(future_tasks):
+                                    task = future_tasks[idx]
+                                    task_service.delete_future_task(task.task_id)
+                                    deleted.append(f"未来タスク {num}. {task.name}")
+                            # 削除モードファイルを削除
+                            os.remove(delete_mode_file)
+                            print(f"[DEBUG] 削除モードファイル削除: {delete_mode_file}")
+                            if deleted:
+                                reply_text = "✅ タスクを削除しました！\n" + "\n".join(deleted)
+                            else:
+                                reply_text = "⚠️ 削除対象のタスクが見つかりませんでした。"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
                         # Google認証が必要な機能でのみ認証チェックを行う
                         # 基本的なタスク管理機能は認証なしでも利用可能
 
