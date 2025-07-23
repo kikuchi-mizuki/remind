@@ -71,11 +71,11 @@ class TaskService:
             ]
             
             simple_time_patterns = [
-                r'(\d+)\s*分',
                 r'(\d+)\s*時間',
-                r'(\d+)\s*min',
                 r'(\d+)\s*hour',
                 r'(\d+)\s*h',
+                r'(\d+)\s*分',
+                r'(\d+)\s*min',
                 r'(\d+)\s*m'
             ]
             
@@ -103,6 +103,7 @@ class TaskService:
             
             # 単純な時間表現のパターン
             if not duration_minutes:
+                print(f"[parse_task_message] 単純時間パターン検索開始: '{message}'")
                 for pattern in simple_time_patterns:
                     match = re.search(pattern, message)
                     if match:
@@ -115,6 +116,8 @@ class TaskService:
                         message = re.sub(pattern, '', message)
                         print(f"[parse_task_message] 単純時間除去後: '{message}'")
                         break
+                    else:
+                        print(f"[parse_task_message] パターンマッチなし: {pattern}")
             if not duration_minutes:
                 print("[parse_task_message] 所要時間が見つかりませんでした")
                 raise ValueError("所要時間が見つかりませんでした")
