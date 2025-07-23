@@ -472,7 +472,72 @@ def callback():
                         continue
                     # --- ここから下は認証済みユーザーのみ ---
 
-                    # タスク追加モードフラグを最優先で判定
+                    # 緊急タスク追加モードフラグを最優先で判定
+                    import os
+                    urgent_mode_file = f"urgent_task_mode_{user_id}.json"
+                    if os.path.exists(urgent_mode_file):
+                        print(f"[DEBUG] 緊急タスク追加モードフラグ検出: {urgent_mode_file}")
+                        try:
+                            task_info = task_service.parse_task_message(user_message)
+                            task = task_service.create_task(user_id, task_info)
+                            # 緊急タスクとして今日のスケジュールに追加
+                            if is_google_authenticated(user_id):
+                                try:
+                                    calendar_service.add_task_to_calendar(user_id, task)
+                                    reply_text = f"✅ 緊急タスクを追加し、今日のスケジュールに配置しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
+                                except Exception as e:
+                                    print(f"[DEBUG] カレンダー追加エラー: {e}")
+                                    reply_text = f"✅ 緊急タスクを追加しましたが、カレンダーへの配置に失敗しました。\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
+                            else:
+                                reply_text = f"✅ 緊急タスクを追加しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
+                            
+                            os.remove(urgent_mode_file)
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+                        except Exception as e:
+                            print(f"[DEBUG] 緊急タスク追加エラー: {e}")
+                            reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+
+                    # 未来タスク追加モードフラグを判定
+                    future_mode_file = f"future_task_mode_{user_id}.json"
+                    if os.path.exists(future_mode_file):
+                        print(f"[DEBUG] 未来タスク追加モードフラグ検出: {future_mode_file}")
+                        try:
+                            task_info = task_service.parse_task_message(user_message)
+                            task = task_service.create_future_task(user_id, task_info)
+                            os.remove(future_mode_file)
+                            reply_text = f"✅ 未来タスクを追加しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+                        except Exception as e:
+                            print(f"[DEBUG] 未来タスク追加エラー: {e}")
+                            reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+
+                    # タスク追加モードフラグを判定
                     import os
                     add_flag = f"add_task_mode_{user_id}.flag"
                     if os.path.exists(add_flag):
@@ -600,6 +665,34 @@ def callback():
                             f"[DEBUG] コマンド判定: user_message='{user_message.strip()}', in commands={user_message.strip() in commands}"
                         )
                         print(f"[DEBUG] コマンド一覧: {commands}")
+
+                        # 自然言語でのタスク追加処理を先に実行
+                        # コマンドでない場合、自然言語でのタスク追加として処理
+                        if user_message.strip() not in commands:
+                            print(f"[DEBUG] 自然言語タスク追加判定: '{user_message}' はコマンドではありません")
+                            # 時間表現が含まれているかチェック（分、時間、半など）
+                            time_patterns = ['分', '時間', '半', 'hour', 'min', 'minute']
+                            has_time = any(pattern in user_message for pattern in time_patterns)
+                            
+                            if has_time:
+                                print(f"[DEBUG] 時間表現検出: '{user_message}' をタスク追加として処理します")
+                                try:
+                                    task_info = task_service.parse_task_message(user_message)
+                                    task = task_service.create_task(user_id, task_info)
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                    reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(
+                                            replyToken=reply_token,
+                                            messages=[TextMessage(text=reply_text)],
+                                        )
+                                    )
+                                    continue
+                                except Exception as e:
+                                    print(f"[DEBUG] 自然言語タスク追加エラー: {e}")
+                                    # エラーの場合は通常のFlexMessageメニューを表示
+                                    pass
 
                         # タスク選択処理を先に実行（数字入力の場合）
                         import os
@@ -1524,49 +1617,25 @@ def callback():
                             f"[DEBUG] 緊急タスク追加モードファイル確認: {urgent_mode_file}, exists={os.path.exists(urgent_mode_file)}"
                         )
                         if os.path.exists(urgent_mode_file):
-                            print(
-                                f"[DEBUG] 緊急タスク追加モード開始: user_message='{user_message}'"
-                            )
+                            print(f"[DEBUG] 緊急タスク追加モードフラグ検出: {urgent_mode_file}")
                             try:
-                                # 緊急タスクとして登録
-                                task_info = task_service.parse_task_message(
-                                    user_message
-                                )
-                                task_info["priority"] = (
-                                    "urgent_not_important"  # 緊急タスクとして設定
-                                )
-                                task_info["due_date"] = datetime.now().strftime(
-                                    "%Y-%m-%d"
-                                )  # 今日の日付に設定
-
-                                task = task_service.create_task(user_id, task_info)
-                                print(
-                                    f"[DEBUG] 緊急タスク作成完了: task_id={task.task_id}"
-                                )
-
-                                # 今日の空き時間に直接スケジュール追加
-                                from datetime import datetime, timedelta
+                                task_info = task_service.parse_task_message(user_message)
+                                task_info["priority"] = "urgent_not_important"
+                                from datetime import datetime
                                 import pytz
-                                from services.calendar_service import CalendarService
-
-                                calendar_service = CalendarService()
-
                                 jst = pytz.timezone("Asia/Tokyo")
                                 today = datetime.now(jst)
-
-                                # 今日の空き時間を取得
-                                free_times = calendar_service.get_free_busy_times(
-                                    user_id, today
-                                )
+                                task_info["due_date"] = today.strftime("%Y-%m-%d")
+                                task = task_service.create_task(user_id, task_info)
+                                print(f"[DEBUG] 緊急タスク作成完了: task_id={task.task_id}")
+                                # 今日の空き時間に直接スケジュール追加
+                                from services.calendar_service import CalendarService
+                                calendar_service = CalendarService()
+                                free_times = calendar_service.get_free_busy_times(user_id, today)
                                 if free_times:
-                                    # 最初の空き時間に緊急タスクを追加
                                     first_free_time = free_times[0]
                                     start_time = first_free_time["start"]
-                                    end_time = start_time + timedelta(
-                                        minutes=task.duration_minutes
-                                    )
-
-                                    # カレンダーに直接追加
+                                    end_time = start_time + timedelta(minutes=task.duration_minutes)
                                     success = calendar_service.add_event_to_calendar(
                                         user_id=user_id,
                                         task_name=task.name,
@@ -1574,36 +1643,22 @@ def callback():
                                         duration_minutes=task.duration_minutes,
                                         description=f"緊急タスク: {task.name}",
                                     )
-
                                     if success:
                                         reply_text = "⚡ 緊急タスクを追加しました！\n\n"
                                         reply_text += f"📅 今日のスケジュールに追加：\n"
                                         reply_text += f"🕐 {start_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}\n"
                                         reply_text += f"📝 {task.name}\n\n"
-                                        reply_text += (
-                                            "✅ カレンダーに直接追加されました！"
-                                        )
+                                        reply_text += "✅ カレンダーに直接追加されました！"
                                     else:
                                         reply_text = "⚡ 緊急タスクを追加しました！\n\n"
-                                        reply_text += (
-                                            "⚠️ カレンダーへの追加に失敗しました。\n"
-                                        )
-                                        reply_text += (
-                                            "手動でスケジュールを調整してください。"
-                                        )
+                                        reply_text += "⚠️ カレンダーへの追加に失敗しました。\n"
+                                        reply_text += "手動でスケジュールを調整してください。"
                                 else:
                                     reply_text = "⚡ 緊急タスクを追加しました！\n\n"
-                                    reply_text += (
-                                        "⚠️ 今日の空き時間が見つかりませんでした。\n"
-                                    )
-                                    reply_text += (
-                                        "手動でスケジュールを調整してください。"
-                                    )
-
-                                # 緊急タスク追加モードファイルを削除
-                                if os.path.exists(urgent_mode_file):
-                                    os.remove(urgent_mode_file)
-
+                                    reply_text += "⚠️ 今日の空き時間が見つかりませんでした。\n"
+                                    reply_text += "手動でスケジュールを調整してください。"
+                                os.remove(urgent_mode_file)
+                                print(f"[DEBUG] 緊急タスク追加モードフラグ削除: {urgent_mode_file}")
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
@@ -1612,19 +1667,15 @@ def callback():
                                 )
                                 continue
                             except Exception as e:
-                                print(f"[DEBUG] 緊急タスク追加モード処理エラー: {e}")
-                                import traceback
-
-                                traceback.print_exc()
-                                reply_text = (
-                                    f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
-                                )
+                                print(f"[DEBUG] 緊急タスク追加エラー: {e}")
+                                reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
                                     )
                                 )
+                                os.remove(urgent_mode_file)
                                 continue
 
                         # 未来タスク追加モードでの処理
