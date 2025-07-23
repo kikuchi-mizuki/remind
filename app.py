@@ -16,6 +16,7 @@ from linebot.v3.messaging import (
     FlexMessage,
     ImageMessage,
     FlexContainer,
+    TemplateMessage,
 )
 from linebot.v3.webhook import WebhookHandler
 from google_auth_oauthlib.flow import Flow
@@ -1699,35 +1700,35 @@ def callback():
                                 )
                                 continue
 
-                        # 認識されないコマンドの場合、FlexMessageボタンメニューを返す
+                        # 認識されないコマンドの場合、ボタンメニューを返す
                         print(
-                            f"[DEBUG] 認識されないコマンド: '{user_message}' - FlexMessageボタンメニューを返します"
+                            f"[DEBUG] 認識されないコマンド: '{user_message}' - ボタンメニューを返します"
                         )
                         
-                        # まずFlexMessageを試行
-                        flex_message_sent = False
+                        # まずTemplateMessageを試行
+                        button_message_sent = False
                         try:
-                            flex_menu = get_simple_flex_menu(user_id)
-                            print(f"[DEBUG] FlexMessage構造: {flex_menu}")
+                            button_menu = get_button_menu()
+                            print(f"[DEBUG] ボタンメニュー構造: {button_menu}")
                             
-                            # FlexMessageオブジェクトを作成
-                            flex_message = FlexMessage(
+                            # TemplateMessageオブジェクトを作成
+                            template_message = TemplateMessage(
                                 altText="メニュー", 
-                                contents=flex_menu
+                                template=button_menu["template"]
                             )
-                            print(f"[DEBUG] FlexMessageオブジェクト作成完了")
+                            print(f"[DEBUG] TemplateMessageオブジェクト作成完了")
                             
                             # reply_messageで送信
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[flex_message],
+                                    messages=[template_message],
                                 )
                             )
-                            flex_message_sent = True
-                            print("[DEBUG] FlexMessage送信成功")
+                            button_message_sent = True
+                            print("[DEBUG] TemplateMessage送信成功")
                         except Exception as e:
-                            print(f"[DEBUG] FlexMessage送信エラー: {e}")
+                            print(f"[DEBUG] TemplateMessage送信エラー: {e}")
                             import traceback
                             traceback.print_exc()
                             
@@ -1735,21 +1736,17 @@ def callback():
                             if "Invalid reply token" in str(e) or "400" in str(e):
                                 if user_id:
                                     try:
-                                        print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
+                                        print("[DEBUG] reply tokenが無効なため、push_messageでTemplateMessageを送信")
                                         line_bot_api.push_message(
                                             PushMessageRequest(
                                                 to=str(user_id),
-                                                messages=[
-                                                    FlexMessage(
-                                                        altText="メニュー", contents=flex_menu
-                                                    )
-                                                ],
+                                                messages=[template_message],
                                             )
                                         )
-                                        flex_message_sent = True
-                                        print("[DEBUG] push_messageでFlexMessage送信成功")
+                                        button_message_sent = True
+                                        print("[DEBUG] push_messageでTemplateMessage送信成功")
                                     except Exception as push_e:
-                                        print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
+                                        print(f"[DEBUG] push_messageでTemplateMessage送信も失敗: {push_e}")
                                         import traceback
                                         traceback.print_exc()
                                         # 最後の手段としてテキストメッセージを送信
@@ -1769,8 +1766,8 @@ def callback():
                             else:
                                 print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
                         
-                        if not flex_message_sent:
-                            print("[DEBUG] FlexMessage送信に失敗しました")
+                        if not button_message_sent:
+                            print("[DEBUG] ボタンメニュー送信に失敗しました")
                         continue
 
                     except Exception as e:
@@ -1881,6 +1878,42 @@ def get_simple_flex_menu(user_id=None):
                         "label": "タスクを削除する",
                         "text": "タスク削除"
                     }
+                }
+            ]
+        }
+    }
+
+
+# --- ボタンメニュー定義 ---
+def get_button_menu():
+    """ボタンメニューを生成（TemplateMessage用）"""
+    return {
+        "type": "template",
+        "altText": "メニュー",
+        "template": {
+            "type": "buttons",
+            "title": "タスク管理Bot",
+            "text": "何をお手伝いしますか？",
+            "actions": [
+                {
+                    "type": "message",
+                    "label": "タスクを追加する",
+                    "text": "タスク追加"
+                },
+                {
+                    "type": "message",
+                    "label": "緊急タスクを追加する",
+                    "text": "緊急タスク追加"
+                },
+                {
+                    "type": "message",
+                    "label": "未来タスクを追加する",
+                    "text": "未来タスク追加"
+                },
+                {
+                    "type": "message",
+                    "label": "タスクを削除する",
+                    "text": "タスク削除"
                 }
             ]
         }
