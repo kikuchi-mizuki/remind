@@ -1708,14 +1708,20 @@ def callback():
                         flex_message_sent = False
                         try:
                             flex_menu = get_simple_flex_menu(user_id)
+                            print(f"[DEBUG] FlexMessage構造: {flex_menu}")
+                            
+                            # FlexMessageオブジェクトを作成
+                            flex_message = FlexMessage(
+                                altText="メニュー", 
+                                contents=flex_menu
+                            )
+                            print(f"[DEBUG] FlexMessageオブジェクト作成完了")
+                            
+                            # reply_messageで送信
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[
-                                        FlexMessage(
-                                            altText="メニュー", contents=flex_menu
-                                        )
-                                    ],
+                                    messages=[flex_message],
                                 )
                             )
                             flex_message_sent = True
@@ -1744,6 +1750,8 @@ def callback():
                                         print("[DEBUG] push_messageでFlexMessage送信成功")
                                     except Exception as push_e:
                                         print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
+                                        import traceback
+                                        traceback.print_exc()
                                         # 最後の手段としてテキストメッセージを送信
                                         try:
                                             reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
@@ -1809,7 +1817,6 @@ def get_simple_flex_menu(user_id=None):
     """認証状態に応じてメニューを動的に生成（dict型で返す）"""
     return {
         "type": "bubble",
-        "size": "kilo",
         "body": {
             "type": "box",
             "layout": "vertical",
@@ -1820,16 +1827,16 @@ def get_simple_flex_menu(user_id=None):
                     "text": "タスク管理Bot",
                     "weight": "bold",
                     "size": "lg",
-                    "color": "#1DB446",
+                    "color": "#1DB446"
                 },
                 {
                     "type": "text",
                     "text": "何をお手伝いしますか？",
                     "size": "sm",
                     "color": "#666666",
-                    "wrap": True,
-                },
-            ],
+                    "wrap": True
+                }
+            ]
         },
         "footer": {
             "type": "box",
@@ -1843,8 +1850,8 @@ def get_simple_flex_menu(user_id=None):
                     "action": {
                         "type": "message",
                         "label": "タスクを追加する",
-                        "text": "タスク追加",
-                    },
+                        "text": "タスク追加"
+                    }
                 },
                 {
                     "type": "button",
@@ -1853,8 +1860,8 @@ def get_simple_flex_menu(user_id=None):
                     "action": {
                         "type": "message",
                         "label": "緊急タスクを追加する",
-                        "text": "緊急タスク追加",
-                    },
+                        "text": "緊急タスク追加"
+                    }
                 },
                 {
                     "type": "button",
@@ -1863,8 +1870,8 @@ def get_simple_flex_menu(user_id=None):
                     "action": {
                         "type": "message",
                         "label": "未来タスクを追加する",
-                        "text": "未来タスク追加",
-                    },
+                        "text": "未来タスク追加"
+                    }
                 },
                 {
                     "type": "button",
@@ -1872,11 +1879,11 @@ def get_simple_flex_menu(user_id=None):
                     "action": {
                         "type": "message",
                         "label": "タスクを削除する",
-                        "text": "タスク削除",
-                    },
-                },
-            ],
-        },
+                        "text": "タスク削除"
+                    }
+                }
+            ]
+        }
     }
 
 
