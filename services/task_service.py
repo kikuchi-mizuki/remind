@@ -83,9 +83,11 @@ class TaskService:
             duration_minutes = None
             
             # 複合時間表現を先にチェック
+            print(f"[parse_task_message] 複合時間パターン検索開始: '{message}'")
             for pattern in complex_time_patterns:
                 match = re.search(pattern, message)
                 if match:
+                    print(f"[parse_task_message] 複合時間パターンマッチ: {pattern}")
                     if '半' in pattern:
                         # 1時間半の場合
                         hours = int(match.group(1))
@@ -100,6 +102,8 @@ class TaskService:
                     message = re.sub(pattern, '', message)
                     print(f"[parse_task_message] 複合時間除去後: '{message}'")
                     break
+                else:
+                    print(f"[parse_task_message] 複合時間パターンマッチなし: {pattern}")
             
             # 単純な時間表現のパターン
             if not duration_minutes:
@@ -120,7 +124,8 @@ class TaskService:
                         print(f"[parse_task_message] パターンマッチなし: {pattern}")
             if not duration_minutes:
                 print("[parse_task_message] 所要時間が見つかりませんでした")
-                raise ValueError("所要時間が見つかりませんでした")
+                print("[parse_task_message] デフォルトで30分を設定します")
+                duration_minutes = 30  # デフォルトで30分
             
             # 頻度の判定
             repeat = False
