@@ -493,8 +493,28 @@ def callback():
                                     jst = pytz.timezone('Asia/Tokyo')
                                     today = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
                                     
-                                    # 最適な開始時刻を提案
+                                    # 最適な開始時刻を提案（重複チェック付き）
                                     optimal_time = calendar_service.suggest_optimal_time(user_id, task.duration_minutes, "urgent")
+                                    
+                                    if optimal_time:
+                                        # 重複チェック
+                                        if calendar_service.check_time_conflict(user_id, optimal_time, task.duration_minutes):
+                                            print(f"[DEBUG] 最適時刻で重複検出: {optimal_time.strftime('%H:%M')}")
+                                            # 重複がある場合は別の時刻を探す
+                                            from datetime import timedelta
+                                            alternative_times = []
+                                            for hour in range(8, 22):  # 8時から22時まで
+                                                for minute in [0, 30]:  # 30分間隔
+                                                    test_time = today.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                                                    if not calendar_service.check_time_conflict(user_id, test_time, task.duration_minutes):
+                                                        alternative_times.append(test_time)
+                                            
+                                            if alternative_times:
+                                                optimal_time = min(alternative_times, key=lambda x: x)
+                                                print(f"[DEBUG] 代替時刻を選択: {optimal_time.strftime('%H:%M')}")
+                                            else:
+                                                optimal_time = None
+                                                print("[DEBUG] 代替時刻が見つかりません")
                                     
                                     if optimal_time:
                                         # 最適な時刻にタスクを配置
@@ -510,9 +530,15 @@ def callback():
                                         else:
                                             reply_text = f"✅ 緊急タスクを追加しましたが、カレンダーへの配置に失敗しました。\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
                                     else:
-                                        # 最適な時刻が見つからない場合は現在時刻から1時間後に配置
+                                        # 最適な時刻が見つからない場合は現在時刻から1時間後に配置（重複チェック付き）
                                         start_time = datetime.now(jst) + timedelta(hours=1)
                                         start_time = start_time.replace(minute=0, second=0, microsecond=0)
+                                        
+                                        # 重複チェック
+                                        if calendar_service.check_time_conflict(user_id, start_time, task.duration_minutes):
+                                            # 重複がある場合はさらに1時間後
+                                            start_time += timedelta(hours=1)
+                                        
                                         success = calendar_service.add_event_to_calendar(
                                             user_id, 
                                             task.name, 
