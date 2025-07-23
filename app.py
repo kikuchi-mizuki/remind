@@ -481,9 +481,22 @@ def callback():
                             # ユーザーの入力から削除対象タスクを抽出
                             # 例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」
                             import re
-                            task_numbers = re.findall(r"タスク\s*(\d+)", user_message)
-                            future_task_numbers = re.findall(r"未来タスク\s*(\d+)", user_message)
-                            print(f"[DEBUG] 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
+                            # AIで番号抽出
+                            from services.openai_service import OpenAIService
+                            openai_service = OpenAIService()
+                            ai_result = openai_service.extract_task_numbers_from_message(user_message)
+                            if ai_result and (ai_result.get("tasks") or ai_result.get("future_tasks")):
+                                task_numbers = [str(n) for n in ai_result.get("tasks", [])]
+                                future_task_numbers = [str(n) for n in ai_result.get("future_tasks", [])]
+                                print(f"[DEBUG] AI抽出: 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
+                            else:
+                                # 全角数字→半角数字へ変換
+                                def z2h(s):
+                                    return s.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
+                                normalized_message = z2h(user_message)
+                                task_numbers = re.findall(r"タスク\s*(\d+)", normalized_message)
+                                future_task_numbers = re.findall(r"未来タスク\s*(\d+)", normalized_message)
+                                print(f"[DEBUG] fallback: 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
                             all_tasks = task_service.get_user_tasks(user_id)
                             future_tasks = task_service.get_user_future_tasks(user_id)
                             deleted = []

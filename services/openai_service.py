@@ -426,3 +426,36 @@ class OpenAIService:
         except Exception as e:
             print(f"OpenAI API error (extract_due_date): {e}")
             return None 
+
+    def extract_task_numbers_from_message(self, message: str) -> Optional[dict]:
+        """日本語メッセージから通常タスク・未来タスクの番号をAIで抽出し、{"tasks": [1,3], "future_tasks": [2]}のdictで返す"""
+        prompt = f"""
+次の日本語メッセージから、通常タスクと未来タスクの番号をそれぞれ抽出し、JSONで返してください。
+メッセージ: '{message}'
+出力例: {{"tasks": [1, 3], "future_tasks": [2]}}
+- 通常タスクは"tasks"、未来タスクは"future_tasks"の配列にしてください。
+- 番号はすべて半角数字で昇順にしてください。
+- 番号がなければ空配列で返してください。
+- JSON以外の余計な説明や文章は一切出力しないでください。
+"""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "あなたは日本語の自然言語解析の専門家です。"},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=100,
+                temperature=0.0
+            )
+            import json
+            import re
+            raw = response.choices[0].message.content or ""
+            # JSON部分のみ抽出
+            m = re.search(r'\{.*\}', raw, re.DOTALL)
+            if m:
+                return json.loads(m.group(0))
+            return None
+        except Exception as e:
+            print(f"OpenAI API error (extract_task_numbers): {e}")
+            return None 
