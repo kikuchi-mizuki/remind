@@ -477,6 +477,20 @@ def callback():
                     add_flag = f"add_task_mode_{user_id}.flag"
                     if os.path.exists(add_flag):
                         print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
+                        # キャンセルワード判定（全角・半角空白、改行、大小文字を吸収）
+                        cancel_words = ["キャンセル", "やめる", "中止"]
+                        normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
+                        print(f"[DEBUG] キャンセル判定: normalized_message='{normalized_message}'")
+                        if normalized_message in [w.lower() for w in cancel_words]:
+                            os.remove(add_flag)
+                            reply_text = "タスク追加をキャンセルしました。"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
                         try:
                             task_info = task_service.parse_task_message(user_message)
                             task = task_service.create_task(user_id, task_info)
