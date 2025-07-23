@@ -481,13 +481,13 @@ def callback():
                             task_info = task_service.parse_task_message(user_message)
                             task = task_service.create_task(user_id, task_info)
                             os.remove(add_flag)
-                            reply_text1 = f"✅ タスクを追加しました！\n{task.name}（{task.duration_minutes}分）"
                             all_tasks = task_service.get_user_tasks(user_id)
-                            reply_text2 = task_service.format_task_list(all_tasks, show_select_guide=True)
+                            task_list_text = task_service.format_task_list(all_tasks, show_select_guide=True)
+                            reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text1), TextMessage(text=reply_text2)],
+                                    messages=[TextMessage(text=reply_text)],
                                 )
                             )
                             continue
