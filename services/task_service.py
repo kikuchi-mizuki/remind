@@ -515,6 +515,28 @@ class TaskService:
             print(f"[delete_future_task] エラー: {e}")
             return False
 
+    def delete_task(self, task_id: str) -> bool:
+        """通常タスクを削除"""
+        try:
+            conn = sqlite3.connect(self.db.db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM tasks
+                WHERE task_id = ? AND task_type = 'daily'
+            ''', (task_id,))
+            rows_deleted = cursor.rowcount
+            conn.commit()
+            conn.close()
+            if rows_deleted > 0:
+                print(f"[delete_task] 成功: task_id={task_id}")
+                return True
+            else:
+                print(f"[delete_task] 失敗: task_id={task_id} (該当する通常タスクが見つかりません)")
+                return False
+        except Exception as e:
+            print(f"[delete_task] エラー: {e}")
+            return False
+
     def get_selected_tasks(self, user_id: str, selection_message: str, task_type: str = "daily") -> List[Task]:
         """選択されたタスクを取得"""
         # 数字を抽出
