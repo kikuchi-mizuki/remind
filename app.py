@@ -484,9 +484,46 @@ def callback():
                             if is_google_authenticated(user_id):
                                 try:
                                     from services.calendar_service import CalendarService
+                                    from datetime import datetime, timedelta
+                                    import pytz
+                                    
                                     calendar_service = CalendarService()
-                                    calendar_service.add_task_to_calendar(user_id, task)
-                                    reply_text = f"✅ 緊急タスクを追加し、今日のスケジュールに配置しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
+                                    
+                                    # 今日の日付を取得（JST）
+                                    jst = pytz.timezone('Asia/Tokyo')
+                                    today = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
+                                    
+                                    # 最適な開始時刻を提案
+                                    optimal_time = calendar_service.suggest_optimal_time(user_id, task.duration_minutes, "urgent")
+                                    
+                                    if optimal_time:
+                                        # 最適な時刻にタスクを配置
+                                        success = calendar_service.add_event_to_calendar(
+                                            user_id, 
+                                            task.name, 
+                                            optimal_time, 
+                                            task.duration_minutes,
+                                            f"緊急タスク: {task.name}"
+                                        )
+                                        if success:
+                                            reply_text = f"✅ 緊急タスクを追加し、今日のスケジュールに配置しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分\n🕐 開始時刻: {optimal_time.strftime('%H:%M')}"
+                                        else:
+                                            reply_text = f"✅ 緊急タスクを追加しましたが、カレンダーへの配置に失敗しました。\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
+                                    else:
+                                        # 最適な時刻が見つからない場合は現在時刻から1時間後に配置
+                                        start_time = datetime.now(jst) + timedelta(hours=1)
+                                        start_time = start_time.replace(minute=0, second=0, microsecond=0)
+                                        success = calendar_service.add_event_to_calendar(
+                                            user_id, 
+                                            task.name, 
+                                            start_time, 
+                                            task.duration_minutes,
+                                            f"緊急タスク: {task.name}"
+                                        )
+                                        if success:
+                                            reply_text = f"✅ 緊急タスクを追加し、今日のスケジュールに配置しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分\n🕐 開始時刻: {start_time.strftime('%H:%M')}"
+                                        else:
+                                            reply_text = f"✅ 緊急タスクを追加しましたが、カレンダーへの配置に失敗しました。\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
                                 except Exception as e:
                                     print(f"[DEBUG] カレンダー追加エラー: {e}")
                                     reply_text = f"✅ 緊急タスクを追加しましたが、カレンダーへの配置に失敗しました。\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
