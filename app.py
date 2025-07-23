@@ -17,6 +17,8 @@ from linebot.v3.messaging import (
     ImageMessage,
     FlexContainer,
     TemplateMessage,
+    QuickReply,
+    QuickReplyItem,
 )
 from linebot.v3.webhook import WebhookHandler
 from google_auth_oauthlib.flow import Flow
@@ -1700,36 +1702,70 @@ def callback():
                                 )
                                 continue
 
-                        # 認識されないコマンドの場合、ボタンメニューを返す
+                        # 認識されないコマンドの場合、QuickReplyボタンメニューを返す
                         print(
-                            f"[DEBUG] 認識されないコマンド: '{user_message}' - ボタンメニューを返します"
+                            f"[DEBUG] 認識されないコマンド: '{user_message}' - QuickReplyボタンメニューを返します"
                         )
                         
-                        # まずTemplateMessageを試行
+                        # QuickReplyを使用してボタンメニューを送信
                         button_message_sent = False
                         try:
-                            button_menu = get_button_menu()
-                            print(f"[DEBUG] ボタンメニュー構造: {button_menu}")
+                            from linebot.v3.messaging import QuickReply, QuickReplyItem, TextMessage
                             
-                            # TemplateMessageオブジェクトを作成
-                            from linebot.v3.messaging import TemplateMessage
-                            template_message = TemplateMessage(
-                                altText="メニュー", 
-                                template=button_menu
+                            # QuickReplyアイテムを作成
+                            quick_reply_items = [
+                                QuickReplyItem(
+                                    action=QuickReplyItem.Action(
+                                        type="message",
+                                        label="タスクを追加する",
+                                        text="タスク追加"
+                                    )
+                                ),
+                                QuickReplyItem(
+                                    action=QuickReplyItem.Action(
+                                        type="message",
+                                        label="緊急タスクを追加する",
+                                        text="緊急タスク追加"
+                                    )
+                                ),
+                                QuickReplyItem(
+                                    action=QuickReplyItem.Action(
+                                        type="message",
+                                        label="未来タスクを追加する",
+                                        text="未来タスク追加"
+                                    )
+                                ),
+                                QuickReplyItem(
+                                    action=QuickReplyItem.Action(
+                                        type="message",
+                                        label="タスクを削除する",
+                                        text="タスク削除"
+                                    )
+                                )
+                            ]
+                            
+                            # QuickReplyを作成
+                            quick_reply = QuickReply(items=quick_reply_items)
+                            
+                            # TextMessage with QuickReplyを作成
+                            text_message = TextMessage(
+                                text="何をお手伝いしますか？",
+                                quickReply=quick_reply
                             )
-                            print(f"[DEBUG] TemplateMessageオブジェクト作成完了")
+                            
+                            print(f"[DEBUG] QuickReplyオブジェクト作成完了")
                             
                             # reply_messageで送信
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[template_message],
+                                    messages=[text_message],
                                 )
                             )
                             button_message_sent = True
-                            print("[DEBUG] TemplateMessage送信成功")
+                            print("[DEBUG] QuickReply送信成功")
                         except Exception as e:
-                            print(f"[DEBUG] TemplateMessage送信エラー: {e}")
+                            print(f"[DEBUG] QuickReply送信エラー: {e}")
                             import traceback
                             traceback.print_exc()
                             
@@ -1737,17 +1773,17 @@ def callback():
                             if "Invalid reply token" in str(e) or "400" in str(e):
                                 if user_id:
                                     try:
-                                        print("[DEBUG] reply tokenが無効なため、push_messageでTemplateMessageを送信")
+                                        print("[DEBUG] reply tokenが無効なため、push_messageでQuickReplyを送信")
                                         line_bot_api.push_message(
                                             PushMessageRequest(
                                                 to=str(user_id),
-                                                messages=[template_message],
+                                                messages=[text_message],
                                             )
                                         )
                                         button_message_sent = True
-                                        print("[DEBUG] push_messageでTemplateMessage送信成功")
+                                        print("[DEBUG] push_messageでQuickReply送信成功")
                                     except Exception as push_e:
-                                        print(f"[DEBUG] push_messageでTemplateMessage送信も失敗: {push_e}")
+                                        print(f"[DEBUG] push_messageでQuickReply送信も失敗: {push_e}")
                                         import traceback
                                         traceback.print_exc()
                                         # 最後の手段としてテキストメッセージを送信
