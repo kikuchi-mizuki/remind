@@ -438,6 +438,14 @@ class NotificationService:
                     for idx, t in enumerate(today_tasks, 1):
                         msg += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
                     msg += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
+                    
+                    # タスク選択モードフラグを作成
+                    import os
+                    select_flag = f"task_select_mode_{user_id}.flag"
+                    with open(select_flag, "w") as f:
+                        f.write("task_select_mode")
+                    print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}")
+                
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
                 self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=msg)]))
                 print(f"[send_carryover_check] ユーザー {user_id} に送信完了")
