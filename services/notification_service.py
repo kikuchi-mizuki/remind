@@ -164,7 +164,14 @@ class NotificationService:
                         today_tasks.append(t)
                 except Exception:
                     continue
-            
+
+            # --- ここでタスク選択モードフラグを必ず作成 ---
+            import os
+            select_flag = f"task_select_mode_{user_id}.flag"
+            with open(select_flag, "w") as f:
+                f.write("select_mode")
+            print(f"[send_daily_task_notification] タスク選択モードフラグ作成: {select_flag}")
+
             # タスク一覧コマンドと同じ詳細な形式で送信
             message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
             # 期限切れタスクが移動された場合は通知を追加
