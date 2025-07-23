@@ -483,6 +483,8 @@ def callback():
                             # 緊急タスクとして今日のスケジュールに追加
                             if is_google_authenticated(user_id):
                                 try:
+                                    from services.calendar_service import CalendarService
+                                    calendar_service = CalendarService()
                                     calendar_service.add_task_to_calendar(user_id, task)
                                     reply_text = f"✅ 緊急タスクを追加し、今日のスケジュールに配置しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
                                 except Exception as e:
