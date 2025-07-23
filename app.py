@@ -1747,15 +1747,8 @@ def callback():
                                         f"[DEBUG] 未来タスク{i+1}: task_id={ft.task_id}, name={ft.name}, duration={ft.duration_minutes}分, created_at={ft.created_at}"
                                     )
 
-                                reply_text = "🔮 未来タスクを追加しました！\n\n"
-                                reply_text += "📋 未来タスク一覧\n"
-                                reply_text += "＝＝＝＝＝＝\n"
-                                for idx, task in enumerate(future_tasks, 1):
-                                    reply_text += f"{idx}. {task.name} ({task.duration_minutes}分)\n"
-                                reply_text += "＝＝＝＝＝＝\n\n"
-                                reply_text += (
-                                    "※毎週日曜日18時に来週やるタスクを選択できます"
-                                )
+                                reply_text = self.task_service.format_future_task_list(future_tasks, show_select_guide=False)
+                                reply_text += "\n\n✅ 未来タスクを追加しました！"
 
                                 # 未来タスク追加モードファイルを削除
                                 if os.path.exists(future_mode_file):
