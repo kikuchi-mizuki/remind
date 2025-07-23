@@ -609,6 +609,75 @@ def callback():
                                 )
                                 continue
                             
+                            # 削除モードの処理
+                            delete_mode_file = f"delete_mode_{user_id}.json"
+                            if os.path.exists(delete_mode_file):
+                                print(f"[DEBUG] 削除モード処理開始: user_message='{user_message}'")
+                                try:
+                                    # タスク番号を解析
+                                    import re
+                                    numbers = re.findall(r'\d+', user_message)
+                                    if not numbers:
+                                        reply_text = "⚠️ タスク番号を正しく入力してください。\n例：「タスク 1、3」「未来タスク 2」"
+                                        line_bot_api.reply_message(
+                                            ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                        )
+                                        continue
+                                    
+                                    # 通常タスクと未来タスクを取得
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    future_tasks = task_service.get_user_future_tasks(user_id)
+                                    
+                                    # 削除対象のタスクを特定
+                                    tasks_to_delete = []
+                                    future_tasks_to_delete = []
+                                    
+                                    for num in numbers:
+                                        task_index = int(num) - 1  # 1ベースを0ベースに変換
+                                        if task_index < len(all_tasks):
+                                            tasks_to_delete.append(all_tasks[task_index])
+                                        elif task_index < len(all_tasks) + len(future_tasks):
+                                            future_task_index = task_index - len(all_tasks)
+                                            future_tasks_to_delete.append(future_tasks[future_task_index])
+                                    
+                                    if not tasks_to_delete and not future_tasks_to_delete:
+                                        reply_text = "⚠️ 指定されたタスク番号が見つかりませんでした。"
+                                        line_bot_api.reply_message(
+                                            ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                        )
+                                        continue
+                                    
+                                    # タスクを削除
+                                    deleted_count = 0
+                                    for task in tasks_to_delete:
+                                        if task_service.archive_task(task.task_id):
+                                            deleted_count += 1
+                                            print(f"[DEBUG] 通常タスク削除成功: {task.name}")
+                                    
+                                    for future_task in future_tasks_to_delete:
+                                        if task_service.delete_future_task(future_task.task_id):
+                                            deleted_count += 1
+                                            print(f"[DEBUG] 未来タスク削除成功: {future_task.name}")
+                                    
+                                    # 削除モードファイルを削除
+                                    os.remove(delete_mode_file)
+                                    
+                                    reply_text = f"✅ {deleted_count}個のタスクを削除しました。"
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                    )
+                                    continue
+                                    
+                                except Exception as e:
+                                    print(f"[ERROR] 削除処理エラー: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    reply_text = f"⚠️ 削除処理中にエラーが発生しました: {e}"
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
+                                    )
+                                    continue
+
                             # その他のコマンド処理
                             if user_message.strip() == "タスク一覧":
                                 all_tasks = task_service.get_user_tasks(user_id)
