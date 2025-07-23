@@ -799,69 +799,71 @@ def callback():
                                     )
                                 )
                                 continue
-                            else:
-                                print(f"[DEBUG] 認識されないコマンド: '{user_message}' - FlexMessageボタンメニューを返します")
-                                print("[DEBUG] Flex送信直前")
-                                button_message_sent = False
-                                try:
-                                    from linebot.v3.messaging import FlexMessage
-                                    flex_message_content = get_simple_flex_menu(user_id)
-                                    print(f"[DEBUG] get_simple_flex_menu返り値: {flex_message_content}")
-                                    print("[DEBUG] FlexContainer作成直前")
-                                    from linebot.v3.messaging import FlexContainer
-                                    flex_container = FlexContainer.from_dict(flex_message_content)
-                                    flex_message = FlexMessage(
-                                        alt_text="メニュー",
-                                        contents=flex_container
+                            # ここで他のコマンド分岐（elif ...）をそのまま残す
+                            # 既存のelse:（未登録コマンド分岐）は削除
+                        else:
+                            print(f"[DEBUG] else節（未登録コマンド分岐）到達: '{user_message}' - FlexMessageボタンメニューを返します")
+                            print("[DEBUG] Flex送信直前")
+                            button_message_sent = False
+                            try:
+                                from linebot.v3.messaging import FlexMessage
+                                flex_message_content = get_simple_flex_menu(user_id)
+                                print(f"[DEBUG] get_simple_flex_menu返り値: {flex_message_content}")
+                                print("[DEBUG] FlexContainer作成直前")
+                                from linebot.v3.messaging import FlexContainer
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                print("[DEBUG] FlexMessageオブジェクト作成完了")
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[flex_message],
                                     )
-                                    print("[DEBUG] FlexMessageオブジェクト作成完了")
-                                    line_bot_api.reply_message(
-                                        ReplyMessageRequest(
-                                            replyToken=reply_token,
-                                            messages=[flex_message],
-                                        )
-                                    )
-                                    button_message_sent = True
-                                    print("[DEBUG] FlexMessage送信成功")
-                                except Exception as e:
-                                    print(f"[DEBUG] FlexMessage送信エラー: {e}")
-                                    import traceback
-                                    traceback.print_exc()
-                                    if "Invalid reply token" in str(e) or "400" in str(e):
-                                        if user_id:
+                                )
+                                button_message_sent = True
+                                print("[DEBUG] FlexMessage送信成功")
+                            except Exception as e:
+                                print(f"[DEBUG] FlexMessage送信エラー: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                if "Invalid reply token" in str(e) or "400" in str(e):
+                                    if user_id:
+                                        try:
+                                            print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
+                                            line_bot_api.push_message(
+                                                PushMessageRequest(
+                                                    to=str(user_id),
+                                                    messages=[flex_message],
+                                                )
+                                            )
+                                            button_message_sent = True
+                                            print("[DEBUG] push_messageでFlexMessage送信成功")
+                                        except Exception as push_e:
+                                            print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
+                                            import traceback
+                                            traceback.print_exc()
                                             try:
-                                                print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
+                                                reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
                                                 line_bot_api.push_message(
                                                     PushMessageRequest(
                                                         to=str(user_id),
-                                                        messages=[flex_message],
+                                                        messages=[TextMessage(text=reply_text)],
                                                     )
                                                 )
-                                                button_message_sent = True
-                                                print("[DEBUG] push_messageでFlexMessage送信成功")
-                                            except Exception as push_e:
-                                                print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
-                                                import traceback
-                                                traceback.print_exc()
-                                                try:
-                                                    reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
-                                                    line_bot_api.push_message(
-                                                        PushMessageRequest(
-                                                            to=str(user_id),
-                                                            messages=[TextMessage(text=reply_text)],
-                                                        )
-                                                    )
-                                                    print("[DEBUG] テキストメッセージ送信成功")
-                                                except Exception as text_e:
-                                                    print(f"[DEBUG] テキストメッセージ送信も失敗: {text_e}")
-                                        else:
-                                            print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
+                                                print("[DEBUG] テキストメッセージ送信成功")
+                                            except Exception as text_e:
+                                                print(f"[DEBUG] テキストメッセージ送信も失敗: {text_e}")
                                     else:
-                                        print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
-                                if not button_message_sent:
-                                    print("[DEBUG] ボタンメニュー送信に失敗しました")
-                                print("[DEBUG] Flex送信後")
-                                continue
+                                        print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
+                                else:
+                                    print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
+                            if not button_message_sent:
+                                print("[DEBUG] ボタンメニュー送信に失敗しました")
+                            print("[DEBUG] Flex送信後")
+                            continue
 
                         # タスク削除コマンドの処理
                         if user_message.strip() == "タスク削除":
