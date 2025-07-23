@@ -1712,84 +1712,17 @@ def callback():
                         try:
                             from linebot.v3.messaging import FlexMessage
                             
-                            # FlexMessageの構造を作成（LINE Messaging API v3仕様）
-                            flex_message_content = {
-                                "type": "bubble",
-                                "body": {
-                                    "type": "box",
-                                    "layout": "vertical",
-                                    "spacing": "md",
-                                    "contents": [
-                                        {
-                                            "type": "text",
-                                            "text": "タスク管理Bot",
-                                            "weight": "bold",
-                                            "size": "lg",
-                                            "color": "#1DB446"
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": "何をお手伝いしますか？",
-                                            "size": "sm",
-                                            "color": "#666666",
-                                            "wrap": True
-                                        }
-                                    ]
-                                },
-                                "footer": {
-                                    "type": "box",
-                                    "layout": "vertical",
-                                    "spacing": "sm",
-                                    "contents": [
-                                        {
-                                            "type": "button",
-                                            "style": "primary",
-                                            "color": "#1DB446",
-                                            "action": {
-                                                "type": "message",
-                                                "label": "タスクを追加する",
-                                                "text": "タスク追加"
-                                            }
-                                        },
-                                        {
-                                            "type": "button",
-                                            "style": "primary",
-                                            "color": "#FF6B6B",
-                                            "action": {
-                                                "type": "message",
-                                                "label": "緊急タスクを追加する",
-                                                "text": "緊急タスク追加"
-                                            }
-                                        },
-                                        {
-                                            "type": "button",
-                                            "style": "primary",
-                                            "color": "#4ECDC4",
-                                            "action": {
-                                                "type": "message",
-                                                "label": "未来タスクを追加する",
-                                                "text": "未来タスク追加"
-                                            }
-                                        },
-                                        {
-                                            "type": "button",
-                                            "style": "secondary",
-                                            "action": {
-                                                "type": "message",
-                                                "label": "タスクを削除する",
-                                                "text": "タスク削除"
-                                            }
-                                        }
-                                    ]
-                                }
-                            }
+                            # 既存のget_simple_flex_menu関数を使用
+                            flex_message_content = get_simple_flex_menu(user_id)
                             
                             print(f"[DEBUG] FlexMessage構造: {flex_message_content}")
                             
                             # FlexMessageオブジェクトを作成
+                            from linebot.v3.messaging import FlexContainer
+                            flex_container = FlexContainer.from_dict(flex_message_content)
                             flex_message = FlexMessage(
                                 altText="メニュー",
-                                contents=flex_message_content
+                                contents=flex_container
                             )
                             
                             print(f"[DEBUG] FlexMessageオブジェクト作成完了")
