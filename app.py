@@ -618,15 +618,22 @@ def callback():
                                 import os
                                 delete_mode_file = f"delete_mode_{user_id}.json"
                                 print(f"[DEBUG] 削除モードファイル作成開始: {delete_mode_file}")
-                                with open(delete_mode_file, "w") as f:
-                                    import json
-                                    import datetime
-                                    json.dump({"mode": "delete", "timestamp": datetime.datetime.now().isoformat()}, f)
-                                print(f"[DEBUG] 削除モードファイル作成完了: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}")
+                                try:
+                                    with open(delete_mode_file, "w") as f:
+                                        import json
+                                        import datetime
+                                        json.dump({"mode": "delete", "timestamp": datetime.datetime.now().isoformat()}, f)
+                                    print(f"[DEBUG] 削除モードファイル作成完了: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}")
+                                except Exception as e:
+                                    print(f"[ERROR] 削除モードファイル作成エラー: {e}")
+                                    import traceback
+                                    traceback.print_exc()
                                 
+                                print(f"[DEBUG] 削除メッセージ送信開始: {reply_text[:100]}...")
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
+                                print(f"[DEBUG] 削除メッセージ送信完了")
                                 continue
                             
                             # 削除モードの処理
