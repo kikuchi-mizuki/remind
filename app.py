@@ -724,35 +724,24 @@ def callback():
                         if user_message.strip() in commands:
                             print(f"[DEBUG] コマンド処理開始: '{user_message.strip()}'")
 
-                            # 「タスク追加」コマンドの処理
+                            # --- コマンド分岐の一元化 ---
                             if user_message.strip() == "タスク追加":
                                 print("[DEBUG] タスク追加分岐: 処理開始", flush=True)
                                 all_tasks = task_service.get_user_tasks(user_id)
-                                print(
-                                    f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}",
-                                    flush=True,
-                                )
-                                # 追加モードフラグを作成
+                                print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}", flush=True)
                                 add_flag = f"add_task_mode_{user_id}.flag"
                                 with open(add_flag, "w") as f:
                                     f.write("add_task_mode")
-                                reply_text = task_service.format_task_list(
-                                    all_tasks, show_select_guide=False
-                                )
+                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                 reply_text += "\n\n📝 タスク追加モード\n\n"
-                                reply_text += (
-                                    "タスク名・所要時間・期限を入力してください！\n\n"
-                                )
+                                reply_text += "タスク名・所要時間・期限を入力してください！\n\n"
                                 reply_text += "💡 例：\n"
                                 reply_text += "• 「資料作成 30分 明日」\n"
                                 reply_text += "• 「会議準備 1時間 今日」\n"
                                 reply_text += "• 「筋トレ 20分 明日」\n\n"
                                 reply_text += "⚠️ 所要時間は必須です！\n\n"
                                 reply_text += "💡 タスクを選択後、「空き時間に配置」で自動スケジュールできます！"
-                                print(
-                                    f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}",
-                                    flush=True,
-                                )
+                                print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
                                 print("[DEBUG] LINE API reply_message直前", flush=True)
                                 res = line_bot_api.reply_message(
                                     ReplyMessageRequest(
@@ -760,13 +749,9 @@ def callback():
                                         messages=[TextMessage(text=reply_text)],
                                     )
                                 )
-                                print(
-                                    f"[DEBUG] LINE API reply_message直後: {res}",
-                                    flush=True,
-                                )
+                                print(f"[DEBUG] LINE API reply_message直後: {res}", flush=True)
                                 continue
                             elif user_message.strip() == "緊急タスク追加":
-                                # Google認証チェック
                                 if not is_google_authenticated(user_id):
                                     auth_url = get_google_auth_url(user_id)
                                     reply_text = f"📅 カレンダー連携が必要です\n\nGoogleカレンダーにアクセスして認証してください：\n{auth_url}"
@@ -777,21 +762,12 @@ def callback():
                                         )
                                     )
                                     continue
-                                # 緊急タスク追加モードファイルを作成
                                 import os
                                 from datetime import datetime
-
                                 urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                                 with open(urgent_mode_file, "w") as f:
                                     import json
-
-                                    json.dump(
-                                        {
-                                            "mode": "urgent_task",
-                                            "timestamp": datetime.now().isoformat(),
-                                        },
-                                        f,
-                                    )
+                                    json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
                                 reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
@@ -801,21 +777,12 @@ def callback():
                                 )
                                 continue
                             elif user_message.strip() == "未来タスク追加":
-                                # 未来タスク追加モードファイルを作成
                                 import os
                                 from datetime import datetime
-
                                 future_mode_file = f"future_task_mode_{user_id}.json"
                                 with open(future_mode_file, "w") as f:
                                     import json
-
-                                    json.dump(
-                                        {
-                                            "mode": "future_task",
-                                            "timestamp": datetime.now().isoformat(),
-                                        },
-                                        f,
-                                    )
+                                    json.dump({"mode": "future_task", "timestamp": datetime.now().isoformat()}, f)
                                 reply_text = "🔮 未来タスク追加モード\n\n"
                                 reply_text += "投資につながるタスク名と所要時間を送信してください！\n\n"
                                 reply_text += "📝 例：\n"
@@ -824,9 +791,7 @@ def callback():
                                 reply_text += "• 〇〇という本を読む 30分\n"
                                 reply_text += "• 3カ年事業計画をつくる 3時間\n\n"
                                 reply_text += "⚠️ 所要時間は必須です！\n"
-                                reply_text += (
-                                    "※毎週日曜日18時に来週やるタスクを選択できます"
-                                )
+                                reply_text += "※毎週日曜日18時に来週やるタスクを選択できます"
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
@@ -834,218 +799,283 @@ def callback():
                                     )
                                 )
                                 continue
-                            elif user_message.strip() == "タスク削除":
-                                print(
-                                    f"[DEBUG] タスク削除コマンド処理開始: user_id={user_id}"
-                                )
-                                # 通常のタスクと未来タスクを取得
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                future_tasks = task_service.get_user_future_tasks(
-                                    user_id
-                                )
-                                reply_text = "🗑️ タスク削除\n━━━━━━━━━━━━\n"
-                                # 通常のタスクを表示
-                                if all_tasks:
-                                    reply_text += "📋 通常タスク\n"
-                                    for idx, task in enumerate(all_tasks, 1):
-                                        # 優先度アイコン（A/B/C/-）
-                                        priority_icon = {
-                                            "urgent_important": "A",
-                                            "urgent_not_important": "B",
-                                            "not_urgent_important": "C",
-                                            "normal": "-",
-                                        }.get(task.priority, "-")
-
-                                        # 期日表示
-                                        if task.due_date:
-                                            try:
-                                                y, m, d = task.due_date.split("-")
-                                                due_date_obj = datetime(
-                                                    int(y), int(m), int(d)
-                                                )
-                                                weekday_names = [
-                                                    "月",
-                                                    "火",
-                                                    "水",
-                                                    "木",
-                                                    "金",
-                                                    "土",
-                                                    "日",
-                                                ]
-                                                weekday = weekday_names[
-                                                    due_date_obj.weekday()
-                                                ]
-                                                due_str = (
-                                                    f"{int(m)}月{int(d)}日({weekday})"
-                                                )
-                                            except Exception:
-                                                due_str = task.due_date
-                                        else:
-                                            due_str = "期日未設定"
-
-                                        reply_text += f"タスク {idx}. {priority_icon} {task.name} ({task.duration_minutes}分) - {due_str}\n"
-                                    reply_text += "\n"
-                                else:
-                                    reply_text += "📋 通常タスク\n登録されているタスクはありません。\n\n"
-
-                                # 未来タスクを表示
-                                if future_tasks:
-                                    reply_text += "🔮 未来タスク\n"
-                                    for idx, task in enumerate(future_tasks, 1):
-                                        reply_text += f"未来タスク {idx}. {task.name} ({task.duration_minutes}分)\n"
-                                    reply_text += "\n"
-                                else:
-                                    reply_text += "🔮 未来タスク\n登録されている未来タスクはありません。\n\n"
-
-                                reply_text += "━━━━━━━━━━━━\n"
-                                reply_text += "削除するタスクを選んでください！\n"
-                                reply_text += "例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」\n"
-
-                                # 削除モードファイルを作成
-                                import os
-
-                                delete_mode_file = f"delete_mode_{user_id}.json"
-                                print(
-                                    f"[DEBUG] 削除モードファイル作成開始: {delete_mode_file}"
-                                )
+                            else:
+                                print(f"[DEBUG] 認識されないコマンド: '{user_message}' - FlexMessageボタンメニューを返します")
+                                print("[DEBUG] Flex送信直前")
+                                button_message_sent = False
                                 try:
-                                    with open(delete_mode_file, "w") as f:
-                                        import json
-                                        import datetime
-
-                                        json.dump(
-                                            {
-                                                "mode": "delete",
-                                                "timestamp": datetime.datetime.now().isoformat(),
-                                            },
-                                            f,
-                                        )
-                                    print(
-                                        f"[DEBUG] 削除モードファイル作成完了: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}"
+                                    from linebot.v3.messaging import FlexMessage
+                                    flex_message_content = get_simple_flex_menu(user_id)
+                                    print(f"[DEBUG] get_simple_flex_menu返り値: {flex_message_content}")
+                                    print("[DEBUG] FlexContainer作成直前")
+                                    from linebot.v3.messaging import FlexContainer
+                                    flex_container = FlexContainer.from_dict(flex_message_content)
+                                    flex_message = FlexMessage(
+                                        alt_text="メニュー",
+                                        contents=flex_container
                                     )
+                                    print("[DEBUG] FlexMessageオブジェクト作成完了")
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(
+                                            replyToken=reply_token,
+                                            messages=[flex_message],
+                                        )
+                                    )
+                                    button_message_sent = True
+                                    print("[DEBUG] FlexMessage送信成功")
                                 except Exception as e:
-                                    print(f"[ERROR] 削除モードファイル作成エラー: {e}")
+                                    print(f"[DEBUG] FlexMessage送信エラー: {e}")
                                     import traceback
-
                                     traceback.print_exc()
-
-                                print(
-                                    f"[DEBUG] 削除メッセージ送信開始: {reply_text[:100]}..."
-                                )
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                print(f"[DEBUG] 削除メッセージ送信完了")
+                                    if "Invalid reply token" in str(e) or "400" in str(e):
+                                        if user_id:
+                                            try:
+                                                print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
+                                                line_bot_api.push_message(
+                                                    PushMessageRequest(
+                                                        to=str(user_id),
+                                                        messages=[flex_message],
+                                                    )
+                                                )
+                                                button_message_sent = True
+                                                print("[DEBUG] push_messageでFlexMessage送信成功")
+                                            except Exception as push_e:
+                                                print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
+                                                import traceback
+                                                traceback.print_exc()
+                                                try:
+                                                    reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
+                                                    line_bot_api.push_message(
+                                                        PushMessageRequest(
+                                                            to=str(user_id),
+                                                            messages=[TextMessage(text=reply_text)],
+                                                        )
+                                                    )
+                                                    print("[DEBUG] テキストメッセージ送信成功")
+                                                except Exception as text_e:
+                                                    print(f"[DEBUG] テキストメッセージ送信も失敗: {text_e}")
+                                        else:
+                                            print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
+                                    else:
+                                        print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
+                                if not button_message_sent:
+                                    print("[DEBUG] ボタンメニュー送信に失敗しました")
+                                print("[DEBUG] Flex送信後")
                                 continue
-                            elif user_message.strip() == "はい":
-                                import os
-                                import json
 
-                                selected_tasks_file = f"selected_tasks_{user_id}.json"
-                                if os.path.exists(selected_tasks_file):
-                                    try:
-                                        # 選択されたタスクを読み込み
-                                        with open(selected_tasks_file, "r") as f:
-                                            task_ids = json.load(f)
+                        # タスク削除コマンドの処理
+                        if user_message.strip() == "タスク削除":
+                            print(
+                                f"[DEBUG] タスク削除コマンド処理開始: user_id={user_id}"
+                            )
+                            # 通常のタスクと未来タスクを取得
+                            all_tasks = task_service.get_user_tasks(user_id)
+                            future_tasks = task_service.get_user_future_tasks(
+                                user_id
+                            )
+                            reply_text = "🗑️ タスク削除\n━━━━━━━━━━━━\n"
+                            # 通常のタスクを表示
+                            if all_tasks:
+                                reply_text += "📋 通常タスク\n"
+                                for idx, task in enumerate(all_tasks, 1):
+                                    # 優先度アイコン（A/B/C/-）
+                                    priority_icon = {
+                                        "urgent_important": "A",
+                                        "urgent_not_important": "B",
+                                        "not_urgent_important": "C",
+                                        "normal": "-",
+                                    }.get(task.priority, "-")
 
-                                        all_tasks = task_service.get_user_tasks(user_id)
-                                        selected_tasks = [
-                                            t
-                                            for t in all_tasks
-                                            if t.task_id in task_ids
-                                        ]
-
-                                        if not selected_tasks:
-                                            reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
-                                            line_bot_api.reply_message(
-                                                ReplyMessageRequest(
-                                                    replyToken=reply_token,
-                                                    messages=[
-                                                        TextMessage(text=reply_text)
-                                                    ],
-                                                )
+                                    # 期日表示
+                                    if task.due_date:
+                                        try:
+                                            y, m, d = task.due_date.split("-")
+                                            due_date_obj = datetime(
+                                                int(y), int(m), int(d)
                                             )
-                                            continue
-
-                                        # スケジュール提案を生成
-                                        from services.calendar_service import (
-                                            CalendarService,
-                                        )
-                                        from services.openai_service import (
-                                            OpenAIService,
-                                        )
-                                        from datetime import datetime
-                                        import pytz
-
-                                        calendar_service = CalendarService()
-                                        openai_service = OpenAIService()
-
-                                        jst = pytz.timezone("Asia/Tokyo")
-                                        today = datetime.now(jst)
-                                        free_times = (
-                                            calendar_service.get_free_busy_times(
-                                                user_id, today
+                                            weekday_names = [
+                                                "月",
+                                                "火",
+                                                "水",
+                                                "木",
+                                                "金",
+                                                "土",
+                                                "日",
+                                            ]
+                                            weekday = weekday_names[
+                                                due_date_obj.weekday()
+                                            ]
+                                            due_str = (
+                                                f"{int(m)}月{int(d)}日({weekday})"
                                             )
-                                        )
+                                        except Exception:
+                                            due_str = task.due_date
+                                    else:
+                                        due_str = "期日未設定"
 
-                                        if not free_times:
-                                            reply_text = (
-                                                "❌ 空き時間の取得に失敗しました。"
-                                            )
-                                            line_bot_api.reply_message(
-                                                ReplyMessageRequest(
-                                                    replyToken=reply_token,
-                                                    messages=[
-                                                        TextMessage(text=reply_text)
-                                                    ],
-                                                )
-                                            )
-                                            continue
+                                    reply_text += f"タスク {idx}. {priority_icon} {task.name} ({task.duration_minutes}分) - {due_str}\n"
+                                reply_text += "\n"
+                            else:
+                                reply_text += "📋 通常タスク\n登録されているタスクはありません。\n\n"
 
-                                        # スケジュール提案を生成
-                                        proposal = (
-                                            openai_service.generate_schedule_proposal(
-                                                selected_tasks, free_times
-                                            )
-                                        )
+                            # 未来タスクを表示
+                            if future_tasks:
+                                reply_text += "🔮 未来タスク\n"
+                                for idx, task in enumerate(future_tasks, 1):
+                                    reply_text += f"未来タスク {idx}. {task.name} ({task.duration_minutes}分)\n"
+                                reply_text += "\n"
+                            else:
+                                reply_text += "🔮 未来タスク\n登録されている未来タスクはありません。\n\n"
 
-                                        # 提案をファイルに保存
-                                        with open(
-                                            f"schedule_proposal_{user_id}.txt", "w"
-                                        ) as f:
-                                            f.write(proposal)
+                            reply_text += "━━━━━━━━━━━━\n"
+                            reply_text += "削除するタスクを選んでください！\n"
+                            reply_text += "例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」\n"
 
-                                        # 提案を送信
+                            # 削除モードファイルを作成
+                            import os
+
+                            delete_mode_file = f"delete_mode_{user_id}.json"
+                            print(
+                                f"[DEBUG] 削除モードファイル作成開始: {delete_mode_file}"
+                            )
+                            try:
+                                with open(delete_mode_file, "w") as f:
+                                    import json
+                                    import datetime
+
+                                    json.dump(
+                                        {
+                                            "mode": "delete",
+                                            "timestamp": datetime.datetime.now().isoformat(),
+                                        },
+                                        f,
+                                    )
+                                print(
+                                    f"[DEBUG] 削除モードファイル作成完了: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}"
+                                )
+                            except Exception as e:
+                                print(f"[ERROR] 削除モードファイル作成エラー: {e}")
+                                import traceback
+
+                                traceback.print_exc()
+
+                            print(
+                                f"[DEBUG] 削除メッセージ送信開始: {reply_text[:100]}..."
+                            )
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            print(f"[DEBUG] 削除メッセージ送信完了")
+                            continue
+                        elif user_message.strip() == "はい":
+                            import os
+                            import json
+
+                            selected_tasks_file = f"selected_tasks_{user_id}.json"
+                            if os.path.exists(selected_tasks_file):
+                                try:
+                                    # 選択されたタスクを読み込み
+                                    with open(selected_tasks_file, "r") as f:
+                                        task_ids = json.load(f)
+
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    selected_tasks = [
+                                        t
+                                        for t in all_tasks
+                                        if t.task_id in task_ids
+                                    ]
+
+                                    if not selected_tasks:
+                                        reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
-                                                messages=[TextMessage(text=proposal)],
+                                                messages=[
+                                                    TextMessage(text=reply_text)
+                                                ],
                                             )
                                         )
                                         continue
 
-                                    except Exception as e:
-                                        print(f"[DEBUG] はいコマンド処理エラー: {e}")
-                                        reply_text = f"⚠️ スケジュール提案生成中にエラーが発生しました: {e}"
+                                    # スケジュール提案を生成
+                                    from services.calendar_service import (
+                                        CalendarService,
+                                    )
+                                    from services.openai_service import (
+                                        OpenAIService,
+                                    )
+                                    from datetime import datetime
+                                    import pytz
+
+                                    calendar_service = CalendarService()
+                                    openai_service = OpenAIService()
+
+                                    jst = pytz.timezone("Asia/Tokyo")
+                                    today = datetime.now(jst)
+                                    free_times = (
+                                        calendar_service.get_free_busy_times(
+                                            user_id, today
+                                        )
+                                    )
+
+                                    if not free_times:
+                                        reply_text = (
+                                            "❌ 空き時間の取得に失敗しました。"
+                                        )
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
-                                                messages=[TextMessage(text=reply_text)],
+                                                messages=[
+                                                    TextMessage(text=reply_text)
+                                                ],
                                             )
                                         )
                                         continue
-                                else:
-                                    reply_text = "⚠️ 先にタスクを選択してください。"
+
+                                    # スケジュール提案を生成
+                                    proposal = (
+                                        openai_service.generate_schedule_proposal(
+                                            selected_tasks, free_times
+                                        )
+                                    )
+
+                                    # 提案をファイルに保存
+                                    with open(
+                                        f"schedule_proposal_{user_id}.txt", "w"
+                                    ) as f:
+                                        f.write(proposal)
+
+                                    # 提案を送信
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(
+                                            replyToken=reply_token,
+                                            messages=[TextMessage(text=proposal)],
+                                        )
+                                    )
+                                    continue
+
+                                except Exception as e:
+                                    print(f"[DEBUG] はいコマンド処理エラー: {e}")
+                                    reply_text = f"⚠️ スケジュール提案生成中にエラーが発生しました: {e}"
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
                                         )
                                     )
-                                    # ... 省略 ...
+                                    continue
+                            else:
+                                reply_text = "⚠️ 先にタスクを選択してください。"
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
+                                )
+                                # ... 省略 ...
                             continue
                         elif user_message.strip() == "8時テスト":
                             try:
@@ -1835,7 +1865,7 @@ def callback():
                             from linebot.v3.messaging import FlexContainer
                             flex_container = FlexContainer.from_dict(flex_message_content)
                             flex_message = FlexMessage(
-                                altText="メニュー",
+                                alt_text="メニュー",
                                 contents=flex_container
                             )
                             print("[DEBUG] FlexMessageオブジェクト作成完了")
