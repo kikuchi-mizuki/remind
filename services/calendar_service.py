@@ -127,6 +127,7 @@ class CalendarService:
                             duration_minutes: int, description: str = "") -> bool:
         """カレンダーにイベントを追加"""
         if not self.authenticate_user(user_id):
+            print(f"[add_event_to_calendar] 認証失敗: user_id={user_id}")
             return False
         try:
             # タスク名から⭐️を除去し、⭐に統一
@@ -156,14 +157,20 @@ class CalendarService:
                     ],
                 },
             }
-            event = self.service.events().insert(
+            print(f"[add_event_to_calendar] 追加内容: user_id={user_id}, task_name={task_name}, start_time={start_time}, duration={duration_minutes}, event={event}")
+            event_result = self.service.events().insert(
                 calendarId='primary',
                 body=event
             ).execute()
-            print(f'Event created: {event.get("htmlLink")}')
+            print(f'[add_event_to_calendar] Event created: {event_result.get("htmlLink")}, id={event_result.get("id")}, summary={event_result.get("summary")}, start={event_result.get("start")}, end={event_result.get("end")}')
             return True
         except HttpError as error:
-            print(f'Calendar API error: {error}')
+            print(f'[add_event_to_calendar] Calendar API error: {error}')
+            return False
+        except Exception as e:
+            print(f'[add_event_to_calendar] 予期せぬエラー: {e}')
+            import traceback
+            traceback.print_exc()
             return False
 
     def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> bool:
@@ -305,8 +312,12 @@ class CalendarService:
                 orderBy='startTime'
             ).execute()
             events = events_result.get('items', [])
+            if events is None:
+                events = []
             schedule = []
             for event in events:
+                if not event or not event.get('start') or not event.get('end'):
+                    continue
                 start = event['start'].get('dateTime', event['start'].get('date'))
                 end = event['end'].get('dateTime', event['end'].get('date'))
                 schedule.append({
@@ -337,8 +348,12 @@ class CalendarService:
                 orderBy='startTime'
             ).execute()
             events = events_result.get('items', [])
+            if events is None:
+                events = []
             schedule = []
             for event in events:
+                if not event or not event.get('start') or not event.get('end'):
+                    continue
                 start = event['start'].get('dateTime', event['start'].get('date'))
                 end = event['end'].get('dateTime', event['end'].get('date'))
                 schedule.append({
@@ -378,6 +393,8 @@ class CalendarService:
             
             # イベントを日付ごとに分類
             for event in events:
+                if not event or not event.get('start') or not event.get('end'):
+                    continue
                 start = event['start'].get('dateTime', event['start'].get('date'))
                 end = event['end'].get('dateTime', event['end'].get('date'))
                 
