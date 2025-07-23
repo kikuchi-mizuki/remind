@@ -1712,9 +1712,10 @@ def callback():
                             print(f"[DEBUG] ボタンメニュー構造: {button_menu}")
                             
                             # TemplateMessageオブジェクトを作成
+                            from linebot.v3.messaging import TemplateMessage
                             template_message = TemplateMessage(
                                 altText="メニュー", 
-                                template=button_menu["template"]
+                                template=button_menu
                             )
                             print(f"[DEBUG] TemplateMessageオブジェクト作成完了")
                             
@@ -1888,35 +1889,31 @@ def get_simple_flex_menu(user_id=None):
 def get_button_menu():
     """ボタンメニューを生成（TemplateMessage用）"""
     return {
-        "type": "template",
-        "altText": "メニュー",
-        "template": {
-            "type": "buttons",
-            "title": "タスク管理Bot",
-            "text": "何をお手伝いしますか？",
-            "actions": [
-                {
-                    "type": "message",
-                    "label": "タスクを追加する",
-                    "text": "タスク追加"
-                },
-                {
-                    "type": "message",
-                    "label": "緊急タスクを追加する",
-                    "text": "緊急タスク追加"
-                },
-                {
-                    "type": "message",
-                    "label": "未来タスクを追加する",
-                    "text": "未来タスク追加"
-                },
-                {
-                    "type": "message",
-                    "label": "タスクを削除する",
-                    "text": "タスク削除"
-                }
-            ]
-        }
+        "type": "buttons",
+        "title": "タスク管理Bot",
+        "text": "何をお手伝いしますか？",
+        "actions": [
+            {
+                "type": "message",
+                "label": "タスクを追加する",
+                "text": "タスク追加"
+            },
+            {
+                "type": "message",
+                "label": "緊急タスクを追加する",
+                "text": "緊急タスク追加"
+            },
+            {
+                "type": "message",
+                "label": "未来タスクを追加する",
+                "text": "未来タスク追加"
+            },
+            {
+                "type": "message",
+                "label": "タスクを削除する",
+                "text": "タスク削除"
+            }
+        ]
     }
 
 
