@@ -1378,22 +1378,26 @@ def callback():
                                                 f"[DEBUG] 通常タスク処理: 今日の日付 {target_date.strftime('%Y-%m-%d')} を使用"
                                             )
 
-                                        for task in selected_tasks:
-                                            # スケジュール提案から開始時刻を抽出（簡易版：14:00を固定）
-                                            start_time = target_date.replace(
-                                                hour=14,
-                                                minute=0,
-                                                second=0,
-                                                microsecond=0,
-                                            )
-
-                                            if calendar_service.add_event_to_calendar(
-                                                user_id,
-                                                task.name,
-                                                start_time,
-                                                task.duration_minutes,
-                                            ):
-                                                success_count += 1
+                                        # スケジュール提案から時刻を抽出してカレンダーに追加
+                                        success_count = calendar_service.add_events_to_calendar(user_id, proposal)
+                                        
+                                        if success_count == 0:
+                                            # パースに失敗した場合は、固定時刻で追加
+                                            print("[DEBUG] スケジュール提案のパースに失敗、固定時刻で追加")
+                                            for task in selected_tasks:
+                                                start_time = target_date.replace(
+                                                    hour=14,
+                                                    minute=0,
+                                                    second=0,
+                                                    microsecond=0,
+                                                )
+                                                if calendar_service.add_event_to_calendar(
+                                                    user_id,
+                                                    task.name,
+                                                    start_time,
+                                                    task.duration_minutes,
+                                                ):
+                                                    success_count += 1
 
                                         reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。\n\n"
 
