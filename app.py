@@ -586,7 +586,7 @@ def callback():
                             
                             # 未来タスク一覧を取得して表示
                             future_tasks = task_service.get_user_future_tasks(user_id)
-                            reply_text = self.task_service.format_future_task_list(future_tasks, show_select_guide=False)
+                            reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
                             reply_text += "\n\n✅ 未来タスクを追加しました！"
                             
                             line_bot_api.reply_message(
