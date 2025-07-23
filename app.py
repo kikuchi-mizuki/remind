@@ -519,7 +519,7 @@ def callback():
                             
                             # 他のコマンド処理もここに配置...
                             # 「緊急タスク追加」コマンドの処理
-                            if user_message.strip() == "緊急タスク追加":
+                            elif user_message.strip() == "緊急タスク追加":
                                 # Google認証チェック
                                 if not is_google_authenticated(user_id):
                                     auth_url = get_google_auth_url(user_id)
@@ -542,7 +542,7 @@ def callback():
                                 continue
                             
                             # 「未来タスク追加」コマンドの処理
-                            if user_message.strip() == "未来タスク追加":
+                            elif user_message.strip() == "未来タスク追加":
                                 # 未来タスク追加モードファイルを作成
                                 import os
                                 from datetime import datetime
@@ -565,7 +565,7 @@ def callback():
                                 continue
                             
                             # 「タスク削除」コマンドの処理
-                            if user_message.strip() == "タスク削除":
+                            elif user_message.strip() == "タスク削除":
                                 print(f"[DEBUG] タスク削除コマンド処理開始: user_id={user_id}")
                                 # 通常のタスクと未来タスクを取得
                                 all_tasks = task_service.get_user_tasks(user_id)
