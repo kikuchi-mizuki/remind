@@ -472,6 +472,34 @@ def callback():
                         continue
                     # --- ここから下は認証済みユーザーのみ ---
 
+                    # タスク追加モードフラグを最優先で判定
+                    import os
+                    add_flag = f"add_task_mode_{user_id}.flag"
+                    if os.path.exists(add_flag):
+                        print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
+                        try:
+                            task_info = task_service.parse_task_message(user_message)
+                            task = task_service.create_task(user_id, task_info)
+                            os.remove(add_flag)
+                            reply_text = f"✅ タスクを追加しました！\n{task.name}（{task.duration_minutes}分）"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+                        except Exception as e:
+                            print(f"[DEBUG] タスク追加エラー: {e}")
+                            reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+
                     try:
                         # 削除モード判定を追加
                         import os
@@ -1872,33 +1900,6 @@ def callback():
                             else:
                                 print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
                         continue
-
-                        # 通常メッセージ受信時にタスク追加モードフラグを判定
-                        add_flag = f"add_task_mode_{user_id}.flag"
-                        if os.path.exists(add_flag):
-                            print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
-                            try:
-                                task_info = task_service.parse_task_message(user_message)
-                                task = task_service.create_task(user_id, task_info)
-                                os.remove(add_flag)
-                                reply_text = f"✅ タスクを追加しました！\n{task.name}（{task.duration_minutes}分）"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                continue
-                            except Exception as e:
-                                print(f"[DEBUG] タスク追加エラー: {e}")
-                                reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                continue
     except Exception as e:
         print("エラー:", e)
     return "OK", 200
