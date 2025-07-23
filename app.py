@@ -1822,17 +1822,15 @@ def callback():
                         print(
                             f"[DEBUG] 認識されないコマンド: '{user_message}' - FlexMessageボタンメニューを返します"
                         )
-                        
+                        print("[DEBUG] Flex送信直前")
                         # FlexMessageを使用してボタンメニューを送信
                         button_message_sent = False
                         try:
                             from linebot.v3.messaging import FlexMessage
-                            
                             # 既存のget_simple_flex_menu関数を使用
                             flex_message_content = get_simple_flex_menu(user_id)
-                            
-                            print(f"[DEBUG] FlexMessage構造: {flex_message_content}")
-                            
+                            print(f"[DEBUG] get_simple_flex_menu返り値: {flex_message_content}")
+                            print("[DEBUG] FlexContainer作成直前")
                             # FlexMessageオブジェクトを作成
                             from linebot.v3.messaging import FlexContainer
                             flex_container = FlexContainer.from_dict(flex_message_content)
@@ -1840,9 +1838,7 @@ def callback():
                                 altText="メニュー",
                                 contents=flex_container
                             )
-                            
-                            print(f"[DEBUG] FlexMessageオブジェクト作成完了")
-                            
+                            print("[DEBUG] FlexMessageオブジェクト作成完了")
                             # reply_messageで送信
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
@@ -1856,7 +1852,6 @@ def callback():
                             print(f"[DEBUG] FlexMessage送信エラー: {e}")
                             import traceback
                             traceback.print_exc()
-                            
                             # reply tokenが無効な場合のみpush_messageを使用
                             if "Invalid reply token" in str(e) or "400" in str(e):
                                 if user_id:
@@ -1890,9 +1885,9 @@ def callback():
                                     print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
                             else:
                                 print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
-                        
                         if not button_message_sent:
                             print("[DEBUG] ボタンメニュー送信に失敗しました")
+                        print("[DEBUG] Flex送信後")
                         continue
 
                     except Exception as e:
