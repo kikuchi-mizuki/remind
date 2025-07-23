@@ -1712,7 +1712,7 @@ def callback():
                         try:
                             from linebot.v3.messaging import FlexMessage
                             
-                            # FlexMessageの構造を作成
+                            # FlexMessageの構造を作成（LINE Messaging API v3仕様）
                             flex_message_content = {
                                 "type": "bubble",
                                 "body": {
@@ -1783,6 +1783,8 @@ def callback():
                                     ]
                                 }
                             }
+                            
+                            print(f"[DEBUG] FlexMessage構造: {flex_message_content}")
                             
                             # FlexMessageオブジェクトを作成
                             flex_message = FlexMessage(
