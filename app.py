@@ -1718,16 +1718,21 @@ def callback():
                         except Exception as e:
                             print(f"[DEBUG] FlexMessage送信エラー: {e}")
                             import traceback
-
                             traceback.print_exc()
-                            # FlexMessageが失敗した場合はテキストメッセージでフォールバック
-                            reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
+                            # FlexMessageが失敗した場合はpush_messageでテキストメッセージを送信
+                            if user_id:
+                                try:
+                                    reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
+                                    line_bot_api.push_message(
+                                        PushMessageRequest(
+                                            to=str(user_id),
+                                            messages=[TextMessage(text=reply_text)],
+                                        )
+                                    )
+                                except Exception as push_e:
+                                    print(f"[DEBUG] push_messageも失敗: {push_e}")
+                            else:
+                                print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
                         continue
 
                     except Exception as e:
@@ -1761,6 +1766,8 @@ def callback():
                                     )
                                 except Exception as push_e:
                                     print("push_messageも失敗:", push_e)
+                            else:
+                                print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
                         continue
     except Exception as e:
         print("エラー:", e)
