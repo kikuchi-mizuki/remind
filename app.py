@@ -775,11 +775,17 @@ def callback():
                                     f"[DEBUG] タスク選択処理開始: user_message='{user_message}'"
                                 )
                                 try:
-                                    # タスク一覧を取得
+                                    # 21時テスト用：今日のタスクのみを取得
+                                    from datetime import datetime
+                                    import pytz
+                                    jst = pytz.timezone('Asia/Tokyo')
+                                    today_str = datetime.now(jst).strftime('%Y-%m-%d')
+                                    
                                     all_tasks = task_service.get_user_tasks(user_id)
-                                    future_tasks = task_service.get_user_future_tasks(
-                                        user_id
-                                    )
+                                    today_tasks = [t for t in all_tasks if t.due_date == today_str]
+                                    
+                                    print(f"[DEBUG] 今日のタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(today_tasks)]}")
+                                    
                                     # 選択された数字を解析
                                     selected_numbers = [
                                         int(n.strip())
@@ -797,39 +803,18 @@ def callback():
                                             )
                                         )
                                         continue
-                                    # タスク一覧をformat_task_listと同じ順序で並べる
-                                    all_for_display = all_tasks + future_tasks
-
-                                    def sort_key(task):
-                                        priority_order = {
-                                            "urgent_important": 0,
-                                            "not_urgent_important": 1,
-                                            "urgent_not_important": 2,
-                                            "normal": 3,
-                                        }
-                                        priority_score = priority_order.get(
-                                            task.priority, 3
-                                        )
-                                        due_date = task.due_date or "9999-12-31"
-                                        return (priority_score, due_date, task.name)
-
-                                    display_tasks = sorted(
-                                        all_for_display, key=sort_key
-                                    )
-                                    print(
-                                        f"[DEBUG] 表示順序タスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}"
-                                    )
+                                    
                                     selected_tasks = []
                                     for num in selected_numbers:
                                         idx = num - 1
-                                        if 0 <= idx < len(display_tasks):
-                                            selected_tasks.append(display_tasks[idx])
+                                        if 0 <= idx < len(today_tasks):
+                                            selected_tasks.append(today_tasks[idx])
                                             print(
-                                                f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={display_tasks[idx].name}"
+                                                f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={today_tasks[idx].name}"
                                             )
                                         else:
                                             print(
-                                                f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(display_tasks)-1}"
+                                                f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(today_tasks)-1}"
                                             )
                                     if not selected_tasks:
                                         reply_text = (
@@ -842,10 +827,11 @@ def callback():
                                             )
                                         )
                                         continue
+                                    
                                     reply_text = "✅ 選択されたタスク:\n\n"
                                     for i, task in enumerate(selected_tasks, 1):
                                         reply_text += f"{i}. {task.name} ({task.duration_minutes}分)\n"
-                                    reply_text += "\nこれらのタスクを今日のスケジュールに追加しますか？\n「はい」で承認、「修正する」で修正できます。"
+                                    reply_text += "\nこれらのタスクを完了として削除しますか？\n「はい」で削除、「修正する」で修正できます。"
                                     # 選択されたタスクをファイルに保存
                                     import json
 
@@ -1174,59 +1160,32 @@ def callback():
                                         )
                                         continue
 
-                                    # スケジュール提案を生成
-                                    from services.calendar_service import (
-                                        CalendarService,
-                                    )
-                                    from services.openai_service import (
-                                        OpenAIService,
-                                    )
-                                    from datetime import datetime
-                                    import pytz
+                                    # 選択されたタスクを削除
+                                    deleted_tasks = []
+                                    for task in selected_tasks:
+                                        try:
+                                            task_service.delete_task(task.task_id)
+                                            deleted_tasks.append(task.name)
+                                            print(f"[DEBUG] タスク削除完了: {task.name}")
+                                        except Exception as e:
+                                            print(f"[DEBUG] タスク削除エラー: {task.name}, {e}")
 
-                                    calendar_service = CalendarService()
-                                    openai_service = OpenAIService()
+                                    # 削除結果を報告
+                                    if deleted_tasks:
+                                        reply_text = f"✅ 選択されたタスクを削除しました！\n\n"
+                                        for i, task_name in enumerate(deleted_tasks, 1):
+                                            reply_text += f"{i}. {task_name}\n"
+                                        reply_text += "\nお疲れさまでした！"
+                                    else:
+                                        reply_text = "⚠️ タスクの削除に失敗しました。"
 
-                                    jst = pytz.timezone("Asia/Tokyo")
-                                    today = datetime.now(jst)
-                                    free_times = (
-                                        calendar_service.get_free_busy_times(
-                                            user_id, today
-                                        )
-                                    )
-
-                                    if not free_times:
-                                        reply_text = (
-                                            "❌ 空き時間の取得に失敗しました。"
-                                        )
-                                        line_bot_api.reply_message(
-                                            ReplyMessageRequest(
-                                                replyToken=reply_token,
-                                                messages=[
-                                                    TextMessage(text=reply_text)
-                                                ],
-                                            )
-                                        )
-                                        continue
-
-                                    # スケジュール提案を生成
-                                    proposal = (
-                                        openai_service.generate_schedule_proposal(
-                                            selected_tasks, free_times
-                                        )
-                                    )
-
-                                    # 提案をファイルに保存
-                                    with open(
-                                        f"schedule_proposal_{user_id}.txt", "w"
-                                    ) as f:
-                                        f.write(proposal)
-
-                                    # 提案を送信
+                                    # 選択されたタスクファイルを削除
+                                    os.remove(selected_tasks_file)
+                                    
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
-                                            messages=[TextMessage(text=proposal)],
+                                            messages=[TextMessage(text=reply_text)],
                                         )
                                     )
                                     continue
