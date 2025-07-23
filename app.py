@@ -828,34 +828,31 @@ def callback():
                                         )
                                         continue
                                     
-                                    reply_text = "✅ 選択されたタスク:\n\n"
-                                    for i, task in enumerate(selected_tasks, 1):
-                                        reply_text += f"{i}. {task.name} ({task.duration_minutes}分)\n"
-                                    reply_text += "\nこれらのタスクを完了として削除しますか？\n「はい」で削除、「修正する」で修正できます。"
-                                    # 選択されたタスクをファイルに保存
-                                    import json
+                                    # 選択されたタスクを即座に削除
+                                    deleted_tasks = []
+                                    for task in selected_tasks:
+                                        try:
+                                            task_service.delete_task(task.task_id)
+                                            deleted_tasks.append(task.name)
+                                            print(f"[DEBUG] タスク削除完了: {task.name}")
+                                        except Exception as e:
+                                            print(f"[DEBUG] タスク削除エラー: {task.name}, {e}")
 
-                                    selected_tasks_file = (
-                                        f"selected_tasks_{user_id}.json"
-                                    )
-                                    selected_task_ids = [
-                                        task.task_id for task in selected_tasks
-                                    ]
-                                    print(
-                                        f"[DEBUG] 選択されたタスクID: {selected_task_ids}"
-                                    )
-                                    with open(selected_tasks_file, "w") as f:
-                                        json.dump(selected_task_ids, f)
-                                    print(
-                                        f"[DEBUG] 選択されたタスクファイル保存完了: {selected_tasks_file}"
-                                    )
-                                    # 選択後はフラグを削除
+                                    # 削除結果を報告
+                                    if deleted_tasks:
+                                        reply_text = f"✅ 選択されたタスクを削除しました！\n\n"
+                                        for i, task_name in enumerate(deleted_tasks, 1):
+                                            reply_text += f"{i}. {task_name}\n"
+                                        reply_text += "\nお疲れさまでした！"
+                                    else:
+                                        reply_text = "⚠️ タスクの削除に失敗しました。"
+                                    
+                                    # タスク選択モードフラグを削除
                                     os.remove(select_flag)
+                                    print(f"[DEBUG] タスク選択モードフラグ削除完了: {select_flag}")
+                                    
                                     print(
-                                        f"[DEBUG] タスク選択フラグ削除完了: {select_flag}"
-                                    )
-                                    print(
-                                        f"[DEBUG] タスク選択確認メッセージ送信開始: {reply_text[:100]}..."
+                                        f"[DEBUG] タスク削除結果送信開始: {reply_text[:100]}..."
                                     )
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
