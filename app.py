@@ -474,6 +474,26 @@ def callback():
                         # コマンド処理を先に実行
                         if user_message.strip() in commands:
                             print(f"[DEBUG] コマンド処理開始: '{user_message.strip()}'")
+                        else:
+                            # コマンドでない場合はFlexMessageでボタンメニューを返す
+                            print(f"[DEBUG] 不明なコマンド: '{user_message.strip()}' → FlexMessageでボタンメニューを返す")
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
+                            flex_message = get_simple_flex_menu(user_id)
+                            try:
+                                flex_container = FlexContainer.from_dict(flex_message)
+                                flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
+                                )
+                                print("[DEBUG] FlexMessage送信完了")
+                            except Exception as flex_e:
+                                print(f"[DEBUG] FlexMessage送信エラー: {flex_e}")
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(replyToken=reply_token, messages=[
+                                        TextMessage(text="「タスク追加」などのコマンドを送信してください。")
+                                    ])
+                                )
+                            continue
                             
                             # 「タスク追加」コマンドの処理
                             if user_message.strip() == "タスク追加":
@@ -1305,61 +1325,7 @@ def callback():
                                 )
                                 continue
                         
-                        # タスク登録処理を試行
-                        try:
-                            print(f"[DEBUG] タスク登録処理開始: user_message='{user_message}'")
-                            # 通常のタスク登録処理
-                            task_info = task_service.parse_task_message(user_message)
-                            print(f"[DEBUG] タスク情報解析完了: {task_info}")
-                            task = task_service.create_task(user_id, task_info)
-                            print(f"[DEBUG] タスク作成完了: task_id={task.task_id}")
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            print(f"[DEBUG] タスク一覧取得完了: {len(all_tasks)}件")
-                            priority_messages = {
-                                "urgent_important": "🚨緊急かつ重要なタスクを追加しました！",
-                                "not_urgent_important": "⭐重要なタスクを追加しました！",
-                                "urgent_not_important": "⚡緊急タスクを追加しました！",
-                                "normal": "✅タスクを追加しました！"
-                            }
-                            priority = task_info.get('priority', 'normal')
-                            reply_text = priority_messages.get(priority, "✅タスクを追加しました！") + "\n\n"
-                            reply_text += task_service.format_task_list(all_tasks, show_select_guide=False)
-                            reply_text += "\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
-                            print(f"[DEBUG] 返信メッセージ送信開始")
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text.strip())])
-                            )
-                            print(f"[DEBUG] 返信メッセージ送信完了")
-                            continue
-                        except Exception as e:
-                            print(f"[DEBUG] タスク登録エラー詳細: {e}")
-                            import traceback
-                            print(f"[DEBUG] エラートレースバック:")
-                            traceback.print_exc()
-                            # タスク登録に失敗した場合はFlexMessageで案内
-                            print(f"[DEBUG] タスク登録失敗、FlexMessage処理へ")
-                        # FlexMessageでボタン付きメニューを送信
-                        from linebot.v3.messaging import FlexMessage, FlexContainer
-                        flex_message = get_simple_flex_menu(user_id)
-                        print(f"[DEBUG] FlexMessage生成: {flex_message}")
-                        try:
-                            # FlexContainer.from_dict()を使用して正しく作成
-                            flex_container = FlexContainer.from_dict(flex_message)
-                            flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
-                            print(f"[DEBUG] FlexMessage作成完了: {flex_msg}")
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
-                            )
-                            print("[DEBUG] FlexMessage送信完了")
-                        except Exception as flex_e:
-                            print(f"[DEBUG] FlexMessage送信エラー: {flex_e}")
-                            # FlexMessage送信に失敗した場合はテキストで案内
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(replyToken=reply_token, messages=[
-                                    TextMessage(text="「タスク追加」などのコマンドを送信してください。")
-                                ])
-                            )
-                        continue
+
                     except Exception as e:
                         print("エラー:", e)
                         # 例外発生時もユーザーにエラー内容を返信
