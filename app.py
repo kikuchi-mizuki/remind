@@ -474,26 +474,6 @@ def callback():
                         # コマンド処理を先に実行
                         if user_message.strip() in commands:
                             print(f"[DEBUG] コマンド処理開始: '{user_message.strip()}'")
-                        else:
-                            # コマンドでない場合はFlexMessageでボタンメニューを返す
-                            print(f"[DEBUG] 不明なコマンド: '{user_message.strip()}' → FlexMessageでボタンメニューを返す")
-                            from linebot.v3.messaging import FlexMessage, FlexContainer
-                            flex_message = get_simple_flex_menu(user_id)
-                            try:
-                                flex_container = FlexContainer.from_dict(flex_message)
-                                flex_msg = FlexMessage(alt_text="ご利用案内・操作メニュー", contents=flex_container)
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[flex_msg])
-                                )
-                                print("[DEBUG] FlexMessage送信完了")
-                            except Exception as flex_e:
-                                print(f"[DEBUG] FlexMessage送信エラー: {flex_e}")
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[
-                                        TextMessage(text="「タスク追加」などのコマンドを送信してください。")
-                                    ])
-                                )
-                            continue
                             
                             # 「タスク追加」コマンドの処理
                             if user_message.strip() == "タスク追加":
@@ -516,9 +496,6 @@ def callback():
                                 )
                                 print(f"[DEBUG] LINE API reply_message直後: {res}", flush=True)
                                 continue
-                            
-                            # 他のコマンド処理もここに配置...
-                            # 「緊急タスク追加」コマンドの処理
                             elif user_message.strip() == "緊急タスク追加":
                                 # Google認証チェック
                                 if not is_google_authenticated(user_id):
@@ -540,8 +517,6 @@ def callback():
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
                                 continue
-                            
-                            # 「未来タスク追加」コマンドの処理
                             elif user_message.strip() == "未来タスク追加":
                                 # 未来タスク追加モードファイルを作成
                                 import os
@@ -563,8 +538,6 @@ def callback():
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
                                 continue
-                            
-                            # 「タスク削除」コマンドの処理
                             elif user_message.strip() == "タスク削除":
                                 print(f"[DEBUG] タスク削除コマンド処理開始: user_id={user_id}")
                                 # 通常のタスクと未来タスクを取得
@@ -635,170 +608,7 @@ def callback():
                                 )
                                 print(f"[DEBUG] 削除メッセージ送信完了")
                                 continue
-                            
-                            # 削除モードの処理
-                            delete_mode_file = f"delete_mode_{user_id}.json"
-                            if os.path.exists(delete_mode_file):
-                                print(f"[DEBUG] 削除モード処理開始: user_message='{user_message}'")
-                                try:
-                                    # タスク番号を解析
-                                    import re
-                                    numbers = re.findall(r'\d+', user_message)
-                                    if not numbers:
-                                        reply_text = "⚠️ タスク番号を正しく入力してください。\n例：「タスク 1、3」「未来タスク 2」"
-                                        line_bot_api.reply_message(
-                                            ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                        )
-                                        continue
-                                    
-                                    # 通常タスクと未来タスクを取得
-                                    all_tasks = task_service.get_user_tasks(user_id)
-                                    future_tasks = task_service.get_user_future_tasks(user_id)
-                                    
-                                    # 削除対象のタスクを特定
-                                    tasks_to_delete = []
-                                    future_tasks_to_delete = []
-                                    
-                                    for num in numbers:
-                                        task_index = int(num) - 1  # 1ベースを0ベースに変換
-                                        if task_index < len(all_tasks):
-                                            tasks_to_delete.append(all_tasks[task_index])
-                                        elif task_index < len(all_tasks) + len(future_tasks):
-                                            future_task_index = task_index - len(all_tasks)
-                                            future_tasks_to_delete.append(future_tasks[future_task_index])
-                                    
-                                    if not tasks_to_delete and not future_tasks_to_delete:
-                                        reply_text = "⚠️ 指定されたタスク番号が見つかりませんでした。"
-                                        line_bot_api.reply_message(
-                                            ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                        )
-                                        continue
-                                    
-                                    # タスクを削除
-                                    deleted_count = 0
-                                    for task in tasks_to_delete:
-                                        if task_service.archive_task(task.task_id):
-                                            deleted_count += 1
-                                            print(f"[DEBUG] 通常タスク削除成功: {task.name}")
-                                    
-                                    for future_task in future_tasks_to_delete:
-                                        if task_service.delete_future_task(future_task.task_id):
-                                            deleted_count += 1
-                                            print(f"[DEBUG] 未来タスク削除成功: {future_task.name}")
-                                    
-                                    # 削除モードファイルを削除
-                                    os.remove(delete_mode_file)
-                                    
-                                    reply_text = f"✅ {deleted_count}個のタスクを削除しました。"
-                                    line_bot_api.reply_message(
-                                        ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                    )
-                                    continue
-                                    
-                                except Exception as e:
-                                    print(f"[ERROR] 削除処理エラー: {e}")
-                                    import traceback
-                                    traceback.print_exc()
-                                    reply_text = f"⚠️ 削除処理中にエラーが発生しました: {e}"
-                                    line_bot_api.reply_message(
-                                        ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                    )
-                                    continue
-
-                            # その他のコマンド処理
-                            if user_message.strip() == "タスク一覧":
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True)
-                                # タスク選択待ちフラグを作成
-                                import os
-                                with open(f"task_select_mode_{user_id}.flag", "w") as f:
-                                    f.write("selecting")
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-
-                            if user_message.strip() == "未来タスク一覧":
-                                future_tasks = task_service.get_user_future_tasks(user_id)
-                                reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-
-                            if user_message.strip() == "キャンセル":
-                                import os
-                                # すべての操作モードファイルを削除
-                                files_to_remove = [
-                                    f"task_check_mode_{user_id}.flag",
-                                    f"delete_mode_{user_id}.json",
-                                    f"selected_tasks_{user_id}.json",
-                                    f"schedule_proposal_{user_id}.txt",
-                                    f"urgent_task_mode_{user_id}.json",
-                                    f"future_task_mode_{user_id}.json",
-                                    f"future_task_selection_{user_id}.json"
-                                ]
-                                
-                                for file_path in files_to_remove:
-                                    if os.path.exists(file_path):
-                                        os.remove(file_path)
-                                
-                                # pending_actionsディレクトリ内のファイルも削除
-                                pending_dir = "pending_actions"
-                                if os.path.exists(pending_dir):
-                                    pending_file = f"{pending_dir}/pending_action_{user_id}.json"
-                                    if os.path.exists(pending_file):
-                                        os.remove(pending_file)
-                                
-                                reply_text = "✅操作をキャンセルしました"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-
-                            # デバッグ用コマンド (認証確認, DB確認, 21時テスト, 8時テスト, 日曜18時テスト)
-                            if user_message.strip() == "認証確認":
-                                auth_status = is_google_authenticated(user_id)
-                                reply_text = f"認証状態: {auth_status}"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-                            if user_message.strip() == "DB確認":
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                future_tasks = task_service.get_user_future_tasks(user_id)
-                                reply_text = f"通常タスク: {len(all_tasks)}件\n未来タスク: {len(future_tasks)}件"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-                            if user_message.strip() == "21時テスト":
-                                try:
-                                    notification_service.send_carryover_check()
-                                    reply_text = "21時テスト通知を送信しました"
-                                except Exception as e:
-                                    reply_text = f"21時テストエラー: {e}"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-                            if user_message.strip() == "8時テスト" or user_message.strip() == "８時テスト":
-                                try:
-                                    notification_service.send_daily_task_notification()
-                                    # タスク選択待ちフラグを作成
-                                    import os
-                                    with open(f"task_select_mode_{user_id}.flag", "w") as f:
-                                        f.write("selecting")
-                                    reply_text = "8時テスト通知を送信しました"
-                                except Exception as e:
-                                    reply_text = f"8時テストエラー: {e}"
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
-                                )
-                                continue
-
-                            # 「はい」コマンドの処理
-                            if user_message.strip() == "はい":
+                            elif user_message.strip() == "はい":
                                 import os
                                 import json
                                 selected_tasks_file = f"selected_tasks_{user_id}.json"
@@ -864,7 +674,7 @@ def callback():
                                         ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                     )
                                     continue
-                            if user_message.strip() == "日曜18時テスト":
+                            elif user_message.strip() == "日曜18時テスト":
                                 try:
                                     notification_service.send_future_task_selection()
                                     reply_text = "日曜18時テスト通知を送信しました"
@@ -874,7 +684,7 @@ def callback():
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
                                 continue
-                            if user_message.strip() == "スケジューラー確認":
+                            elif user_message.strip() == "スケジューラー確認":
                                 scheduler_status = notification_service.is_running
                                 thread_status = notification_service.scheduler_thread.is_alive() if notification_service.scheduler_thread else False
                                 reply_text = f"スケジューラー状態:\n- is_running: {scheduler_status}\n- スレッド動作: {thread_status}"
@@ -882,9 +692,7 @@ def callback():
                                     ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                 )
                                 continue
-
-                            # スケジュール提案への返信処理
-                            if user_message.strip() == "承認する":
+                            elif user_message.strip() == "承認する":
                                 try:
                                     # スケジュール提案ファイルを確認
                                     import os
@@ -1050,8 +858,7 @@ def callback():
                                         ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                     )
                                 continue
-
-                            if user_message.strip() == "修正する":
+                            elif user_message.strip() == "修正する":
                                 try:
                                     reply_text = "📝 スケジュール修正モード\n\n修正したい内容を送信してください！\n\n例：\n• 「資料作成を14時に変更」\n• 「会議準備を15時30分に変更」"
                                     
@@ -1067,9 +874,7 @@ def callback():
                                         ReplyMessageRequest(replyToken=reply_token, messages=[TextMessage(text=reply_text)])
                                     )
                                 continue
-
-                            # 21時の繰り越し確認への返信処理
-                            if regex.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
+                            elif regex.match(r'^(\d+[ ,、]*)+$', user_message.strip()) or user_message.strip() == 'なし':
                                 from datetime import datetime, timedelta
                                 import pytz
                                 jst = pytz.timezone('Asia/Tokyo')
