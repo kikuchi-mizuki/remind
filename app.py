@@ -779,12 +779,28 @@ def callback():
                         print(
                             f"[DEBUG] タスク選択フラグ確認: {select_flag}, exists={os.path.exists(select_flag)}"
                         )
-                        # 数字入力の判定（整数、小数点、カンマ区切りに対応）
-                        is_number_input = (
-                            user_message.strip().isdigit() or  # 整数
-                            ("," in user_message or "、" in user_message) or  # カンマ区切り
-                            (user_message.strip().replace(".", "").isdigit() and "." in user_message)  # 小数点付き
-                        )
+                        # AIによる数字入力判定を試行
+                        is_number_input = False
+                        try:
+                            ai_result = openai_service.extract_task_numbers_from_message(user_message)
+                            if ai_result and ("tasks" in ai_result or "future_tasks" in ai_result):
+                                is_number_input = True
+                                print(f"[DEBUG] AI判定結果: 数字入力として認識")
+                            else:
+                                # AI判定に失敗した場合は従来の判定を実行
+                                is_number_input = (
+                                    user_message.strip().isdigit() or  # 整数
+                                    ("," in user_message or "、" in user_message) or  # カンマ区切り
+                                    (user_message.strip().replace(".", "").isdigit() and "." in user_message)  # 小数点付き
+                                )
+                        except Exception as e:
+                            print(f"[DEBUG] AI判定エラー: {e}")
+                            # エラーの場合は従来の判定を実行
+                            is_number_input = (
+                                user_message.strip().isdigit() or  # 整数
+                                ("," in user_message or "、" in user_message) or  # カンマ区切り
+                                (user_message.strip().replace(".", "").isdigit() and "." in user_message)  # 小数点付き
+                            )
                         
                         if is_number_input:
                             if os.path.exists(select_flag):
@@ -830,27 +846,51 @@ def callback():
                                     # 表示された番号と一致するように、ソート済みタスクから選択
                                     print(f"[DEBUG] ソート済みタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                     
-                                    # 選択された数字を解析（全角カンマ、小数点も対応）
+                                    # AIによる数字解析を試行
                                     selected_numbers = []
-                                    # カンマ区切りの場合
-                                    if "," in user_message or "、" in user_message:
-                                        selected_numbers = [
-                                            int(n.strip())
-                                            for n in user_message.replace("、", ",").replace("，", ",").split(
-                                                ","
-                                            )
-                                            if n.strip().isdigit()
-                                        ]
-                                    # 小数点区切りの場合
-                                    elif "." in user_message:
-                                        parts = user_message.split(".")
-                                        for part in parts:
-                                            if part.strip().isdigit():
-                                                selected_numbers.append(int(part.strip()))
-                                    # 単一数字の場合
-                                    else:
-                                        if user_message.strip().isdigit():
-                                            selected_numbers.append(int(user_message.strip()))
+                                    try:
+                                        ai_result = openai_service.extract_task_numbers_from_message(user_message)
+                                        if ai_result and "tasks" in ai_result:
+                                            selected_numbers = ai_result["tasks"]
+                                            print(f"[DEBUG] AI解析結果: {ai_result}")
+                                        else:
+                                            print(f"[DEBUG] AI解析失敗、従来の処理を実行")
+                                            # AI解析に失敗した場合は従来の処理を実行
+                                            if "," in user_message or "、" in user_message:
+                                                selected_numbers = [
+                                                    int(n.strip())
+                                                    for n in user_message.replace("、", ",").replace("，", ",").split(
+                                                        ","
+                                                    )
+                                                    if n.strip().isdigit()
+                                                ]
+                                            elif "." in user_message:
+                                                parts = user_message.split(".")
+                                                for part in parts:
+                                                    if part.strip().isdigit():
+                                                        selected_numbers.append(int(part.strip()))
+                                            else:
+                                                if user_message.strip().isdigit():
+                                                    selected_numbers.append(int(user_message.strip()))
+                                    except Exception as e:
+                                        print(f"[DEBUG] AI解析エラー: {e}")
+                                        # エラーの場合は従来の処理を実行
+                                        if "," in user_message or "、" in user_message:
+                                            selected_numbers = [
+                                                int(n.strip())
+                                                for n in user_message.replace("、", ",").replace("，", ",").split(
+                                                    ","
+                                                )
+                                                if n.strip().isdigit()
+                                            ]
+                                        elif "." in user_message:
+                                            parts = user_message.split(".")
+                                            for part in parts:
+                                                if part.strip().isdigit():
+                                                    selected_numbers.append(int(part.strip()))
+                                        else:
+                                            if user_message.strip().isdigit():
+                                                selected_numbers.append(int(user_message.strip()))
                                     if not selected_numbers:
                                         reply_text = "⚠️ 有効な数字を入力してください。\n例: 1、2、3"
                                         line_bot_api.reply_message(
