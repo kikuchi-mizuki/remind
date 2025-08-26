@@ -442,6 +442,9 @@ def oauth2callback():
 
 @app.route("/callback", methods=["POST"])
 def callback():
+    # グローバル変数を明示的に宣言
+    global calendar_service, openai_service, task_service, line_bot_api
+    
     try:
         data = request.get_json(force=True, silent=True)
         print("受信:", data)
@@ -780,9 +783,6 @@ def callback():
                                     f"[DEBUG] タスク選択処理開始: user_message='{user_message}'"
                                 )
                                 try:
-                                    # グローバル変数を明示的に宣言
-                                    global calendar_service, openai_service, task_service
-                                    
                                     # 全タスクを取得して、表示された番号と一致させる
                                     from datetime import datetime
                                     import pytz
