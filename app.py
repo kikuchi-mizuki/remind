@@ -40,6 +40,11 @@ print(f"[app.py] データベース初期化完了: {datetime.now()}")
 
 from models.database import db
 
+# ルートパスを追加
+@app.route("/")
+def index():
+    return "LINEタスクスケジューリングBot is running!", 200
+
 print(f"[app.py] データベースインスタンス確認: {db.db_path if db else 'None'}")
 
 task_service = TaskService(db)
