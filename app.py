@@ -834,7 +834,6 @@ def callback():
                                             f"選択可能な番号: {', '.join(map(str, available_numbers))}\n"
                                             f"入力された番号: {', '.join(map(str, selected_numbers))}"
                                         )
-                                        )
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
