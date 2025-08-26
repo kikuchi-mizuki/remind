@@ -779,9 +779,14 @@ def callback():
                         print(
                             f"[DEBUG] タスク選択フラグ確認: {select_flag}, exists={os.path.exists(select_flag)}"
                         )
-                        if user_message.strip().isdigit() or (
-                            "," in user_message or "、" in user_message
-                        ):
+                        # 数字入力の判定（整数、小数点、カンマ区切りに対応）
+                        is_number_input = (
+                            user_message.strip().isdigit() or  # 整数
+                            ("," in user_message or "、" in user_message) or  # カンマ区切り
+                            (user_message.strip().replace(".", "").isdigit() and "." in user_message)  # 小数点付き
+                        )
+                        
+                        if is_number_input:
                             if os.path.exists(select_flag):
                                 print(f"[DEBUG] タスク選択フラグ検出: {select_flag}")
                                 print(
@@ -825,14 +830,27 @@ def callback():
                                     # 表示された番号と一致するように、ソート済みタスクから選択
                                     print(f"[DEBUG] ソート済みタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                     
-                                    # 選択された数字を解析（全角カンマも対応）
-                                    selected_numbers = [
-                                        int(n.strip())
-                                        for n in user_message.replace("、", ",").replace("，", ",").split(
-                                            ","
-                                        )
-                                        if n.strip().isdigit()
-                                    ]
+                                    # 選択された数字を解析（全角カンマ、小数点も対応）
+                                    selected_numbers = []
+                                    # カンマ区切りの場合
+                                    if "," in user_message or "、" in user_message:
+                                        selected_numbers = [
+                                            int(n.strip())
+                                            for n in user_message.replace("、", ",").replace("，", ",").split(
+                                                ","
+                                            )
+                                            if n.strip().isdigit()
+                                        ]
+                                    # 小数点区切りの場合
+                                    elif "." in user_message:
+                                        parts = user_message.split(".")
+                                        for part in parts:
+                                            if part.strip().isdigit():
+                                                selected_numbers.append(int(part.strip()))
+                                    # 単一数字の場合
+                                    else:
+                                        if user_message.strip().isdigit():
+                                            selected_numbers.append(int(user_message.strip()))
                                     if not selected_numbers:
                                         reply_text = "⚠️ 有効な数字を入力してください。\n例: 1、2、3"
                                         line_bot_api.reply_message(
