@@ -266,11 +266,23 @@ class TaskService:
             raise
 
     def _parse_natural_date_expression(self, text: str) -> Optional[str]:
-        """自然言語の日付表現を解析してYYYY-MM-DD形式で返す"""
+        """自然言語の日付表現を解析してYYYY-MM-DD形式で返す（AI対応）"""
         import pytz
         from datetime import datetime, timedelta
         jst = pytz.timezone('Asia/Tokyo')
         today = datetime.now(jst)
+        
+        # まずAIによる解析を試行
+        try:
+            from services.openai_service import OpenAIService
+            ai_service = OpenAIService()
+            ai_result = ai_service.extract_due_date_from_text(text)
+            if ai_result:
+                print(f"[_parse_natural_date_expression] AI解析結果: {ai_result}")
+                return ai_result
+        except Exception as e:
+            print(f"[_parse_natural_date_expression] AI解析エラー: {e}")
+            # AI解析に失敗した場合は従来の処理を続行
         
         # 週の曜日マッピング
         weekday_map = {
@@ -333,6 +345,27 @@ class TaskService:
             target_date = today + timedelta(days=days_ahead)
             return target_date.strftime('%Y-%m-%d')
         
+        # 月単位の処理
+        if '今月中' in text:
+            # 今月末を計算
+            if today.month == 12:
+                # 12月の場合は来年1月1日の前日
+                target_date = datetime(today.year + 1, 1, 1) - timedelta(days=1)
+            else:
+                # 翌月1日の前日
+                target_date = datetime(today.year, today.month + 1, 1) - timedelta(days=1)
+            return target_date.strftime('%Y-%m-%d')
+        
+        if '来月中' in text:
+            # 来月末を計算
+            if today.month == 12:
+                # 12月の場合は来年2月1日の前日
+                target_date = datetime(today.year + 1, 2, 1) - timedelta(days=1)
+            else:
+                # 翌々月1日の前日
+                target_date = datetime(today.year, today.month + 2, 1) - timedelta(days=1)
+            return target_date.strftime('%Y-%m-%d')
+        
         return None
 
     def _remove_date_expressions(self, text: str) -> str:
@@ -343,7 +376,7 @@ class TaskService:
             '今週月曜日', '今週火曜日', '今週水曜日', '今週木曜日', '今週金曜日', '今週土曜日', '今週日曜日',
             '再来週月曜日', '再来週火曜日', '再来週水曜日', '再来週木曜日', '再来週金曜日', '再来週土曜日', '再来週日曜日',
             '翌週月曜日', '翌週火曜日', '翌週水曜日', '翌週木曜日', '翌週金曜日', '翌週土曜日', '翌週日曜日',
-            '今週末', '来週末'
+            '今週末', '来週末', '今週中', '来週中', '今月中', '来月中'
         ]
         
         for pattern in date_patterns:
@@ -355,8 +388,13 @@ class TaskService:
             text = text.replace(pattern, '')
         
         # 単独の週表現も除去
-        week_expressions = ['今週', '今週中', '来週', '再来週', '翌週']
+        week_expressions = ['今週', '今週中', '来週', '来週中', '再来週', '翌週']
         for expression in week_expressions:
+            text = text.replace(expression, '')
+        
+        # 月表現も除去
+        month_expressions = ['今月中', '来月中']
+        for expression in month_expressions:
             text = text.replace(expression, '')
         
         # 日付形式のパターンを除去（M/D、M/D、YYYY/M/Dなど）
