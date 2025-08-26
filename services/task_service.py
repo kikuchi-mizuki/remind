@@ -281,6 +281,16 @@ class TaskService:
         
         # 今週の処理
         if '今週' in text:
+            # 今週中の場合（今週の日曜日を期限とする）
+            if '今週中' in text:
+                # 今週の日曜日を計算（日曜日は6）
+                days_ahead = 6 - today.weekday()
+                if days_ahead <= 0:  # 今週の日曜日が既に過ぎている場合
+                    days_ahead += 7
+                target_date = today + timedelta(days=days_ahead)
+                return target_date.strftime('%Y-%m-%d')
+            
+            # 今週+曜日の処理
             for weekday_name, weekday_num in weekday_map.items():
                 if weekday_name in text:
                     # 今週の該当曜日を計算
@@ -345,7 +355,7 @@ class TaskService:
             text = text.replace(pattern, '')
         
         # 単独の週表現も除去
-        week_expressions = ['今週', '来週', '再来週', '翌週']
+        week_expressions = ['今週', '今週中', '来週', '再来週', '翌週']
         for expression in week_expressions:
             text = text.replace(expression, '')
         
