@@ -788,8 +788,34 @@ def callback():
                                     
                                     all_tasks = task_service.get_user_tasks(user_id)
                                     
-                                    # 表示された番号と一致するように、全タスクから選択
-                                    print(f"[DEBUG] 全タスク: {[f'{i+1}.{task.name}' for i, task in enumerate(all_tasks)]}")
+                                    # format_task_listと同じソート順序を適用
+                                    def sort_key(task):
+                                        priority_order = {
+                                            "urgent_important": 0,
+                                            "not_urgent_important": 1,
+                                            "urgent_not_important": 2,
+                                            "normal": 3
+                                        }
+                                        priority_score = priority_order.get(task.priority, 3)
+                                        due_date = task.due_date or '9999-12-31'
+                                        return (priority_score, due_date, task.name)
+                                    
+                                    # 優先度と期日でソート
+                                    from collections import defaultdict
+                                    tasks_sorted = sorted(all_tasks, key=sort_key)
+                                    
+                                    # 期日ごとにグループ化して、表示順序と同じにする
+                                    grouped = defaultdict(list)
+                                    for task in tasks_sorted:
+                                        grouped[task.due_date or '未設定'].append(task)
+                                    
+                                    # 表示順序と同じタスクリストを作成
+                                    display_tasks = []
+                                    for due, group in sorted(grouped.items()):
+                                        display_tasks.extend(group)
+                                    
+                                    # 表示された番号と一致するように、ソート済みタスクから選択
+                                    print(f"[DEBUG] ソート済みタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                     
                                     # 選択された数字を解析（全角カンマも対応）
                                     selected_numbers = [
@@ -811,24 +837,24 @@ def callback():
                                     
                                     # デバッグ情報を追加
                                     print(f"[DEBUG] 選択された数字: {selected_numbers}")
-                                    print(f"[DEBUG] 全タスク数: {len(all_tasks)}")
-                                    print(f"[DEBUG] 全タスク一覧: {[(i+1, task.name) for i, task in enumerate(all_tasks)]}")
+                                    print(f"[DEBUG] ソート済みタスク数: {len(display_tasks)}")
+                                    print(f"[DEBUG] ソート済みタスク一覧: {[(i+1, task.name) for i, task in enumerate(display_tasks)]}")
                                     
                                     selected_tasks = []
                                     for num in selected_numbers:
                                         idx = num - 1
-                                        if 0 <= idx < len(all_tasks):
-                                            selected_tasks.append(all_tasks[idx])
+                                        if 0 <= idx < len(display_tasks):
+                                            selected_tasks.append(display_tasks[idx])
                                             print(
-                                                f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={all_tasks[idx].name}"
+                                                f"[DEBUG] タスク選択: 番号={num}, インデックス={idx}, タスク名={display_tasks[idx].name}"
                                             )
                                         else:
                                             print(
-                                                f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(all_tasks)-1}"
+                                                f"[DEBUG] タスク選択エラー: 番号={num}, インデックス={idx}, 最大インデックス={len(display_tasks)-1}"
                                             )
                                     if not selected_tasks:
                                         # より詳細なエラーメッセージを提供
-                                        available_numbers = list(range(1, len(all_tasks) + 1))
+                                        available_numbers = list(range(1, len(display_tasks) + 1))
                                         reply_text = (
                                             f"⚠️ 選択されたタスクが見つかりませんでした。\n\n"
                                             f"選択可能な番号: {', '.join(map(str, available_numbers))}\n"
