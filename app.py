@@ -781,7 +781,7 @@ def callback():
                                 )
                                 try:
                                     # グローバル変数を明示的に宣言
-                                    global calendar_service, openai_service
+                                    global calendar_service, openai_service, task_service
                                     
                                     # 全タスクを取得して、表示された番号と一致させる
                                     from datetime import datetime
