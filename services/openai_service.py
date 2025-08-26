@@ -353,13 +353,23 @@ class OpenAIService:
                 continue
             m2 = re.match(r'(.+)[（(](\d+)分[)）]', line)
             if m2:
-                result.append(f'📝 {m2.group(1).strip()}（{m2.group(2)}分）')
+                # 既に📝が含まれている場合は追加しない
+                task_name = m2.group(1).strip()
+                if not task_name.startswith('📝'):
+                    result.append(f'📝 {task_name}（{m2.group(2)}分）')
+                else:
+                    result.append(f'{task_name}（{m2.group(2)}分）')
                 continue
             # 時刻＋タスク名パターン（例: 08:00-08:30 資料作成）
             m3 = re.match(r'(\d{1,2}):(\d{2})[〜~\-ー―‐–—−﹣－:：](\d{1,2}):(\d{2})\s+(.+)', line)
             if m3:
                 result.append(f'🕒 {m3.group(1).zfill(2)}:{m3.group(2)}〜{m3.group(3).zfill(2)}:{m3.group(4)}')
-                result.append(f'📝 {m3.group(5).strip()}')
+                # 既に📝が含まれている場合は追加しない
+                task_name = m3.group(5).strip()
+                if not task_name.startswith('📝'):
+                    result.append(f'📝 {task_name}')
+                else:
+                    result.append(f'{task_name}')
                 continue
             # 🔥を除去し、⭐️を⭐に変更（複数の⭐️も対応）
             line = line.replace('🔥', '')
