@@ -173,7 +173,7 @@ class CalendarService:
             traceback.print_exc()
             return False
 
-    def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> bool:
+    def add_events_to_calendar(self, user_id: str, schedule_proposal: str) -> int:
         """スケジュール提案をカレンダーに反映（日付パース強化・2行セット対応・未来タスク対応）"""
         try:
             import re
@@ -182,7 +182,7 @@ class CalendarService:
             lines = [line.strip() for line in schedule_proposal.split('\n') if line.strip()]
             jst = pytz.timezone('Asia/Tokyo')
             today = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
-            event_added = False
+            success_count = 0
             unparsable_lines = []
             i = 0
             
@@ -204,24 +204,24 @@ class CalendarService:
                     target_date = today + timedelta(days=7)
                     target_date = target_date.replace(month=month, day=day)
                 
-                # 🕒時刻行＋📝タスク行の2行セットを1つの予定として扱う
-                if line.startswith('🕒') and i+1 < len(lines) and lines[i+1].startswith('📝'):
-                    # 🕒 08:00〜08:30
-                    m_time = re.match(r'🕒\s*(\d{1,2}):(\d{2})[〜~\-ー―‐–—−﹣－:：](\d{1,2}):(\d{2})', line)
-                    # 📝 資料作成（30分）
-                    m_task = re.match(r'📝\s*(.+)[（(](\d+)分[)）]', lines[i+1])
-                    if m_time and m_task:
-                        start_hour = int(m_time.group(1))
-                        start_min = int(m_time.group(2))
-                        end_hour = int(m_time.group(3))
-                        end_min = int(m_time.group(4))
-                        task_name = m_task.group(1).strip()
-                        duration = int(m_task.group(2))
-                        start_time = target_date.replace(hour=start_hour, minute=start_min)
-                        self.add_event_to_calendar(user_id, task_name, start_time, duration)
-                        event_added = True
-                        i += 2
-                        continue
+                                    # 🕒時刻行＋📝タスク行の2行セットを1つの予定として扱う
+                    if line.startswith('🕒') and i+1 < len(lines) and lines[i+1].startswith('📝'):
+                        # 🕒 08:00〜08:30
+                        m_time = re.match(r'🕒\s*(\d{1,2}):(\d{2})[〜~\-ー―‐–—−﹣－:：](\d{1,2}):(\d{2})', line)
+                        # 📝 資料作成（30分）
+                        m_task = re.match(r'📝\s*(.+)[（(](\d+)分[)）]', lines[i+1])
+                        if m_time and m_task:
+                            start_hour = int(m_time.group(1))
+                            start_min = int(m_time.group(2))
+                            end_hour = int(m_time.group(3))
+                            end_min = int(m_time.group(4))
+                            task_name = m_task.group(1).strip()
+                            duration = int(m_task.group(2))
+                            start_time = target_date.replace(hour=start_hour, minute=start_min)
+                            if self.add_event_to_calendar(user_id, task_name, start_time, duration):
+                                success_count += 1
+                            i += 2
+                            continue
                 
                 # 未来タスク用の1行パターン（日付＋時刻＋タスク）
                 # 例: 7/22(月) 08:00〜10:00
@@ -245,8 +245,8 @@ class CalendarService:
                         task_name = m_task.group(1).strip()
                         duration = int(m_task.group(2))
                         start_time = target_date.replace(hour=start_hour, minute=start_min)
-                        self.add_event_to_calendar(user_id, task_name, start_time, duration)
-                        event_added = True
+                        if self.add_event_to_calendar(user_id, task_name, start_time, duration):
+                            success_count += 1
                         i += 2
                         continue
                 # 既存の1行パターンもサポート
@@ -260,8 +260,8 @@ class CalendarService:
                     task_name = m.group(6).strip()
                     duration = int(m.group(7))
                     start_time = target_date.replace(hour=start_hour, minute=start_min)
-                    self.add_event_to_calendar(user_id, task_name, start_time, duration)
-                    event_added = True
+                    if self.add_event_to_calendar(user_id, task_name, start_time, duration):
+                        success_count += 1
                     i += 1
                     continue
                 # 2. (所要時間明示なし) 例: - **08:00〜08:20** 書類作成 など
@@ -279,8 +279,8 @@ class CalendarService:
                             end += timedelta(days=1)
                         duration = int((end-start).total_seconds()//60)
                         start_time = target_date.replace(hour=start_hour, minute=start_min)
-                        self.add_event_to_calendar(user_id, task_name, start_time, duration)
-                        event_added = True
+                        if self.add_event_to_calendar(user_id, task_name, start_time, duration):
+                            success_count += 1
                     except Exception as e:
                         print(f"[add_events_to_calendar] パース失敗: {line} err={e}")
                     i += 1
@@ -290,10 +290,10 @@ class CalendarService:
                     print(f"[add_events_to_calendar] パースできなかった行: {line}")
                     unparsable_lines.append(line)
                 i += 1
-            return event_added
+            return success_count
         except Exception as e:
             print(f"Error adding events to calendar: {e}")
-            return False
+            return 0
 
     def get_today_schedule(self, user_id: str) -> List[Dict]:
         """今日のスケジュールを取得（JST厳密化）"""
