@@ -169,7 +169,8 @@ class NotificationService:
             import os
             select_flag = f"task_select_mode_{user_id}.flag"
             with open(select_flag, "w") as f:
-                f.write("select_mode")
+                # 朝8時: スケジュール提案モード
+                f.write("mode=schedule")
             print(f"[send_daily_task_notification] タスク選択モードフラグ作成: {select_flag}")
 
             # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
@@ -444,7 +445,8 @@ class NotificationService:
                     import os
                     select_flag = f"task_select_mode_{user_id}.flag"
                     with open(select_flag, "w") as f:
-                        f.write("task_select_mode")
+                        # 21時: 完了（削除確認）モード
+                        f.write("mode=complete")
                     print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}")
                 
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
