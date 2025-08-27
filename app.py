@@ -1495,7 +1495,6 @@ def callback():
                                         success_count = 0
 
                                         # 未来タスクがある場合は来週の日付で処理
-                                        from datetime import datetime, timedelta
                                         import pytz
 
                                         jst = pytz.timezone("Asia/Tokyo")
