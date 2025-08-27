@@ -172,8 +172,9 @@ class NotificationService:
                 f.write("select_mode")
             print(f"[send_daily_task_notification] タスク選択モードフラグ作成: {select_flag}")
 
-            # タスク一覧コマンドと同じ詳細な形式で送信
-            message = self.task_service.format_task_list(all_tasks, show_select_guide=True)
+            # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
+            morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
+            message = self.task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
             # 期限切れタスクが移動された場合は通知を追加
             if moved_count > 0:
                 message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
