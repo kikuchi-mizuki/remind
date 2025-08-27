@@ -720,7 +720,7 @@ class TaskService:
         if for_deletion:
             formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５"
         elif show_select_guide:
-            formatted_list += "\n今日やるタスクを選んでください！\n例：１、３、５"
+            formatted_list += "\n終わったタスクを選んでください！\n例：１、３、５"
         return formatted_list
 
     def get_daily_tasks(self, user_id: str) -> List[Task]:

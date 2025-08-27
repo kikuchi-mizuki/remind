@@ -934,45 +934,34 @@ def callback():
                                         )
                                         continue
                                     
-                                    # 選択されたタスクでスケジュール提案を生成
-                                    print(f"[DEBUG] スケジュール提案開始: {len(selected_tasks)}個のタスク")
+                                    # 選択されたタスクを削除する処理
+                                    print(f"[DEBUG] タスク削除開始: {len(selected_tasks)}個のタスク")
                                     
-                                    # 今日の空き時間を取得
-                                    jst = pytz.timezone('Asia/Tokyo')
-                                    today = datetime.now(jst)
-                                    free_times = calendar_service.get_free_busy_times(user_id, today)
+                                    # 選択されたタスクの情報を表示
+                                    task_names = [task.name for task in selected_tasks]
+                                    reply_text = f"以下のタスクを削除しますか？\n\n"
+                                    for i, name in enumerate(task_names, 1):
+                                        reply_text += f"{i}. {name}\n"
+                                    reply_text += "\n削除する場合は「はい」、キャンセルする場合は「キャンセル」と送信してください。"
                                     
-                                    if free_times:
-                                        # スケジュール提案を生成
-                                        proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
-                                        
-                                        # スケジュール提案ファイルを作成
-                                        schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
-                                        with open(schedule_proposal_file, "w", encoding="utf-8") as f:
-                                            f.write(proposal)
-                                        
-                                        # 選択されたタスクファイルを作成
-                                        selected_tasks_file = f"selected_tasks_{user_id}.json"
-                                        import json
-                                        with open(selected_tasks_file, "w", encoding="utf-8") as f:
-                                            json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
-                                        
-                                        reply_text = f"【今日のスケジュール提案】\n\n{proposal}\n\n承認する場合は「承認する」、修正する場合は「修正する」と送信してください。"
-                                    else:
-                                        reply_text = "⚠️ 今日の空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
+                                    # 選択されたタスクIDを保存
+                                    selected_tasks_file = f"selected_tasks_{user_id}.json"
+                                    import json
+                                    with open(selected_tasks_file, "w", encoding="utf-8") as f:
+                                        json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
                                     
                                     # タスク選択モードフラグを削除
                                     os.remove(select_flag)
                                     print(f"[DEBUG] タスク選択モードフラグ削除完了: {select_flag}")
                                     
-                                    print(f"[DEBUG] スケジュール提案送信開始: {reply_text[:100]}...")
+                                    print(f"[DEBUG] タスク削除確認送信開始: {reply_text[:100]}...")
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
                                         )
                                     )
-                                    print(f"[DEBUG] スケジュール提案送信完了")
+                                    print(f"[DEBUG] タスク削除確認送信完了")
                                     continue
                                 except Exception as e:
                                     print(f"[DEBUG] タスク選択処理エラー: {e}")
