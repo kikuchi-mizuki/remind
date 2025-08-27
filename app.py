@@ -942,16 +942,34 @@ def callback():
                                         mode_content = ""
 
                                     is_schedule_mode = "mode=schedule" in mode_content
-                                    print(f"[DEBUG] 選択モード: {'schedule' if is_schedule_mode else 'complete'}")
+                                    is_future_schedule_mode = "mode=future_schedule" in mode_content
+                                    print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else 'complete')}")
 
-                                    if is_schedule_mode:
+                                    if is_schedule_mode or is_future_schedule_mode:
                                         # スケジュール提案フロー（朝）
+                                        # future_schedule の場合は未来タスクから再マッピング
+                                        if is_future_schedule_mode:
+                                            try:
+                                                future_tasks_list = task_service.get_user_future_tasks(user_id)
+                                                remapped_selected_tasks = []
+                                                for num in selected_numbers:
+                                                    idx = num - 1
+                                                    if 0 <= idx < len(future_tasks_list):
+                                                        remapped_selected_tasks.append(future_tasks_list[idx])
+                                                if remapped_selected_tasks:
+                                                    selected_tasks = remapped_selected_tasks
+                                            except Exception as _e:
+                                                pass
+
                                         print(f"[DEBUG] スケジュール提案開始: {len(selected_tasks)}個のタスク")
                                         jst = pytz.timezone('Asia/Tokyo')
-                                        today = datetime.now(jst)
-                                        free_times = calendar_service.get_free_busy_times(user_id, today)
+                                        base_day = datetime.now(jst)
+                                        if is_future_schedule_mode:
+                                            base_day = base_day + timedelta(days=7)
+                                        free_times = calendar_service.get_free_busy_times(user_id, base_day)
                                         if free_times:
-                                            proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times)
+                                            week_info = "来週" if is_future_schedule_mode else ""
+                                            proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times, week_info=week_info)
                                             schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
                                             with open(schedule_proposal_file, "w", encoding="utf-8") as f:
                                                 f.write(proposal)
@@ -959,9 +977,10 @@ def callback():
                                             import json
                                             with open(selected_tasks_file, "w", encoding="utf-8") as f:
                                                 json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
-                                            reply_text = f"【今日のスケジュール提案】\n\n{proposal}\n\n承認する場合は「承認する」、修正する場合は「修正する」と送信してください。"
+                                            header = "【来週のスケジュール提案】" if is_future_schedule_mode else "【今日のスケジュール提案】"
+                                            reply_text = f"{header}\n\n{proposal}\n\n承認する場合は「承認する」、修正する場合は「修正する」と送信してください。"
                                         else:
-                                            reply_text = "⚠️ 今日の空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
+                                            reply_text = "⚠️ 空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
                                     else:
                                         # 完了（削除確認）フロー（夜）
                                         print(f"[DEBUG] タスク削除開始: {len(selected_tasks)}個のタスク")
