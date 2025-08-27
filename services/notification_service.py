@@ -492,6 +492,15 @@ class NotificationService:
                             import json
                             json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
                         print(f"[send_future_task_selection] 未来タスク選択モードファイル作成: {future_selection_file}")
+                        # 互換のため、カレントディレクトリ直下にも同名ファイルを出力（読取側がどちらでも拾えるように）
+                        try:
+                            cwd_flag = f"future_task_selection_{user_id}.json"
+                            with open(cwd_flag, "w") as f:
+                                import json
+                                json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
+                            print(f"[send_future_task_selection] 互換フラグ作成: {cwd_flag}")
+                        except Exception as ee:
+                            print(f"[send_future_task_selection] 互換フラグ作成エラー: {ee}")
                     
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
                     self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))

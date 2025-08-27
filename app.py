@@ -1929,7 +1929,8 @@ def callback():
                         print(
                             f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}={os.path.exists(future_selection_file)}, alt={future_selection_file_alt}={os.path.exists(future_selection_file_alt)}"
                         )
-                        if os.path.exists(future_selection_file) or os.path.exists(future_selection_file_alt):
+                        flag_path = future_selection_file if os.path.exists(future_selection_file) else (future_selection_file_alt if os.path.exists(future_selection_file_alt) else None)
+                        if flag_path:
                             print(
                                 f"[DEBUG] 未来タスク選択モード開始: user_message='{user_message}'"
                             )
