@@ -355,7 +355,7 @@ def oauth2callback():
                 import os
                 import json
                 import re
-                from datetime import datetime
+                # datetime は先頭でインポート済み
                 import pytz
 
                 selected_path = f"selected_tasks_{user_id}.json"
@@ -809,7 +809,7 @@ def callback():
                                 )
                                 try:
                                     # 全タスクを取得して、表示された番号と一致させる
-                                    from datetime import datetime
+                                    # datetime は先頭でインポート済み
                                     import pytz
                                     jst = pytz.timezone('Asia/Tokyo')
                                     today_str = datetime.now(jst).strftime('%Y-%m-%d')
@@ -1072,7 +1072,7 @@ def callback():
                                     )
                                     continue
                                 import os
-                                from datetime import datetime
+                                # datetime は先頭でインポート済み
                                 urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                                 with open(urgent_mode_file, "w") as f:
                                     import json
@@ -1087,7 +1087,7 @@ def callback():
                                 continue
                             elif user_message.strip() == "未来タスク追加":
                                 import os
-                                from datetime import datetime
+                                # datetime は先頭でインポート済み
                                 future_mode_file = f"future_task_mode_{user_id}.json"
                                 with open(future_mode_file, "w") as f:
                                     import json
@@ -1567,7 +1567,7 @@ def callback():
                                             if week_schedule:
                                                 reply_text += date_label + "\n"
                                                 reply_text += "━━━━━━━━━━━━━━\n"
-                                                from datetime import datetime
+                                                # datetime は先頭でインポート済み
 
                                                 for day_data in week_schedule:
                                                     day_date = day_data["date"]
@@ -1628,7 +1628,7 @@ def callback():
                                             if schedule_list:
                                                 reply_text += date_label + "\n"
                                                 reply_text += "━━━━━━━━━━━━━━\n"
-                                                from datetime import datetime
+                                                # datetime は先頭でインポート済み
 
                                                 for i, event in enumerate(
                                                     schedule_list
@@ -1787,7 +1787,7 @@ def callback():
 
                         # 緊急タスク追加モードでの処理
                         import os
-                        from datetime import datetime
+                        # datetime は先頭でインポート済み
 
                         urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                         print(
@@ -1798,7 +1798,7 @@ def callback():
                             try:
                                 task_info = task_service.parse_task_message(user_message)
                                 task_info["priority"] = "urgent_not_important"
-                                from datetime import datetime
+                                # datetime は先頭でインポート済み
                                 import pytz
                                 jst = pytz.timezone("Asia/Tokyo")
                                 today = datetime.now(jst)
@@ -2318,7 +2318,7 @@ def get_button_menu():
 if __name__ == "__main__":
     # アプリケーション起動
     import os
-    from datetime import datetime
+    # datetime は先頭でインポート済み
 
     port = int(os.getenv("PORT", 5000))
     print(f"[app.py] Flaskアプリケーション起動: port={port}, time={datetime.now()}")
