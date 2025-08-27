@@ -483,12 +483,12 @@ class NotificationService:
                     else:
                         message = self.task_service.format_future_task_list(future_tasks, show_select_guide=True)
                         
-                        # 未来タスク選択モードファイルを作成
+                        # 未来タスク選択モードファイルを作成（来週提案モード）
                         import os
                         future_selection_file = f"future_task_selection_{user_id}.json"
                         with open(future_selection_file, "w") as f:
                             import json
-                            json.dump({"mode": "future_selection", "timestamp": datetime.now().isoformat()}, f)
+                            json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
                     
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
                     self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
