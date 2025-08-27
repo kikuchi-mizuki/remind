@@ -492,6 +492,14 @@ class NotificationService:
                             import json
                             json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
                         print(f"[send_future_task_selection] 未来タスク選択モードファイル作成: {future_selection_file}")
+                        # 既存の選択フラグも作成して早い分岐で拾えるようにする
+                        try:
+                            select_flag = f"task_select_mode_{user_id}.flag"
+                            with open(select_flag, "w") as f:
+                                f.write("mode=future_schedule")
+                            print(f"[send_future_task_selection] 互換選択フラグ作成: {select_flag}")
+                        except Exception as ee:
+                            print(f"[send_future_task_selection] 互換選択フラグ作成エラー: {ee}")
                         # 互換のため、カレントディレクトリ直下にも同名ファイルを出力（読取側がどちらでも拾えるように）
                         try:
                             cwd_flag = f"future_task_selection_{user_id}.json"

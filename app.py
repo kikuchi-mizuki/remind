@@ -1926,11 +1926,20 @@ def callback():
                         # session ディレクトリのファイルも確認
                         future_selection_file = f"future_task_selection_{user_id}.json"
                         future_selection_file_alt = os.path.abspath(os.path.join(os.path.dirname(__file__), "session", f"future_task_selection_{user_id}.json"))
+                        # 互換の選択フラグ（task_select_mode_*.flag）が future_schedule を指す場合も拾う
+                        legacy_select_flag = f"task_select_mode_{user_id}.flag"
+                        legacy_mode = None
+                        if os.path.exists(legacy_select_flag):
+                            try:
+                                with open(legacy_select_flag, "r", encoding="utf-8") as f:
+                                    legacy_mode = f.read().strip()
+                            except Exception:
+                                legacy_mode = None
                         print(
-                            f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}={os.path.exists(future_selection_file)}, alt={future_selection_file_alt}={os.path.exists(future_selection_file_alt)}"
+                            f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}={os.path.exists(future_selection_file)}, alt={future_selection_file_alt}={os.path.exists(future_selection_file_alt)}, legacy_mode={legacy_mode}"
                         )
                         flag_path = future_selection_file if os.path.exists(future_selection_file) else (future_selection_file_alt if os.path.exists(future_selection_file_alt) else None)
-                        if flag_path:
+                        if flag_path or (legacy_mode and "future_schedule" in legacy_mode):
                             print(
                                 f"[DEBUG] 未来タスク選択モード開始: user_message='{user_message}'"
                             )
