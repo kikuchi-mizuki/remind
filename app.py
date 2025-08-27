@@ -1252,12 +1252,11 @@ def callback():
                             try:
                                 with open(delete_mode_file, "w") as f:
                                     import json
-                                    import datetime
 
                                     json.dump(
                                         {
                                             "mode": "delete",
-                                            "timestamp": datetime.datetime.now().isoformat(),
+                                            "timestamp": datetime.now().isoformat(),
                                         },
                                         f,
                                     )
