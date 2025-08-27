@@ -1722,7 +1722,6 @@ def callback():
                             regex.match(r"^(\d+[ ,、]*)+$", user_message.strip())
                             or user_message.strip() == "なし"
                         ):
-                            from datetime import datetime, timedelta
                             import pytz
 
                             jst = pytz.timezone("Asia/Tokyo")
