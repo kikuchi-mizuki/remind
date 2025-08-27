@@ -492,7 +492,6 @@ def callback():
                             if is_google_authenticated(user_id):
                                 try:
                                     from services.calendar_service import CalendarService
-                                    from datetime import datetime, timedelta
                                     import pytz
                                     
                                     calendar_service = CalendarService()
@@ -509,7 +508,7 @@ def callback():
                                         if calendar_service.check_time_conflict(user_id, optimal_time, task.duration_minutes):
                                             print(f"[DEBUG] 最適時刻で重複検出: {optimal_time.strftime('%H:%M')}")
                                             # 重複がある場合は別の時刻を探す
-                                            from datetime import timedelta
+                                            # timedelta はモジュール先頭でインポート済み
                                             alternative_times = []
                                             for hour in range(8, 22):  # 8時から22時まで
                                                 for minute in [0, 30]:  # 30分間隔
@@ -1988,7 +1987,6 @@ def callback():
                                         from services.openai_service import (
                                             OpenAIService,
                                         )
-                                        from datetime import datetime, timedelta
                                         import pytz
 
                                         calendar_service = CalendarService()
