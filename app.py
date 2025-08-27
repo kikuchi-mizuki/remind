@@ -1925,7 +1925,7 @@ def callback():
                         # 未来タスク選択モードでの処理
                         # session ディレクトリのファイルも確認
                         future_selection_file = f"future_task_selection_{user_id}.json"
-                        future_selection_file_alt = os.path.join(os.getcwd(), "session", f"future_task_selection_{user_id}.json")
+                        future_selection_file_alt = os.path.abspath(os.path.join(os.path.dirname(__file__), "session", f"future_task_selection_{user_id}.json"))
                         print(
                             f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}={os.path.exists(future_selection_file)}, alt={future_selection_file_alt}={os.path.exists(future_selection_file_alt)}"
                         )

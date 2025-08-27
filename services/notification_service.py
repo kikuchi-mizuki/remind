@@ -485,12 +485,13 @@ class NotificationService:
                         
                         # 未来タスク選択モードファイルを作成（来週提案モード）
                         import os
-                        base_dir = os.path.join(os.getcwd(), "session")
+                        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "session"))
                         os.makedirs(base_dir, exist_ok=True)
                         future_selection_file = os.path.join(base_dir, f"future_task_selection_{user_id}.json")
                         with open(future_selection_file, "w") as f:
                             import json
                             json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
+                        print(f"[send_future_task_selection] 未来タスク選択モードファイル作成: {future_selection_file}")
                     
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
                     self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
