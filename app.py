@@ -1007,29 +1007,28 @@ def callback():
                             # --- コマンド分岐の一元化 ---
                             if user_message.strip() == "タスク追加":
                                 print("[DEBUG] タスク追加分岐: 処理開始", flush=True)
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                print(f"[DEBUG] タスク追加分岐: タスク件数={len(all_tasks)}", flush=True)
+                                # まずは軽量な案内メッセージを即時返信（長文での失敗を回避）
                                 add_flag = f"add_task_mode_{user_id}.flag"
                                 with open(add_flag, "w") as f:
                                     f.write("add_task_mode")
-                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=False)
-                                reply_text += "\n\n📝 タスク追加モード\n\n"
-                                reply_text += "タスク名・所要時間・期限を入力してください！\n\n"
-                                reply_text += "💡 例：\n"
-                                reply_text += "• 「資料作成 30分 明日」\n"
-                                reply_text += "• 「会議準備 1時間 今日」\n"
-                                reply_text += "• 「筋トレ 20分 明日」\n\n"
-                                reply_text += "⚠️ 所要時間は必須です！\n\n"
-                                reply_text += "💡 タスクを選択後、「空き時間に配置」で自動スケジュールできます！"
-                                print(f"[DEBUG] タスク追加分岐: reply_text=\n{reply_text}", flush=True)
-                                print("[DEBUG] LINE API reply_message直前", flush=True)
-                                res = line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
+                                guide_text = (
+                                    "📝 タスク追加モード\n\n"
+                                    "タスク名・所要時間・期限を入力してください！\n\n"
+                                    "💡 例：\n"
+                                    "• 「資料作成 30分 明日」\n"
+                                    "• 「会議準備 1時間 今日」\n"
+                                    "• 「筋トレ 20分 今週中」\n\n"
+                                    "⚠️ 所要時間は必須です！\n"
                                 )
-                                print(f"[DEBUG] LINE API reply_message直後: {res}", flush=True)
+                                try:
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(
+                                            replyToken=reply_token,
+                                            messages=[TextMessage(text=guide_text)],
+                                        )
+                                    )
+                                except Exception as e:
+                                    print(f"[DEBUG] タスク追加モード案内送信エラー: {e}")
                                 continue
                             elif user_message.strip() == "緊急タスク追加":
                                 if not is_google_authenticated(user_id):
