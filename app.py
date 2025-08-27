@@ -1027,8 +1027,20 @@ def callback():
                                             messages=[TextMessage(text=guide_text)],
                                         )
                                     )
+                                    print("[DEBUG] タスク追加モード案内をreplyで送信済み")
                                 except Exception as e:
-                                    print(f"[DEBUG] タスク追加モード案内送信エラー: {e}")
+                                    print(f"[DEBUG] タスク追加モード案内送信エラー(reply): {e}")
+                                    # 念のためpushでフォールバック
+                                    try:
+                                        line_bot_api.push_message(
+                                            PushMessageRequest(
+                                                to=user_id,
+                                                messages=[TextMessage(text=guide_text)],
+                                            )
+                                        )
+                                        print("[DEBUG] タスク追加モード案内をpushで送信")
+                                    except Exception as e2:
+                                        print(f"[DEBUG] タスク追加モード案内送信エラー(push): {e2}")
                                 continue
                             elif user_message.strip() == "緊急タスク追加":
                                 if not is_google_authenticated(user_id):
