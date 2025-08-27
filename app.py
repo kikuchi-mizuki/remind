@@ -1923,11 +1923,13 @@ def callback():
                                 continue
 
                         # 未来タスク選択モードでの処理
+                        # session ディレクトリのファイルも確認
                         future_selection_file = f"future_task_selection_{user_id}.json"
+                        future_selection_file_alt = os.path.join(os.getcwd(), "session", f"future_task_selection_{user_id}.json")
                         print(
-                            f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}, exists={os.path.exists(future_selection_file)}"
+                            f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}={os.path.exists(future_selection_file)}, alt={future_selection_file_alt}={os.path.exists(future_selection_file_alt)}"
                         )
-                        if os.path.exists(future_selection_file):
+                        if os.path.exists(future_selection_file) or os.path.exists(future_selection_file_alt):
                             print(
                                 f"[DEBUG] 未来タスク選択モード開始: user_message='{user_message}'"
                             )
@@ -2021,12 +2023,13 @@ def callback():
                                             reply_text += f"未来タスク「{selected_task.name}」は手動でスケジュールを調整してください。"
 
                                         # 未来タスク選択モードファイルを削除
-                                        if os.path.exists(future_selection_file):
-                                            os.remove(future_selection_file)
-
                                         # 未来タスク選択モードファイルを削除
-                                        if os.path.exists(future_selection_file):
-                                            os.remove(future_selection_file)
+                                        for path in [future_selection_file, future_selection_file_alt]:
+                                            try:
+                                                if os.path.exists(path):
+                                                    os.remove(path)
+                                            except Exception:
+                                                pass
 
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(

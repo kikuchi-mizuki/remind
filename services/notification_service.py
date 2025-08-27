@@ -485,7 +485,9 @@ class NotificationService:
                         
                         # 未来タスク選択モードファイルを作成（来週提案モード）
                         import os
-                        future_selection_file = f"future_task_selection_{user_id}.json"
+                        base_dir = os.path.join(os.getcwd(), "session")
+                        os.makedirs(base_dir, exist_ok=True)
+                        future_selection_file = os.path.join(base_dir, f"future_task_selection_{user_id}.json")
                         with open(future_selection_file, "w") as f:
                             import json
                             json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
