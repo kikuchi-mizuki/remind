@@ -205,11 +205,36 @@ class CalendarService:
                     target_date = target_date.replace(month=month, day=day)
                 
                                     # 🕒時刻行＋📝タスク行の2行セットを1つの予定として扱う
-                    if line.startswith('🕒') and i+1 < len(lines) and lines[i+1].startswith('📝'):
+                if line.startswith('🕒') and i+1 < len(lines) and lines[i+1].startswith('📝'):
+                    # 🕒 08:00〜08:30
+                    m_time = re.match(r'🕒\s*(\d{1,2}):(\d{2})[〜~\-ー―‐–—−﹣－:：](\d{1,2}):(\d{2})', line)
+                    # 📝 資料作成（30分）
+                    m_task = re.match(r'📝\s*(.+)[（(](\d+)分[)）]', lines[i+1])
+                    if m_time and m_task:
+                        start_hour = int(m_time.group(1))
+                        start_min = int(m_time.group(2))
+                        end_hour = int(m_time.group(3))
+                        end_min = int(m_time.group(4))
+                        task_name = m_task.group(1).strip()
+                        duration = int(m_task.group(2))
+                        start_time = target_date.replace(hour=start_hour, minute=start_min)
+                        if self.add_event_to_calendar(user_id, task_name, start_time, duration):
+                            success_count += 1
+                        i += 2
+                        continue
+                
+                # スケジュール提案形式の特別処理（🕒行の後に📝行が来る場合）
+                if line.startswith('🕒'):
+                    # 次の行が📝で始まるかチェック
+                    next_line_idx = i + 1
+                    while next_line_idx < len(lines) and not lines[next_line_idx].startswith('📝'):
+                        next_line_idx += 1
+                    
+                    if next_line_idx < len(lines) and lines[next_line_idx].startswith('📝'):
                         # 🕒 08:00〜08:30
                         m_time = re.match(r'🕒\s*(\d{1,2}):(\d{2})[〜~\-ー―‐–—−﹣－:：](\d{1,2}):(\d{2})', line)
                         # 📝 資料作成（30分）
-                        m_task = re.match(r'📝\s*(.+)[（(](\d+)分[)）]', lines[i+1])
+                        m_task = re.match(r'📝\s*(.+)[（(](\d+)分[)）]', lines[next_line_idx])
                         if m_time and m_task:
                             start_hour = int(m_time.group(1))
                             start_min = int(m_time.group(2))
@@ -220,7 +245,7 @@ class CalendarService:
                             start_time = target_date.replace(hour=start_hour, minute=start_min)
                             if self.add_event_to_calendar(user_id, task_name, start_time, duration):
                                 success_count += 1
-                            i += 2
+                            i = next_line_idx + 1
                             continue
                 
                 # 未来タスク用の1行パターン（日付＋時刻＋タスク）
@@ -285,8 +310,8 @@ class CalendarService:
                         print(f"[add_events_to_calendar] パース失敗: {line} err={e}")
                     i += 1
                     continue
-                # パースできなかった行を記録
-                if line.strip():
+                # パースできなかった行を記録（ただし、ヘッダーや区切り線は除外）
+                if line.strip() and not any(skip in line for skip in ['🗓️【', '━━━', '✅理由', 'このスケジュールで']):
                     print(f"[add_events_to_calendar] パースできなかった行: {line}")
                     unparsable_lines.append(line)
                 i += 1
