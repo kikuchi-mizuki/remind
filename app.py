@@ -1694,7 +1694,17 @@ def callback():
                             continue
                         elif user_message.strip() == "修正する":
                             try:
-                                reply_text = "📝 スケジュール修正モード\n\n修正したい内容を送信してください！\n\n例：\n• 「資料作成を14時に変更」\n• 「会議準備を15時30分に変更」"
+                                # タスク選択モードフラグを再設定
+                                import os
+                                select_flag = f"task_select_mode_{user_id}.flag"
+                                with open(select_flag, "w") as f:
+                                    f.write("mode=schedule")
+                                print(f"[修正処理] タスク選択モードフラグ再設定: {select_flag}")
+                                
+                                # 今日のタスク一覧を取得して表示
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
+                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
 
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
