@@ -478,13 +478,28 @@ class CalendarService:
     def suggest_optimal_time(self, user_id: str, duration_minutes: int, 
                            task_type: str = "general") -> Optional[datetime]:
         """最適な時間を提案"""
-        free_times = self.get_free_busy_times(user_id, datetime.now())
+        import pytz
+        jst = pytz.timezone('Asia/Tokyo')
+        today = datetime.now(jst)
+        
+        # 今日の空き時間を取得
+        free_times = self.get_free_busy_times(user_id, today)
         
         if not free_times:
+            print(f"[DEBUG] 空き時間が見つかりません")
             return None
         
-        # タスクタイプに応じて優先順位を設定
-        if task_type in ["important", "focus"]:
+        print(f"[DEBUG] 取得した空き時間: {len(free_times)}個")
+        for ft in free_times:
+            print(f"  - {ft['start'].strftime('%H:%M')}〜{ft['end'].strftime('%H:%M')} ({ft['duration_minutes']}分)")
+        
+        # 緊急タスクの場合は早い時間を優先
+        if task_type == "urgent":
+            # 朝8時から夕方6時までの時間帯を優先
+            morning_times = [t for t in free_times if 8 <= t['start'].hour < 18]
+            if morning_times:
+                free_times = morning_times
+        elif task_type in ["important", "focus"]:
             # 重要・集中系は午前を優先
             morning_times = [t for t in free_times if t['start'].hour < 12]
             if morning_times:
@@ -494,10 +509,13 @@ class CalendarService:
         suitable_times = [t for t in free_times if t['duration_minutes'] >= duration_minutes]
         
         if not suitable_times:
+            print(f"[DEBUG] 十分な時間の空き時間が見つかりません (必要: {duration_minutes}分)")
             return None
         
         # 最も早い時間を選択
-        return min(suitable_times, key=lambda x: x['start'])['start']
+        optimal_time = min(suitable_times, key=lambda x: x['start'])['start']
+        print(f"[DEBUG] 最適時刻を選択: {optimal_time.strftime('%H:%M')}")
+        return optimal_time
 
     def auto_schedule_tasks(self, user_id: str, tasks: List[Dict]) -> List[Dict]:
         """タスクを空き時間に自動配置"""

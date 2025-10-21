@@ -500,19 +500,21 @@ def callback():
                                     jst = pytz.timezone('Asia/Tokyo')
                                     today = datetime.now(jst).replace(hour=0, minute=0, second=0, microsecond=0)
                                     
-                                    # 最適な開始時刻を提案（重複チェック付き）
+                                    # 最適な開始時刻を提案（空き時間ベース）
                                     optimal_time = calendar_service.suggest_optimal_time(user_id, task.duration_minutes, "urgent")
                                     
                                     if optimal_time:
-                                        # 重複チェック
+                                        print(f"[DEBUG] 最適時刻を取得: {optimal_time.strftime('%H:%M')}")
+                                        # 念のため重複チェック（空き時間から取得しているので通常は重複しない）
                                         if calendar_service.check_time_conflict(user_id, optimal_time, task.duration_minutes):
                                             print(f"[DEBUG] 最適時刻で重複検出: {optimal_time.strftime('%H:%M')}")
-                                            # 重複がある場合は別の時刻を探す
-                                            # timedelta はモジュール先頭でインポート済み
+                                            # 空き時間から別の時刻を探す
+                                            free_times = calendar_service.get_free_busy_times(user_id, today)
                                             alternative_times = []
-                                            for hour in range(8, 22):  # 8時から22時まで
-                                                for minute in [0, 30]:  # 30分間隔
-                                                    test_time = today.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                                            for ft in free_times:
+                                                if ft['duration_minutes'] >= task.duration_minutes:
+                                                    # 空き時間の開始時刻を試す
+                                                    test_time = ft['start']
                                                     if not calendar_service.check_time_conflict(user_id, test_time, task.duration_minutes):
                                                         alternative_times.append(test_time)
                                             
