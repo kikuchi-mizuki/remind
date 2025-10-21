@@ -977,7 +977,7 @@ def callback():
                                             with open(selected_tasks_file, "w", encoding="utf-8") as f:
                                                 json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
                                             header = "【来週のスケジュール提案】" if is_future_schedule_mode else "【今日のスケジュール提案】"
-                                            reply_text = f"{header}\n\n{proposal}\n\n承認する場合は「承認する」、修正する場合は「修正する」と送信してください。"
+                                            reply_text = f"{header}\n\n{proposal}"
                                         else:
                                             reply_text = "⚠️ 空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
                                     else:
