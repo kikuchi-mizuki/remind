@@ -5,6 +5,7 @@ from services.task_service import TaskService
 from services.calendar_service import CalendarService
 from services.openai_service import OpenAIService
 from services.notification_service import NotificationService
+from services.multi_tenant_service import MultiTenantService
 from models.database import init_db, Task
 from linebot.v3.messaging import (
     MessagingApi,
@@ -51,6 +52,7 @@ task_service = TaskService(db)
 calendar_service = CalendarService()
 openai_service = OpenAIService()
 notification_service = NotificationService()
+multi_tenant_service = MultiTenantService()
 
 # --- 修正 ---
 # line_bot_api = MessagingApi(channel_access_token=os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
@@ -470,13 +472,21 @@ def oauth2callback():
 @app.route("/callback", methods=["POST"])
 def callback():
     # グローバル変数を明示的に宣言
-    global calendar_service, openai_service, task_service, line_bot_api
+    global calendar_service, openai_service, task_service, line_bot_api, multi_tenant_service
     
     try:
         data = request.get_json(force=True, silent=True)
         print("受信:", data)
         if data is not None:
             events = data.get("events", [])
+            destination = data.get("destination", "")
+            
+            # マルチテナント対応: チャネルID別のLINE APIクライアントを取得
+            line_bot_api = multi_tenant_service.get_messaging_api(destination)
+            if not line_bot_api:
+                print(f"[callback] チャネル設定が見つかりません: {destination}")
+                return "OK", 200
+            
             for event in events:
                 if event.get("type") == "message" and "replyToken" in event:
                     reply_token = event["replyToken"]
