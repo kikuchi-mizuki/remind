@@ -682,6 +682,27 @@ def callback():
                         delete_mode_file = f"delete_mode_{user_id}.json"
                         if os.path.exists(delete_mode_file):
                             print(f"[DEBUG] 削除モード判定: {delete_mode_file} 存在")
+                            
+                            # 削除モードでキャンセル処理
+                            cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
+                            normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
+                            print(f"[DEBUG] 削除モードキャンセル判定: normalized_message='{normalized_message}'")
+                            if normalized_message in [w.lower() for w in cancel_words]:
+                                # 削除モードファイルを削除してモードをリセット
+                                os.remove(delete_mode_file)
+                                print(f"[DEBUG] 削除モードリセット: {delete_mode_file} 削除")
+                                
+                                # 通常のFlexMessageメニューを表示
+                                from linebot.models import FlexSendMessage
+                                flex_message = get_simple_flex_menu()
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[FlexSendMessage(alt_text="メニュー", contents=flex_message)],
+                                    )
+                                )
+                                continue
+                            
                             # ユーザーの入力から削除対象タスクを抽出
                             # 例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」
                             import re
@@ -848,6 +869,28 @@ def callback():
                         print(
                             f"[DEBUG] タスク選択フラグ確認: {select_flag}, exists={os.path.exists(select_flag)}"
                         )
+                        
+                        # タスク選択モードでキャンセル処理
+                        if os.path.exists(select_flag):
+                            # キャンセルワード判定
+                            cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
+                            normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
+                            print(f"[DEBUG] タスク選択キャンセル判定: normalized_message='{normalized_message}'")
+                            if normalized_message in [w.lower() for w in cancel_words]:
+                                # フラグファイルを削除してモードをリセット
+                                os.remove(select_flag)
+                                print(f"[DEBUG] タスク選択モードリセット: {select_flag} 削除")
+                                
+                                # 通常のFlexMessageメニューを表示
+                                from linebot.models import FlexSendMessage
+                                flex_message = get_simple_flex_menu()
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[FlexSendMessage(alt_text="メニュー", contents=flex_message)],
+                                    )
+                                )
+                                continue
                         # AIによる数字入力判定を試行
                         is_number_input = False
                         try:
