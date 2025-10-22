@@ -297,9 +297,10 @@ class TaskService:
             if '今週中' in text:
                 # 今週の日曜日を計算（日曜日は6）
                 days_ahead = 6 - today.weekday()
-                if days_ahead <= 0:  # 今週の日曜日が既に過ぎている場合
+                if days_ahead < 0:  # 今週の日曜日が既に過ぎている場合（日曜日は0なので<0で判定）
                     days_ahead += 7
                 target_date = today + timedelta(days=days_ahead)
+                print(f"[DEBUG] 今週中: 今日={today.strftime('%Y-%m-%d %A')}, 日曜日={target_date.strftime('%Y-%m-%d %A')}")
                 return target_date.strftime('%Y-%m-%d')
             
             # 今週+曜日の処理
