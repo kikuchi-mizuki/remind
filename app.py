@@ -1829,8 +1829,35 @@ def callback():
                                 if current_mode == "schedule":  # デフォルトの場合は追加確認
                                     future_selection_file = f"future_task_selection_{user_id}.json"
                                     if os.path.exists(future_selection_file):
-                                        print(f"[修正処理] 未来タスク選択モードファイル存在: {future_selection_file}")
-                                        current_mode = "future_schedule"
+                                        # 未来タスク選択モードファイルの内容を確認
+                                        try:
+                                            import json
+                                            with open(future_selection_file, "r", encoding="utf-8") as f:
+                                                future_mode_data = json.load(f)
+                                                if future_mode_data.get("mode") == "future_schedule":
+                                                    print(f"[修正処理] 未来タスク選択モードファイル内容確認: {future_mode_data}")
+                                                    current_mode = "future_schedule"
+                                                else:
+                                                    print(f"[修正処理] 未来タスク選択モードファイル存在するが内容が異なる: {future_mode_data}")
+                                        except Exception as e:
+                                            print(f"[修正処理] 未来タスク選択モードファイル読み取りエラー: {e}")
+                                            # ファイルが存在する場合は未来タスクモードと判定
+                                            current_mode = "future_schedule"
+                                
+                                # スケジュール提案ファイルの内容も確認
+                                schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
+                                if os.path.exists(schedule_proposal_file):
+                                    try:
+                                        with open(schedule_proposal_file, "r", encoding="utf-8") as f:
+                                            proposal_content = f.read()
+                                            if "来週のスケジュール提案" in proposal_content:
+                                                print(f"[修正処理] 来週のスケジュール提案を検出")
+                                                current_mode = "future_schedule"
+                                            elif "本日のスケジュール提案" in proposal_content:
+                                                print(f"[修正処理] 本日のスケジュール提案を検出")
+                                                current_mode = "schedule"
+                                    except Exception as e:
+                                        print(f"[修正処理] スケジュール提案ファイル読み取りエラー: {e}")
                                 
                                 print(f"[修正処理] 現在のモード: {current_mode}")
                                 
