@@ -32,7 +32,7 @@ LINE_CHANNEL_SECRET=your_secret
 
 ### 各LINE公式アカウントの設定
 1. LINE Developersコンソールで各アカウントの設定を確認
-2. Webhook URLを同じRailwayサービスに設定
+2. Webhook URLを同じRailwayサービスに設定: `https://app52.mmms-11.com/callback`
 3. 各アカウントの`destination`（チャネルID）を取得
 
 ## チャネルIDの取得方法

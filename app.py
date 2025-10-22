@@ -144,7 +144,7 @@ def add_google_authenticated_user(user_id):
 
 # Google認証URL生成（本番URLに修正）
 def get_google_auth_url(user_id):
-    return f"https://app51.mmms-11.com/google_auth?user_id={user_id}"
+    return f"https://app52.mmms-11.com/google_auth?user_id={user_id}"
 
 
 @app.route("/google_auth")
@@ -161,7 +161,7 @@ def google_auth():
                 "https://www.googleapis.com/auth/drive.file",
                 "https://www.googleapis.com/auth/drive",
             ],
-            redirect_uri="https://app51.mmms-11.com/oauth2callback",
+            redirect_uri="https://app52.mmms-11.com/oauth2callback",
         )
         print(f"[google_auth] flow作成成功")
         
@@ -208,7 +208,7 @@ def oauth2callback():
                 "https://www.googleapis.com/auth/drive",
             ],
             state=state,
-            redirect_uri="https://app51.mmms-11.com/oauth2callback",
+            redirect_uri="https://app52.mmms-11.com/oauth2callback",
         )
         print("[oauth2callback] flow created")
         
