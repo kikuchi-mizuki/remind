@@ -702,13 +702,15 @@ def callback():
                                     return s.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
                                 normalized_message = z2h(user_message)
                                 
-                                # 「タスク3.4」のような形式も処理
+                                # 「タスク2.5」のような形式も処理
                                 # まず「タスク」で始まる部分を抽出
                                 task_match = re.search(r"タスク\s*([\d\.\,\、]+)", normalized_message)
                                 if task_match:
                                     task_numbers = re.findall(r'\d+', task_match.group(1))
+                                    print(f"[DEBUG] フォールバック抽出: タスク部分='{task_match.group(1)}', 抽出番号={task_numbers}")
                                 else:
                                     task_numbers = re.findall(r"タスク\s*(\d+)", normalized_message)
+                                    print(f"[DEBUG] フォールバック抽出: 通常パターン, 抽出番号={task_numbers}")
                                 
                                 # 未来タスクも同様に処理
                                 future_match = re.search(r"未来タスク\s*([\d\.\,\、]+)", normalized_message)
