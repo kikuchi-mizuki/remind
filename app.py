@@ -718,20 +718,30 @@ def callback():
                             all_tasks = task_service.get_user_tasks(user_id)
                             future_tasks = task_service.get_user_future_tasks(user_id)
                             deleted = []
-                            # 通常タスク削除
-                            for num in task_numbers:
-                                idx = int(num) - 1
+                            
+                            # 通常タスク削除（降順で削除してインデックスのずれを防ぐ）
+                            task_numbers_sorted = sorted([int(num) for num in task_numbers], reverse=True)
+                            for num in task_numbers_sorted:
+                                idx = num - 1
                                 if 0 <= idx < len(all_tasks):
                                     task = all_tasks[idx]
-                                    task_service.delete_task(task.task_id)
-                                    deleted.append(f"タスク {num}. {task.name}")
-                            # 未来タスク削除
-                            for num in future_task_numbers:
-                                idx = int(num) - 1
+                                    if task_service.delete_task(task.task_id):
+                                        deleted.append(f"タスク {num}. {task.name}")
+                                        print(f"[DEBUG] タスク削除成功: {num}. {task.name}")
+                                    else:
+                                        print(f"[DEBUG] タスク削除失敗: {num}. {task.name}")
+                            
+                            # 未来タスク削除（降順で削除してインデックスのずれを防ぐ）
+                            future_task_numbers_sorted = sorted([int(num) for num in future_task_numbers], reverse=True)
+                            for num in future_task_numbers_sorted:
+                                idx = num - 1
                                 if 0 <= idx < len(future_tasks):
                                     task = future_tasks[idx]
-                                    task_service.delete_future_task(task.task_id)
-                                    deleted.append(f"未来タスク {num}. {task.name}")
+                                    if task_service.delete_future_task(task.task_id):
+                                        deleted.append(f"未来タスク {num}. {task.name}")
+                                        print(f"[DEBUG] 未来タスク削除成功: {num}. {task.name}")
+                                    else:
+                                        print(f"[DEBUG] 未来タスク削除失敗: {num}. {task.name}")
                             # 削除モードファイルを削除
                             os.remove(delete_mode_file)
                             print(f"[DEBUG] 削除モードファイル削除: {delete_mode_file}")
