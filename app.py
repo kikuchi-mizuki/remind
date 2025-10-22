@@ -1782,11 +1782,12 @@ def callback():
                                     print(f"[修正処理] フラグファイル読み取りエラー: {e}")
                                     pass
                                 
-                                # 未来タスク選択モードファイルの存在も確認
-                                future_selection_file = f"future_task_selection_{user_id}.json"
-                                if os.path.exists(future_selection_file):
-                                    print(f"[修正処理] 未来タスク選択モードファイル存在: {future_selection_file}")
-                                    current_mode = "future_schedule"
+                                # 未来タスク選択モードファイルの存在も確認（ただし、フラグファイルで既に判定済みの場合はスキップ）
+                                if current_mode == "schedule":  # デフォルトの場合は追加確認
+                                    future_selection_file = f"future_task_selection_{user_id}.json"
+                                    if os.path.exists(future_selection_file):
+                                        print(f"[修正処理] 未来タスク選択モードファイル存在: {future_selection_file}")
+                                        current_mode = "future_schedule"
                                 
                                 print(f"[修正処理] 現在のモード: {current_mode}")
                                 
@@ -1801,6 +1802,14 @@ def callback():
                                     morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
                                     reply_text = task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
                                     print(f"[修正処理] 今日のタスク選択画面に戻る")
+                                    
+                                    # 今日のタスク選択モードに戻るため、フラグファイルを更新
+                                    try:
+                                        with open(select_flag, "w") as f:
+                                            f.write("mode=schedule")
+                                        print(f"[修正処理] 今日のタスク選択モードフラグ更新: {select_flag}")
+                                    except Exception as e:
+                                        print(f"[修正処理] フラグファイル更新エラー: {e}")
 
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
