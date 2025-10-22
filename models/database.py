@@ -56,6 +56,14 @@ class Database:
         db_dir = os.path.dirname(self.db_path)
         if db_dir:  # ディレクトリパスが存在する場合のみ作成
             os.makedirs(db_dir, exist_ok=True)
+        
+        # ボリューム設定の確認
+        if self.db_path.startswith('/app/vol'):
+            if not os.path.exists('/app/vol'):
+                print(f"[init_database] ⚠️  警告: /app/vol ディレクトリが存在しません")
+                print(f"[init_database] Railwayでボリュームを /app/vol にマウントしてください")
+                print(f"[init_database] 現在のDBパス: {self.db_path}")
+        
         print(f"[init_database] 開始: {self.db_path}")
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()

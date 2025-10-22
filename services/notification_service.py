@@ -100,7 +100,21 @@ class NotificationService:
 
     def _get_google_auth_url(self, user_id):
         """Google認証URL生成"""
-        return f"https://web-production-bf2e2.up.railway.app/google_auth?user_id={user_id}"
+        # 動的ベースURLを使用
+        import os
+        base_url = os.getenv("BASE_URL")
+        if not base_url:
+            # Railway環境変数から取得
+            domain = os.getenv("RAILWAY_STATIC_URL") or os.getenv("RAILWAY_PUBLIC_DOMAIN")
+            if domain:
+                if domain.startswith("http"):
+                    base_url = domain.rstrip("/")
+                else:
+                    base_url = f"https://{domain}"
+            else:
+                base_url = "https://app52.mmms-11.com"
+        
+        return f"{base_url}/google_auth?user_id={user_id}"
 
     def _move_overdue_tasks_to_today(self, user_id: str):
         """昨日の日付より前のタスクを今日の日付に移動"""
