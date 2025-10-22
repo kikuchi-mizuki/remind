@@ -148,27 +148,41 @@ def get_google_auth_url(user_id):
 @app.route("/google_auth")
 def google_auth():
     user_id = request.args.get("user_id")
+    print(f"[google_auth] 開始: user_id={user_id}")
+    
     # Google OAuth2フロー開始
-    flow = Flow.from_client_secrets_file(
-        "client_secrets.json",
-        scopes=[
-            "https://www.googleapis.com/auth/calendar",
-            "https://www.googleapis.com/auth/drive.file",
-            "https://www.googleapis.com/auth/drive",
-        ],
-        redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback",
-    )
-    # stateにuser_idを含める
-    auth_url, state = flow.authorization_url(
-        access_type="offline",
-        include_granted_scopes="true",
-        prompt="consent",  # 確実にrefresh_tokenを取得するため
-        state=user_id,
-    )
-    # stateをセッションに保存（本番はDB推奨）
-    session["state"] = state
-    session["user_id"] = user_id
-    return redirect(auth_url)
+    try:
+        flow = Flow.from_client_secrets_file(
+            "client_secrets.json",
+            scopes=[
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/drive.file",
+                "https://www.googleapis.com/auth/drive",
+            ],
+            redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback",
+        )
+        print(f"[google_auth] flow作成成功")
+        
+        # stateにuser_idを含める
+        auth_url, state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",  # 確実にrefresh_tokenを取得するため
+            state=user_id,
+        )
+        print(f"[google_auth] 認証URL生成成功: state={state}")
+        
+        # stateをセッションに保存（本番はDB推奨）
+        session["state"] = state
+        session["user_id"] = user_id
+        print(f"[google_auth] セッション保存完了: state={state}, user_id={user_id}")
+        
+        return redirect(auth_url)
+    except Exception as e:
+        print(f"[google_auth] エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"認証URL生成エラー: {e}", 500
 
 
 @app.route("/oauth2callback")
@@ -179,6 +193,11 @@ def oauth2callback():
         print(f"[oauth2callback] state: {state}")
         user_id = state or session.get("user_id")
         print(f"[oauth2callback] user_id: {user_id}")
+        
+        if not user_id:
+            print("[oauth2callback] ERROR: user_id is None")
+            return "認証エラー: user_idが取得できませんでした。", 400
+        
         flow = Flow.from_client_secrets_file(
             "client_secrets.json",
             scopes=[
@@ -190,14 +209,17 @@ def oauth2callback():
             redirect_uri="https://web-production-bf2e2.up.railway.app/oauth2callback",
         )
         print("[oauth2callback] flow created")
+        
         flow.fetch_token(authorization_response=request.url)
         print("[oauth2callback] token fetched")
+        
         creds = flow.credentials
         print(f"[oauth2callback] creds: {creds}")
         print(
             f"[oauth2callback] creds.refresh_token: {getattr(creds, 'refresh_token', None)}"
         )
         print(f"[oauth2callback] user_id: {user_id}")
+        
         # refresh_tokenの確認
         if not creds.refresh_token:
             print(
