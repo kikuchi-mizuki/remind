@@ -142,9 +142,36 @@ def add_google_authenticated_user(user_id):
     pass
 
 
-# Google認証URL生成（本番URLに修正）
+def get_base_url() -> str:
+    """現在のデプロイ環境からベースURLを自動判定"""
+    # 明示指定があれば最優先
+    base_url = os.getenv("BASE_URL")
+    if base_url:
+        return base_url.rstrip("/")
+
+    # Railway が提供するドメイン
+    domain = os.getenv("RAILWAY_STATIC_URL") or os.getenv("RAILWAY_PUBLIC_DOMAIN")
+    if domain:
+        if domain.startswith("http"):
+            return domain.rstrip("/")
+        return f"https://{domain}"
+
+    # リクエストコンテキストがあればそこから取得
+    try:
+        host = request.host
+        if host:
+            scheme = "https"
+            return f"{scheme}://{host}"
+    except Exception:
+        pass
+
+    # フォールバック（最後の手段）
+    return "https://app52.mmms-11.com"
+
+
+# Google認証URL生成（ベースURLを自動判定）
 def get_google_auth_url(user_id):
-    return f"https://app52.mmms-11.com/google_auth?user_id={user_id}"
+    return f"{get_base_url()}/google_auth?user_id={user_id}"
 
 
 @app.route("/google_auth")
@@ -161,7 +188,7 @@ def google_auth():
                 "https://www.googleapis.com/auth/drive.file",
                 "https://www.googleapis.com/auth/drive",
             ],
-            redirect_uri="https://app52.mmms-11.com/oauth2callback",
+            redirect_uri=f"{get_base_url()}/oauth2callback",
         )
         print(f"[google_auth] flow作成成功")
         
@@ -208,7 +235,7 @@ def oauth2callback():
                 "https://www.googleapis.com/auth/drive",
             ],
             state=state,
-            redirect_uri="https://app52.mmms-11.com/oauth2callback",
+            redirect_uri=f"{get_base_url()}/oauth2callback",
         )
         print("[oauth2callback] flow created")
         
