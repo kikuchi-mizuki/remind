@@ -636,12 +636,28 @@ def callback():
                             )
                             continue
                         try:
-                            task_info = task_service.parse_task_message(user_message)
-                            task = task_service.create_task(user_id, task_info)
-                            os.remove(add_flag)
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
-                            reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                            # 改行がある場合は複数タスクとして処理
+                            if '\n' in user_message:
+                                print(f"[DEBUG] 複数タスク検出: {user_message}")
+                                tasks_info = task_service.parse_multiple_tasks(user_message)
+                                created_tasks = []
+                                for task_info in tasks_info:
+                                    task = task_service.create_task(user_id, task_info)
+                                    created_tasks.append(task.name)
+                                
+                                os.remove(add_flag)
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                            else:
+                                # 単一タスクとして処理
+                                task_info = task_service.parse_task_message(user_message)
+                                task = task_service.create_task(user_id, task_info)
+                                os.remove(add_flag)
+                                all_tasks = task_service.get_user_tasks(user_id)
+                                task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                            
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
@@ -770,11 +786,26 @@ def callback():
                             if has_time:
                                 print(f"[DEBUG] 時間表現検出: '{user_message}' をタスク追加として処理します")
                                 try:
-                                    task_info = task_service.parse_task_message(user_message)
-                                    task = task_service.create_task(user_id, task_info)
-                                    all_tasks = task_service.get_user_tasks(user_id)
-                                    task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
-                                    reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                                    # 改行がある場合は複数タスクとして処理
+                                    if '\n' in user_message:
+                                        print(f"[DEBUG] 自然言語複数タスク検出: {user_message}")
+                                        tasks_info = task_service.parse_multiple_tasks(user_message)
+                                        created_tasks = []
+                                        for task_info in tasks_info:
+                                            task = task_service.create_task(user_id, task_info)
+                                            created_tasks.append(task.name)
+                                        
+                                        all_tasks = task_service.get_user_tasks(user_id)
+                                        task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                        reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                                    else:
+                                        # 単一タスクとして処理
+                                        task_info = task_service.parse_task_message(user_message)
+                                        task = task_service.create_task(user_id, task_info)
+                                        all_tasks = task_service.get_user_tasks(user_id)
+                                        task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                        reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                                    
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
