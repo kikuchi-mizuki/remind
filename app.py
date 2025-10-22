@@ -1773,12 +1773,20 @@ def callback():
                                 try:
                                     with open(select_flag, "r", encoding="utf-8") as f:
                                         mode_content = f.read().strip()
+                                        print(f"[修正処理] フラグファイル内容: '{mode_content}'")
                                         if "mode=future_schedule" in mode_content:
                                             current_mode = "future_schedule"
                                         elif "mode=schedule" in mode_content:
                                             current_mode = "schedule"
-                                except Exception:
+                                except Exception as e:
+                                    print(f"[修正処理] フラグファイル読み取りエラー: {e}")
                                     pass
+                                
+                                # 未来タスク選択モードファイルの存在も確認
+                                future_selection_file = f"future_task_selection_{user_id}.json"
+                                if os.path.exists(future_selection_file):
+                                    print(f"[修正処理] 未来タスク選択モードファイル存在: {future_selection_file}")
+                                    current_mode = "future_schedule"
                                 
                                 print(f"[修正処理] 現在のモード: {current_mode}")
                                 
