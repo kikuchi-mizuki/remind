@@ -688,12 +688,15 @@ def callback():
                             # AIで番号抽出
                             from services.openai_service import OpenAIService
                             openai_service = OpenAIService()
+                            print(f"[DEBUG] AI抽出開始: 入力メッセージ='{user_message}'")
                             ai_result = openai_service.extract_task_numbers_from_message(user_message)
+                            print(f"[DEBUG] AI抽出結果: {ai_result}")
                             if ai_result and (ai_result.get("tasks") or ai_result.get("future_tasks")):
                                 task_numbers = [str(n) for n in ai_result.get("tasks", [])]
                                 future_task_numbers = [str(n) for n in ai_result.get("future_tasks", [])]
-                                print(f"[DEBUG] AI抽出: 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
+                                print(f"[DEBUG] AI抽出成功: 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
                             else:
+                                print(f"[DEBUG] AI抽出失敗、フォールバック処理に移行")
                                 # 全角数字→半角数字へ変換
                                 def z2h(s):
                                     return s.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
@@ -719,17 +722,25 @@ def callback():
                             future_tasks = task_service.get_user_future_tasks(user_id)
                             deleted = []
                             
+                            print(f"[DEBUG] 削除対象: 通常タスク番号={task_numbers}, 未来タスク番号={future_task_numbers}")
+                            print(f"[DEBUG] 全タスク数: 通常={len(all_tasks)}, 未来={len(future_tasks)}")
+                            
                             # 通常タスク削除（降順で削除してインデックスのずれを防ぐ）
                             task_numbers_sorted = sorted([int(num) for num in task_numbers], reverse=True)
+                            print(f"[DEBUG] 通常タスク削除順序: {task_numbers_sorted}")
                             for num in task_numbers_sorted:
                                 idx = num - 1
+                                print(f"[DEBUG] タスク{num}削除試行: idx={idx}, 全タスク数={len(all_tasks)}")
                                 if 0 <= idx < len(all_tasks):
                                     task = all_tasks[idx]
+                                    print(f"[DEBUG] 削除対象タスク: {task.name} (ID: {task.task_id})")
                                     if task_service.delete_task(task.task_id):
                                         deleted.append(f"タスク {num}. {task.name}")
                                         print(f"[DEBUG] タスク削除成功: {num}. {task.name}")
                                     else:
                                         print(f"[DEBUG] タスク削除失敗: {num}. {task.name}")
+                                else:
+                                    print(f"[DEBUG] タスク{num}削除スキップ: インデックス範囲外 (idx={idx})")
                             
                             # 未来タスク削除（降順で削除してインデックスのずれを防ぐ）
                             future_task_numbers_sorted = sorted([int(num) for num in future_task_numbers], reverse=True)
