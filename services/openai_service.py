@@ -445,9 +445,11 @@ class OpenAIService:
 
 重要: 数字の区切り文字（.、,、、）は複数の番号を示します。
 例:
+- 「タスク3.4」→ 3番と4番 → {{"tasks": [3, 4], "future_tasks": []}}
 - 「1.2」→ 1番と2番 → {{"tasks": [1, 2], "future_tasks": []}}
 - 「1,3」→ 1番と3番 → {{"tasks": [1, 3], "future_tasks": []}}
 - 「1、2、3」→ 1番と2番と3番 → {{"tasks": [1, 2, 3], "future_tasks": []}}
+- 「タスク1、未来タスク2」→ 1番と2番 → {{"tasks": [1], "future_tasks": [2]}}
 
 出力例: {{"tasks": [1, 3], "future_tasks": [2]}}
 - 通常タスクは"tasks"、未来タスクは"future_tasks"の配列にしてください。

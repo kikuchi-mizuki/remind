@@ -682,8 +682,22 @@ def callback():
                                 def z2h(s):
                                     return s.translate(str.maketrans('０１２３４５６７８９', '0123456789'))
                                 normalized_message = z2h(user_message)
-                                task_numbers = re.findall(r"タスク\s*(\d+)", normalized_message)
-                                future_task_numbers = re.findall(r"未来タスク\s*(\d+)", normalized_message)
+                                
+                                # 「タスク3.4」のような形式も処理
+                                # まず「タスク」で始まる部分を抽出
+                                task_match = re.search(r"タスク\s*([\d\.\,\、]+)", normalized_message)
+                                if task_match:
+                                    task_numbers = re.findall(r'\d+', task_match.group(1))
+                                else:
+                                    task_numbers = re.findall(r"タスク\s*(\d+)", normalized_message)
+                                
+                                # 未来タスクも同様に処理
+                                future_match = re.search(r"未来タスク\s*([\d\.\,\、]+)", normalized_message)
+                                if future_match:
+                                    future_task_numbers = re.findall(r'\d+', future_match.group(1))
+                                else:
+                                    future_task_numbers = re.findall(r"未来タスク\s*(\d+)", normalized_message)
+                                
                                 print(f"[DEBUG] fallback: 通常タスク番号: {task_numbers}, 未来タスク番号: {future_task_numbers}")
                             all_tasks = task_service.get_user_tasks(user_id)
                             future_tasks = task_service.get_user_future_tasks(user_id)
