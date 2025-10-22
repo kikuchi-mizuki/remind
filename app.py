@@ -693,12 +693,17 @@ def callback():
                                 print(f"[DEBUG] 削除モードリセット: {delete_mode_file} 削除")
                                 
                                 # 通常のFlexMessageメニューを表示
-                                from linebot.models import FlexSendMessage
-                                flex_message = get_simple_flex_menu()
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[FlexSendMessage(alt_text="メニュー", contents=flex_message)],
+                                        messages=[flex_message],
                                     )
                                 )
                                 continue
@@ -882,12 +887,17 @@ def callback():
                                 print(f"[DEBUG] タスク選択モードリセット: {select_flag} 削除")
                                 
                                 # 通常のFlexMessageメニューを表示
-                                from linebot.models import FlexSendMessage
-                                flex_message = get_simple_flex_menu()
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[FlexSendMessage(alt_text="メニュー", contents=flex_message)],
+                                        messages=[flex_message],
                                     )
                                 )
                                 continue
