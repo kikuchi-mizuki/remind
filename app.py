@@ -1764,17 +1764,35 @@ def callback():
                             continue
                         elif user_message.strip() == "修正する":
                             try:
-                                # タスク選択モードフラグを再設定
+                                # 現在のモードを判定
                                 import os
                                 select_flag = f"task_select_mode_{user_id}.flag"
-                                with open(select_flag, "w") as f:
-                                    f.write("mode=schedule")
-                                print(f"[修正処理] タスク選択モードフラグ再設定: {select_flag}")
+                                current_mode = "schedule"  # デフォルト
                                 
-                                # 今日のタスク一覧を取得して表示
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
-                                reply_text = task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
+                                # フラグファイルから現在のモードを読み取り
+                                try:
+                                    with open(select_flag, "r", encoding="utf-8") as f:
+                                        mode_content = f.read().strip()
+                                        if "mode=future_schedule" in mode_content:
+                                            current_mode = "future_schedule"
+                                        elif "mode=schedule" in mode_content:
+                                            current_mode = "schedule"
+                                except Exception:
+                                    pass
+                                
+                                print(f"[修正処理] 現在のモード: {current_mode}")
+                                
+                                if current_mode == "future_schedule":
+                                    # 未来タスク選択モードの場合：来週のタスク選択画面に戻る
+                                    future_tasks = task_service.get_user_future_tasks(user_id)
+                                    reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=True)
+                                    print(f"[修正処理] 未来タスク選択画面に戻る")
+                                else:
+                                    # 通常タスク選択モードの場合：今日のタスク選択画面に戻る
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
+                                    reply_text = task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
+                                    print(f"[修正処理] 今日のタスク選択画面に戻る")
 
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
