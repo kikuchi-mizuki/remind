@@ -141,6 +141,14 @@ class Database:
             )
         ''')
         
+        # notification_executionsテーブルの作成（重複実行防止用）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS notification_executions (
+                notification_type TEXT PRIMARY KEY,
+                last_execution_time TEXT NOT NULL
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         print(f"[init_database] 完了: {self.db_path}")
@@ -499,6 +507,51 @@ class Database:
             return None
         except Exception as e:
             print(f"Error getting token: {e}")
+            return None
+
+    def save_notification_execution(self, notification_type: str, execution_time: str) -> bool:
+        """通知実行時刻を保存"""
+        try:
+            print(f"[save_notification_execution] 開始: type={notification_type}, time={execution_time}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO notification_executions (notification_type, last_execution_time)
+                VALUES (?, ?)
+            ''', (notification_type, execution_time))
+            
+            conn.commit()
+            conn.close()
+            print(f"[save_notification_execution] 成功: type={notification_type}")
+            return True
+        except Exception as e:
+            print(f"Error saving notification execution: {e}")
+            return False
+
+    def get_last_notification_execution(self, notification_type: str) -> Optional[str]:
+        """最後の通知実行時刻を取得"""
+        try:
+            print(f"[get_last_notification_execution] 開始: type={notification_type}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT last_execution_time
+                FROM notification_executions
+                WHERE notification_type = ?
+            ''', (notification_type,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                print(f"[get_last_notification_execution] 成功: type={notification_type}, time={row[0]}")
+                return row[0]
+            print(f"[get_last_notification_execution] 実行履歴なし: type={notification_type}")
+            return None
+        except Exception as e:
+            print(f"Error getting last notification execution: {e}")
             return None
 
 # グローバルデータベースインスタンス

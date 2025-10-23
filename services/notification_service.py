@@ -35,16 +35,30 @@ class NotificationService:
         self.db = init_db()
 
     def _check_duplicate_execution(self, notification_type: str, cooldown_minutes: int = 5) -> bool:
-        """重複実行をチェックし、必要に応じて実行を防ぐ"""
-        now = datetime.now()
-        last_time = self.last_notification_times.get(notification_type)
-        
-        if last_time and (now - last_time).total_seconds() < cooldown_minutes * 60:
-            print(f"[_check_duplicate_execution] {notification_type} の重複実行を防止: 前回実行から {(now - last_time).total_seconds():.1f}秒")
-            return True
-        
-        self.last_notification_times[notification_type] = now
-        return False
+        """重複実行をチェックし、必要に応じて実行を防ぐ（DBベース）"""
+        try:
+            from models.database import db
+            now = datetime.now()
+            
+            # DBから最後の実行時刻を取得
+            last_execution = db.get_last_notification_execution(notification_type)
+            
+            if last_execution:
+                last_time = datetime.fromisoformat(last_execution)
+                time_diff = (now - last_time).total_seconds()
+                
+                if time_diff < cooldown_minutes * 60:
+                    print(f"[_check_duplicate_execution] {notification_type} の重複実行を防止: 前回実行から {time_diff:.1f}秒")
+                    return True
+            
+            # 実行時刻をDBに保存
+            db.save_notification_execution(notification_type, now.isoformat())
+            return False
+            
+        except Exception as e:
+            print(f"[_check_duplicate_execution] エラー: {e}")
+            # エラーの場合は実行を許可（フォールバック）
+            return False
 
     def send_daily_task_notification(self):
         """毎日のタスク通知を送信（タスク一覧コマンドと同じ形式）"""
@@ -245,6 +259,11 @@ class NotificationService:
 
     def start_scheduler(self):
         """スケジューラーを開始"""
+        # 重複実行防止チェック（DBベース）
+        if self._check_duplicate_execution("scheduler_start", cooldown_minutes=1):
+            print(f"[start_scheduler] スケジューラー起動の重複実行を防止: {datetime.now()}")
+            return
+            
         if self.is_running:
             print(f"[start_scheduler] スケジューラーは既に動作中: {datetime.now()}")
             return
