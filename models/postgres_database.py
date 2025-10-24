@@ -446,6 +446,74 @@ class PostgreSQLDatabase:
         except Exception as e:
             print(f"Error adding task: {e}")
             return False
+    
+    def create_task(self, task_id: str, user_id: str, name: str, duration_minutes: int, 
+                   repeat: bool = False, due_date: str = None, priority: str = "normal", 
+                   task_type: str = "daily") -> bool:
+        """タスクを作成（SQLite互換性）"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        task_model = TaskModel(
+                            task_id=task_id,
+                            user_id=user_id,
+                            name=name,
+                            duration_minutes=duration_minutes,
+                            repeat=repeat,
+                            status="active",
+                            due_date=due_date,
+                            priority=priority,
+                            task_type=task_type
+                        )
+                        session.add(task_model)
+                        session.commit()
+                        session.close()
+                        print(f"[create_task] PostgreSQL作成成功: {task_id}")
+                        return True
+                    except Exception as e:
+                        session.rollback()
+                        session.close()
+                        print(f"[create_task] PostgreSQL作成エラー: {e}")
+                        return False
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.create_task(task_id, user_id, name, duration_minutes, 
+                                                repeat, due_date, priority, task_type)
+        except Exception as e:
+            print(f"Error creating task: {e}")
+            return False
+    
+    def delete_task(self, task_id: str) -> bool:
+        """タスクを削除（SQLite互換性）"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        task = session.query(TaskModel).filter_by(task_id=task_id).first()
+                        if task:
+                            session.delete(task)
+                            session.commit()
+                            session.close()
+                            print(f"[delete_task] PostgreSQL削除成功: {task_id}")
+                            return True
+                        else:
+                            session.close()
+                            print(f"[delete_task] PostgreSQLタスクが見つかりません: {task_id}")
+                            return False
+                    except Exception as e:
+                        session.rollback()
+                        session.close()
+                        print(f"[delete_task] PostgreSQL削除エラー: {e}")
+                        return False
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.delete_task(task_id)
+        except Exception as e:
+            print(f"Error deleting task: {e}")
+            return False
 
 # グローバルデータベースインスタンス
 postgres_db = None
