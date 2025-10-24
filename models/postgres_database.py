@@ -447,9 +447,7 @@ class PostgreSQLDatabase:
             print(f"Error adding task: {e}")
             return False
     
-    def create_task(self, task_id: str, user_id: str, name: str, duration_minutes: int, 
-                   repeat: bool = False, due_date: str = None, priority: str = "normal", 
-                   task_type: str = "daily") -> bool:
+    def create_task(self, task: Task) -> bool:
         """タスクを作成（SQLite互換性）"""
         try:
             if self.Session:
@@ -457,20 +455,21 @@ class PostgreSQLDatabase:
                 if session:
                     try:
                         task_model = TaskModel(
-                            task_id=task_id,
-                            user_id=user_id,
-                            name=name,
-                            duration_minutes=duration_minutes,
-                            repeat=repeat,
-                            status="active",
-                            due_date=due_date,
-                            priority=priority,
-                            task_type=task_type
+                            task_id=task.task_id,
+                            user_id=task.user_id,
+                            name=task.name,
+                            duration_minutes=task.duration_minutes,
+                            repeat=task.repeat,
+                            status=task.status,
+                            created_at=task.created_at,
+                            due_date=task.due_date,
+                            priority=task.priority,
+                            task_type=task.task_type
                         )
                         session.add(task_model)
                         session.commit()
                         session.close()
-                        print(f"[create_task] PostgreSQL作成成功: {task_id}")
+                        print(f"[create_task] PostgreSQL作成成功: {task.task_id}")
                         return True
                     except Exception as e:
                         session.rollback()
@@ -479,8 +478,7 @@ class PostgreSQLDatabase:
                         return False
             else:
                 # SQLiteフォールバック
-                return self.sqlite_db.create_task(task_id, user_id, name, duration_minutes, 
-                                                repeat, due_date, priority, task_type)
+                return self.sqlite_db.create_task(task)
         except Exception as e:
             print(f"Error creating task: {e}")
             return False
