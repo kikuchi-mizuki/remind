@@ -37,6 +37,11 @@ class NotificationService:
     def _check_duplicate_execution(self, notification_type: str, cooldown_minutes: int = 5) -> bool:
         """重複実行をチェックし、必要に応じて実行を防ぐ（DBベース）"""
         try:
+            # 環境変数で重複実行防止を無効化できるようにする
+            if os.getenv('DISABLE_DUPLICATE_PREVENTION') == 'true':
+                print(f"[_check_duplicate_execution] 重複実行防止を無効化: {notification_type}")
+                return False
+                
             from models.database import db
             now = datetime.now()
             
@@ -64,13 +69,18 @@ class NotificationService:
         """毎日のタスク通知を送信（タスク一覧コマンドと同じ形式）"""
         print(f"[send_daily_task_notification] 開始: {datetime.now()}")
         
-        # 重複実行防止チェック
-        if self._check_duplicate_execution("daily_task_notification", cooldown_minutes=5):
+        # 重複実行防止チェック（クールダウンを短縮）
+        if self._check_duplicate_execution("daily_task_notification", cooldown_minutes=1):
             print(f"[send_daily_task_notification] 重複実行をスキップ")
             return
         
         user_ids = self._get_active_user_ids()
         print(f"[send_daily_task_notification] ユーザー数: {len(user_ids)}")
+        
+        if not user_ids:
+            print(f"[send_daily_task_notification] ⚠️  アクティブユーザーが見つかりません")
+            return
+            
         for user_id in user_ids:
             try:
                 print(f"[send_daily_task_notification] ユーザー {user_id} に送信中...")
@@ -351,9 +361,13 @@ class NotificationService:
         try:
             from models.database import init_db
             db_instance = init_db()
-            return db_instance.get_all_user_ids()
+            user_ids = db_instance.get_all_user_ids()
+            print(f"[_get_active_user_ids] 取得したユーザーID: {user_ids}")
+            return user_ids
         except Exception as e:
-            print(f"Error getting active user ids: {e}")
+            print(f"[_get_active_user_ids] エラー: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _send_weekly_reports_to_all_users(self):
