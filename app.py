@@ -59,7 +59,13 @@ else:
 def index():
     return "LINEタスクスケジューリングBot is running!", 200
 
-print(f"[app.py] データベースインスタンス確認: {db.db_path if db else 'None'}")
+# データベースインスタンスの確認
+if hasattr(db, 'db_path'):
+    print(f"[app.py] データベースインスタンス確認: {db.db_path}")
+elif hasattr(db, 'engine'):
+    print(f"[app.py] PostgreSQLデータベースインスタンス確認: {type(db).__name__}")
+else:
+    print(f"[app.py] データベースインスタンス確認: {type(db).__name__}")
 
 task_service = TaskService(db)
 calendar_service = CalendarService()

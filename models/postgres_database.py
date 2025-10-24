@@ -69,6 +69,7 @@ class PostgreSQLDatabase:
     def __init__(self):
         self.engine = None
         self.Session = None
+        self.db_path = "PostgreSQL"  # 互換性のための属性
         self._init_database()
     
     def _init_database(self):
@@ -366,6 +367,85 @@ class PostgreSQLDatabase:
         except Exception as e:
             print(f"Error getting last notification execution: {e}")
             return None
+    
+    # SQLite互換性メソッド
+    def get_all_tasks(self, user_id: str = None):
+        """全タスクを取得（SQLite互換性）"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        query = session.query(TaskModel)
+                        if user_id:
+                            query = query.filter_by(user_id=user_id)
+                        tasks = query.all()
+                        session.close()
+                        
+                        # TaskModelをTaskオブジェクトに変換
+                        result = []
+                        for task_model in tasks:
+                            task = Task(
+                                task_id=task_model.task_id,
+                                user_id=task_model.user_id,
+                                name=task_model.name,
+                                duration_minutes=task_model.duration_minutes,
+                                repeat=task_model.repeat,
+                                status=task_model.status,
+                                created_at=task_model.created_at,
+                                due_date=task_model.due_date,
+                                priority=task_model.priority,
+                                task_type=task_model.task_type
+                            )
+                            result.append(task)
+                        
+                        return result
+                    except Exception as e:
+                        session.close()
+                        print(f"[get_all_tasks] PostgreSQL取得エラー: {e}")
+                        return []
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_all_tasks(user_id)
+        except Exception as e:
+            print(f"Error getting all tasks: {e}")
+            return []
+    
+    def add_task(self, task: Task) -> bool:
+        """タスクを追加（SQLite互換性）"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        task_model = TaskModel(
+                            task_id=task.task_id,
+                            user_id=task.user_id,
+                            name=task.name,
+                            duration_minutes=task.duration_minutes,
+                            repeat=task.repeat,
+                            status=task.status,
+                            created_at=task.created_at,
+                            due_date=task.due_date,
+                            priority=task.priority,
+                            task_type=task.task_type
+                        )
+                        session.add(task_model)
+                        session.commit()
+                        session.close()
+                        print(f"[add_task] PostgreSQL追加成功: {task.task_id}")
+                        return True
+                    except Exception as e:
+                        session.rollback()
+                        session.close()
+                        print(f"[add_task] PostgreSQL追加エラー: {e}")
+                        return False
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.add_task(task)
+        except Exception as e:
+            print(f"Error adding task: {e}")
+            return False
 
 # グローバルデータベースインスタンス
 postgres_db = None
