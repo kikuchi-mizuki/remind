@@ -87,13 +87,56 @@ class PostgreSQLDatabase:
             self.Session = sessionmaker(bind=self.engine)
             
             # テーブル作成
+            print("[PostgreSQLDatabase] テーブル作成開始...")
             Base.metadata.create_all(self.engine)
+            print("[PostgreSQLDatabase] テーブル作成完了")
+            
+            # 作成されたテーブルを確認
+            from sqlalchemy import inspect
+            inspector = inspect(self.engine)
+            tables = inspector.get_table_names()
+            print(f"[PostgreSQLDatabase] 作成されたテーブル: {tables}")
+            
             print("[PostgreSQLDatabase] PostgreSQL接続完了")
+            
+            # テーブル作成を確実にするため、明示的に実行
+            self._ensure_tables_exist()
             
         except Exception as e:
             print(f"[PostgreSQLDatabase] PostgreSQL接続エラー: {e}")
             print("[PostgreSQLDatabase] SQLiteにフォールバック")
             self._fallback_to_sqlite()
+    
+    def _ensure_tables_exist(self):
+        """テーブルの存在を確認し、必要に応じて作成"""
+        try:
+            if not self.engine:
+                print("[_ensure_tables_exist] エンジンが初期化されていません")
+                return
+            
+            # 各テーブルを明示的に作成
+            tables_to_create = [
+                TaskModel.__table__,
+                TokenModel.__table__,
+                NotificationExecutionModel.__table__,
+                UserChannelModel.__table__
+            ]
+            
+            for table in tables_to_create:
+                try:
+                    table.create(self.engine, checkfirst=True)
+                    print(f"[_ensure_tables_exist] テーブル作成確認: {table.name}")
+                except Exception as e:
+                    print(f"[_ensure_tables_exist] テーブル作成エラー {table.name}: {e}")
+            
+            # 最終確認
+            from sqlalchemy import inspect
+            inspector = inspect(self.engine)
+            tables = inspector.get_table_names()
+            print(f"[_ensure_tables_exist] 最終テーブル一覧: {tables}")
+            
+        except Exception as e:
+            print(f"[_ensure_tables_exist] テーブル確認エラー: {e}")
     
     def _fallback_to_sqlite(self):
         """SQLiteにフォールバック"""

@@ -41,6 +41,19 @@ print(f"[app.py] データベース初期化完了: {datetime.now()}")
 
 from models.database import db
 
+# PostgreSQLテーブル作成の確認
+if hasattr(db, 'Session') and db.Session:
+    print("[app.py] PostgreSQLデータベースを使用中")
+    try:
+        # テーブル作成を確実にする
+        if hasattr(db, '_ensure_tables_exist'):
+            db._ensure_tables_exist()
+        print("[app.py] PostgreSQLテーブル作成確認完了")
+    except Exception as e:
+        print(f"[app.py] PostgreSQLテーブル作成確認エラー: {e}")
+else:
+    print("[app.py] SQLiteデータベースを使用中")
+
 # ルートパスを追加
 @app.route("/")
 def index():
