@@ -19,12 +19,10 @@ class NotificationService:
         import os
         print(f"[DEBUG] (notification_service.py) LINE_CHANNEL_ACCESS_TOKEN: {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}")
         print(f"[DEBUG] (notification_service.py) os.environ: {os.environ}")
-        if not os.getenv('LINE_CHANNEL_ACCESS_TOKEN'):
-            print("[ERROR] LINE_CHANNEL_ACCESS_TOKENが環境変数に設定されていません！")
-        # --- v3インスタンス生成 ---
-        configuration = Configuration(access_token=os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
-        api_client = ApiClient(configuration)
-        self.line_bot_api = MessagingApi(api_client)
+        
+        # マルチテナント対応: MultiTenantServiceを使用
+        from services.multi_tenant_service import MultiTenantService
+        self.multi_tenant_service = MultiTenantService()
         self.task_service = TaskService()
         self.scheduler_thread = None
         self.is_running = False
@@ -33,6 +31,9 @@ class NotificationService:
         # データベース初期化
         from models.database import init_db
         self.db = init_db()
+        
+        print(f"[NotificationService] マルチテナント対応で初期化完了")
+        print(f"[NotificationService] 利用可能チャネル: {self.multi_tenant_service.get_all_channel_ids()}")
 
     def _check_duplicate_execution(self, notification_type: str, cooldown_minutes: int = 5) -> bool:
         """重複実行をチェックし、必要に応じて実行を防ぐ（DBベース）"""
@@ -84,13 +85,81 @@ class NotificationService:
         for user_id in user_ids:
             try:
                 print(f"[send_daily_task_notification] ユーザー {user_id} に送信中...")
-                self._send_task_notification_to_user(user_id)
+                self._send_task_notification_to_user_multi_tenant(user_id)
                 print(f"[send_daily_task_notification] ユーザー {user_id} に送信完了")
             except Exception as e:
                 print(f"[send_daily_task_notification] ユーザー {user_id} への送信エラー: {e}")
                 import traceback
                 traceback.print_exc()
         print(f"[send_daily_task_notification] 完了: {datetime.now()}")
+
+    def _send_task_notification_to_user_multi_tenant(self, user_id: str):
+        """マルチテナント対応のタスク通知送信"""
+        try:
+            # ユーザーのチャネルIDを取得（データベースから）
+            user_channel_id = self._get_user_channel_id(user_id)
+            if not user_channel_id:
+                print(f"[_send_task_notification_to_user_multi_tenant] ユーザー {user_id} のチャネルIDが見つかりません")
+                return
+            
+            # チャネルIDに対応するMessagingApiクライアントを取得
+            line_bot_api = self.multi_tenant_service.get_messaging_api(user_channel_id)
+            if not line_bot_api:
+                print(f"[_send_task_notification_to_user_multi_tenant] チャネル {user_channel_id} のAPIクライアントが取得できません")
+                return
+            
+            # タスク一覧を取得して通知メッセージを作成
+            tasks = self.task_service.get_user_tasks(user_id)
+            today_tasks = [task for task in tasks if task.due_date == datetime.now().strftime('%Y-%m-%d')]
+            
+            if not today_tasks:
+                message = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n今日のタスクはありません。\n＝＝＝＝＝＝"
+            else:
+                message = self.task_service.format_task_list(today_tasks, show_select_guide=True)
+            
+            # 通知送信
+            line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
+            print(f"[_send_task_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) に送信完了")
+            
+        except Exception as e:
+            print(f"[_send_task_notification_to_user_multi_tenant] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _get_user_channel_id(self, user_id: str) -> str:
+        """ユーザーのチャネルIDを取得"""
+        try:
+            # データベースからユーザーのチャネルIDを取得
+            from models.database import db
+            user_channel_id = db.get_user_channel(user_id)
+            
+            if user_channel_id:
+                print(f"[_get_user_channel_id] ユーザー {user_id} のチャネルID: {user_channel_id}")
+                return user_channel_id
+            
+            # データベースにチャネルIDが保存されていない場合、利用可能なチャネルから選択
+            available_channels = self.multi_tenant_service.get_all_channel_ids()
+            print(f"[_get_user_channel_id] 利用可能チャネル: {available_channels}")
+            
+            # デフォルトチャネルを優先
+            if 'default' in available_channels:
+                # デフォルトチャネルをデータベースに保存
+                db.save_user_channel(user_id, 'default')
+                return 'default'
+            
+            # 最初のチャネルを使用
+            if available_channels:
+                selected_channel = available_channels[0]
+                # 選択したチャネルをデータベースに保存
+                db.save_user_channel(user_id, selected_channel)
+                return selected_channel
+            
+            print(f"[_get_user_channel_id] 利用可能なチャネルが見つかりません")
+            return None
+            
+        except Exception as e:
+            print(f"[_get_user_channel_id] エラー: {e}")
+            return None
 
     def _is_google_authenticated(self, user_id):
         """tokenの存在と有効性をDBでチェック"""

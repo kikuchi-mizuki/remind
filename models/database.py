@@ -149,6 +149,15 @@ class Database:
             )
         ''')
         
+        # user_channelsテーブルの作成（ユーザーとチャネルIDの関連付け）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_channels (
+                user_id TEXT PRIMARY KEY,
+                channel_id TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         print(f"[init_database] 完了: {self.db_path}")
@@ -552,6 +561,51 @@ class Database:
             return None
         except Exception as e:
             print(f"Error getting last notification execution: {e}")
+            return None
+
+    def save_user_channel(self, user_id: str, channel_id: str) -> bool:
+        """ユーザーのチャネルIDを保存"""
+        try:
+            print(f"[save_user_channel] 開始: user_id={user_id}, channel_id={channel_id}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT OR REPLACE INTO user_channels (user_id, channel_id)
+                VALUES (?, ?)
+            ''', (user_id, channel_id))
+            
+            conn.commit()
+            conn.close()
+            print(f"[save_user_channel] 成功: user_id={user_id}, channel_id={channel_id}")
+            return True
+        except Exception as e:
+            print(f"Error saving user channel: {e}")
+            return False
+
+    def get_user_channel(self, user_id: str) -> Optional[str]:
+        """ユーザーのチャネルIDを取得"""
+        try:
+            print(f"[get_user_channel] 開始: user_id={user_id}")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT channel_id
+                FROM user_channels
+                WHERE user_id = ?
+            ''', (user_id,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                print(f"[get_user_channel] 成功: user_id={user_id}, channel_id={row[0]}")
+                return row[0]
+            print(f"[get_user_channel] チャネルIDなし: user_id={user_id}")
+            return None
+        except Exception as e:
+            print(f"Error getting user channel: {e}")
             return None
 
 # グローバルデータベースインスタンス

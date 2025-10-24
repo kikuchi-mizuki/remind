@@ -525,6 +525,11 @@ def callback():
                     from models.database import db
 
                     db.register_user(user_id)
+                    
+                    # ユーザーのチャネルIDを保存（マルチテナント対応）
+                    if destination:
+                        db.save_user_channel(user_id, destination)
+                        print(f"[callback] ユーザー {user_id} のチャネルID {destination} を保存")
 
                     # ここで認証未済なら認証案内のみ返す
                     if not is_google_authenticated(user_id):
