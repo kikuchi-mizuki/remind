@@ -612,11 +612,26 @@ class Database:
 db = None
 
 def init_db():
-    """データベースの初期化"""
+    """データベースの初期化（PostgreSQL優先、SQLiteフォールバック）"""
     global db
     if db is None:
+        # PostgreSQLが利用可能かチェック
+        if os.getenv('DATABASE_URL'):
+            try:
+                from models.postgres_database import init_postgres_db
+                postgres_db = init_postgres_db()
+                if postgres_db.Session:
+                    print("[init_db] PostgreSQLデータベースを使用")
+                    db = postgres_db
+                    return db
+            except Exception as e:
+                print(f"[init_db] PostgreSQL初期化エラー: {e}")
+                print("[init_db] SQLiteにフォールバック")
+        
+        # SQLiteフォールバック
+        print("[init_db] SQLiteデータベースを使用")
         db = Database()
         print(f"[init_db] 新しいデータベースインスタンスを作成: {db.db_path}")
     else:
-        print(f"[init_db] 既存のデータベースインスタンスを再利用: {db.db_path}")
+        print(f"[init_db] 既存のデータベースインスタンスを再利用")
     return db 
