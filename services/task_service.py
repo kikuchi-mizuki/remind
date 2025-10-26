@@ -422,6 +422,21 @@ class TaskService:
             jst = pytz.timezone('Asia/Tokyo')
             today = datetime.now(jst)
             today_str = today.strftime('%Y-%m-%d')
+            
+            # 期日が今日の場合は強制的に緊急と判定
+            if due_date == today_str:
+                print(f"[_determine_priority] 本日締切のため緊急判定: {task_name}")
+                # 重要度を判定してAまたはBを決定
+                important_keywords = ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要', '要件定義', 'システム', 'プロジェクト']
+                is_important = any(keyword in task_name for keyword in important_keywords)
+                
+                if is_important:
+                    print(f"[_determine_priority] 本日締切+重要 → A (urgent_important)")
+                    return "urgent_important"
+                else:
+                    print(f"[_determine_priority] 本日締切+重要でない → B (urgent_not_important)")
+                    return "urgent_not_important"
+            
             # 期日までの日数を計算
             if due_date:
                 # due_date_objをJSTタイムゾーン付きにする
@@ -430,6 +445,7 @@ class TaskService:
                 days_until_due = (due_date_obj.date() - today.date()).days
             else:
                 days_until_due = 7  # 期日がない場合は7日後と仮定
+            
             # AIに優先度判定を依頼
             prompt = f"""
             以下のタスクの緊急度と重要度を判定し、適切な優先度カテゴリを選択してください。
@@ -468,19 +484,28 @@ class TaskService:
         # 緊急度のキーワード
         urgent_keywords = ['緊急', '急ぎ', 'すぐ', '今すぐ', '至急', 'ASAP', 'urgent', 'immediate', 'deadline', '締切']
         # 重要度のキーワード
-        important_keywords = ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要']
+        important_keywords = ['重要', '大切', '必須', '必要', 'essential', 'important', 'critical', 'key', '主要', '要件定義', 'システム', 'プロジェクト']
         
         is_urgent = any(keyword in task_name for keyword in urgent_keywords)
         is_important = any(keyword in task_name for keyword in important_keywords)
         
-        # 期日が今日または明日の場合は緊急と判定
+        # 期日が今日の場合は強制的に緊急と判定
         if due_date:
             jst = pytz.timezone('Asia/Tokyo')
             today = datetime.now(jst)
             today_str = today.strftime('%Y-%m-%d')
             tomorrow_str = (today + timedelta(days=1)).strftime('%Y-%m-%d')
             
-            if due_date in [today_str, tomorrow_str]:
+            if due_date == today_str:
+                print(f"[_simple_priority_determination] 本日締切のため緊急判定: {task_name}")
+                # 重要度を判定してAまたはBを決定
+                if is_important:
+                    print(f"[_simple_priority_determination] 本日締切+重要 → A (urgent_important)")
+                    return "urgent_important"
+                else:
+                    print(f"[_simple_priority_determination] 本日締切+重要でない → B (urgent_not_important)")
+                    return "urgent_not_important"
+            elif due_date == tomorrow_str:
                 is_urgent = True
         
         # 優先度判定
