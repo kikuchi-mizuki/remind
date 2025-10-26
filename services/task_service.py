@@ -271,18 +271,6 @@ class TaskService:
         jst = pytz.timezone('Asia/Tokyo')
         today = datetime.now(jst)
         
-        # まずAIによる解析を試行
-        try:
-            from services.openai_service import OpenAIService
-            ai_service = OpenAIService()
-            ai_result = ai_service.extract_due_date_from_text(text)
-            if ai_result:
-                print(f"[_parse_natural_date_expression] AI解析結果: {ai_result}")
-                return ai_result
-        except Exception as e:
-            print(f"[_parse_natural_date_expression] AI解析エラー: {e}")
-            # AI解析に失敗した場合は従来の処理を続行
-        
         # 週の曜日マッピング
         weekday_map = {
             '月': 0, '火': 1, '水': 2, '木': 3, '金': 4, '土': 5, '日': 6,
@@ -314,6 +302,14 @@ class TaskService:
         
         # 来週の処理
         if '来週' in text:
+            # 来週中の場合（来週の日曜日を期限とする）
+            if '来週中' in text:
+                # 来週の日曜日を計算（日曜日は6）
+                days_ahead = 6 - today.weekday() + 7
+                target_date = today + timedelta(days=days_ahead)
+                print(f"[DEBUG] 来週中: 今日={today.strftime('%Y-%m-%d %A')}, 来週日曜日={target_date.strftime('%Y-%m-%d %A')}")
+                return target_date.strftime('%Y-%m-%d')
+            
             for weekday_name, weekday_num in weekday_map.items():
                 if weekday_name in text:
                     # 来週の該当曜日を計算
@@ -365,6 +361,18 @@ class TaskService:
                 # 翌々月1日の前日
                 target_date = datetime(today.year, today.month + 2, 1) - timedelta(days=1)
             return target_date.strftime('%Y-%m-%d')
+        
+        # 手動処理で見つからなかった場合、AIによる解析を試行
+        try:
+            from services.openai_service import OpenAIService
+            ai_service = OpenAIService()
+            ai_result = ai_service.extract_due_date_from_text(text)
+            if ai_result:
+                print(f"[_parse_natural_date_expression] AI解析結果: {ai_result}")
+                return ai_result
+        except Exception as e:
+            print(f"[_parse_natural_date_expression] AI解析エラー: {e}")
+            # AI解析に失敗した場合はNoneを返す
         
         return None
 
