@@ -557,7 +557,7 @@ class NotificationService:
         print(f"[send_carryover_check] 開始: {datetime.now()}")
         
         # 重複実行防止チェック
-        if self._check_duplicate_execution("carryover_check", cooldown_minutes=5):
+        if self._check_duplicate_execution("carryover_check", cooldown_minutes=1):
             print(f"[send_carryover_check] 重複実行をスキップ")
             return
         
