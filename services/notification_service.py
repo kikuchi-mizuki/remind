@@ -32,6 +32,16 @@ class NotificationService:
         from models.database import init_db
         self.db = init_db()
         
+        # LINE Bot API初期化
+        channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
+        if channel_access_token:
+            configuration = Configuration(access_token=channel_access_token)
+            api_client = ApiClient(configuration)
+            self.line_bot_api = MessagingApi(api_client)
+        else:
+            self.line_bot_api = None
+            print("[NotificationService] LINE_CHANNEL_ACCESS_TOKENが設定されていません")
+        
         print(f"[NotificationService] マルチテナント対応で初期化完了")
         print(f"[NotificationService] 利用可能チャネル: {self.multi_tenant_service.get_all_channel_ids()}")
 
