@@ -1582,16 +1582,17 @@ def callback():
                         elif user_message.strip() == "21時テスト":
                             try:
                                 notification_service.send_carryover_check()
-                                reply_text = "21時テスト通知を送信しました"
+                                # 実際の通知内容も送信するため、確認メッセージは送信しない
+                                continue
                             except Exception as e:
                                 reply_text = f"21時テストエラー: {e}"
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
                                 )
-                            )
-                            continue
+                                continue
                         elif user_message.strip() == "日曜18時テスト":
                             try:
                                 notification_service.send_future_task_selection()
