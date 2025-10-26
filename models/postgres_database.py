@@ -47,6 +47,25 @@ class UserChannelModel(Base):
     channel_id = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.now)
 
+class ScheduleProposalModel(Base):
+    """スケジュール提案モデル（SQLAlchemy）"""
+    __tablename__ = 'schedule_proposals'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String, nullable=False)
+    proposal_data = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+class UserSettingsModel(Base):
+    """ユーザー設定モデル（SQLAlchemy）"""
+    __tablename__ = 'user_settings'
+    
+    user_id = Column(String, primary_key=True)
+    calendar_id = Column(String)
+    notification_time = Column(String, default="08:00")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
 class Task:
     """タスクモデルクラス（互換性維持）"""
     def __init__(self, task_id: str, user_id: str, name: str, duration_minutes: int, 
@@ -120,7 +139,9 @@ class PostgreSQLDatabase:
                 TaskModel.__table__,
                 TokenModel.__table__,
                 NotificationExecutionModel.__table__,
-                UserChannelModel.__table__
+                UserChannelModel.__table__,
+                ScheduleProposalModel.__table__,
+                UserSettingsModel.__table__
             ]
             
             for table in tables_to_create:
@@ -706,24 +727,61 @@ class PostgreSQLDatabase:
             return False
 
     def save_schedule_proposal(self, user_id: str, proposal_data: dict) -> bool:
-        """スケジュール提案を保存（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        """スケジュール提案を保存"""
         try:
             if self.Session:
-                # PostgreSQLでは未実装のため、SQLiteフォールバック
-                return self.sqlite_db.save_schedule_proposal(user_id, proposal_data)
+                session = self._get_session()
+                if session:
+                    try:
+                        # 古い提案を削除
+                        session.query(ScheduleProposalModel).filter_by(user_id=user_id).delete()
+                        
+                        # 新しい提案を保存
+                        proposal_json = json.dumps(proposal_data, ensure_ascii=False)
+                        proposal = ScheduleProposalModel(
+                            user_id=user_id,
+                            proposal_data=proposal_json
+                        )
+                        session.add(proposal)
+                        session.commit()
+                        session.close()
+                        print(f"[save_schedule_proposal] PostgreSQL保存成功: user_id={user_id}")
+                        return True
+                    except Exception as e:
+                        session.rollback()
+                        session.close()
+                        print(f"[save_schedule_proposal] PostgreSQL保存エラー: {e}")
+                        return False
             else:
+                # SQLiteフォールバック
                 return self.sqlite_db.save_schedule_proposal(user_id, proposal_data)
         except Exception as e:
             print(f"Error saving schedule proposal: {e}")
             return False
 
     def get_schedule_proposal(self, user_id: str) -> Optional[dict]:
-        """スケジュール提案を取得（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        """スケジュール提案を取得"""
         try:
             if self.Session:
-                # PostgreSQLでは未実装のため、SQLiteフォールバック
-                return self.sqlite_db.get_schedule_proposal(user_id)
+                session = self._get_session()
+                if session:
+                    try:
+                        proposal = session.query(ScheduleProposalModel).filter_by(user_id=user_id).order_by(ScheduleProposalModel.created_at.desc()).first()
+                        session.close()
+                        
+                        if proposal:
+                            proposal_data = json.loads(proposal.proposal_data)
+                            print(f"[get_schedule_proposal] PostgreSQL取得成功: user_id={user_id}")
+                            return proposal_data
+                        else:
+                            print(f"[get_schedule_proposal] PostgreSQL提案なし: user_id={user_id}")
+                            return None
+                    except Exception as e:
+                        session.close()
+                        print(f"[get_schedule_proposal] PostgreSQL取得エラー: {e}")
+                        return None
             else:
+                # SQLiteフォールバック
                 return self.sqlite_db.get_schedule_proposal(user_id)
         except Exception as e:
             print(f"Error getting schedule proposal: {e}")
@@ -731,24 +789,68 @@ class PostgreSQLDatabase:
 
     def save_user_settings(self, user_id: str, calendar_id: Optional[str] = None, 
                           notification_time: str = "08:00") -> bool:
-        """ユーザー設定を保存（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        """ユーザー設定を保存"""
         try:
             if self.Session:
-                # PostgreSQLでは未実装のため、SQLiteフォールバック
-                return self.sqlite_db.save_user_settings(user_id, calendar_id, notification_time)
+                session = self._get_session()
+                if session:
+                    try:
+                        # 既存の設定を更新または新規作成
+                        settings = session.query(UserSettingsModel).filter_by(user_id=user_id).first()
+                        if settings:
+                            settings.calendar_id = calendar_id
+                            settings.notification_time = notification_time
+                            settings.updated_at = datetime.now()
+                        else:
+                            settings = UserSettingsModel(
+                                user_id=user_id,
+                                calendar_id=calendar_id,
+                                notification_time=notification_time
+                            )
+                            session.add(settings)
+                        
+                        session.commit()
+                        session.close()
+                        print(f"[save_user_settings] PostgreSQL保存成功: user_id={user_id}")
+                        return True
+                    except Exception as e:
+                        session.rollback()
+                        session.close()
+                        print(f"[save_user_settings] PostgreSQL保存エラー: {e}")
+                        return False
             else:
+                # SQLiteフォールバック
                 return self.sqlite_db.save_user_settings(user_id, calendar_id, notification_time)
         except Exception as e:
             print(f"Error saving user settings: {e}")
             return False
 
     def get_user_settings(self, user_id: str) -> Optional[dict]:
-        """ユーザー設定を取得（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        """ユーザー設定を取得"""
         try:
             if self.Session:
-                # PostgreSQLでは未実装のため、SQLiteフォールバック
-                return self.sqlite_db.get_user_settings(user_id)
+                session = self._get_session()
+                if session:
+                    try:
+                        settings = session.query(UserSettingsModel).filter_by(user_id=user_id).first()
+                        session.close()
+                        
+                        if settings:
+                            result = {
+                                "calendar_id": settings.calendar_id,
+                                "notification_time": settings.notification_time
+                            }
+                            print(f"[get_user_settings] PostgreSQL取得成功: user_id={user_id}")
+                            return result
+                        else:
+                            print(f"[get_user_settings] PostgreSQL設定なし: user_id={user_id}")
+                            return None
+                    except Exception as e:
+                        session.close()
+                        print(f"[get_user_settings] PostgreSQL取得エラー: {e}")
+                        return None
             else:
+                # SQLiteフォールバック
                 return self.sqlite_db.get_user_settings(user_id)
         except Exception as e:
             print(f"Error getting user settings: {e}")
