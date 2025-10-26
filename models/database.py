@@ -40,8 +40,8 @@ class Database:
                     self.db_path = "/app/vol/tasks.db"
                     print(f"[Database] Railway環境（ボリューム有）: {self.db_path}")
                 else:
-                    # ボリュームがマウントされていない場合は/app直下に保存
-                    self.db_path = "/app/tasks.db"
+                    # ボリュームがマウントされていない場合は/tmpに保存
+                    self.db_path = "/tmp/tasks.db"
                     print(f"[Database] Railway環境（ボリューム無）: {self.db_path}")
             else:
                 self.db_path = "tasks.db"
@@ -624,8 +624,13 @@ def init_db():
                     print("[init_db] PostgreSQLデータベースを使用")
                     db = postgres_db
                     return db
+                else:
+                    print("[init_db] PostgreSQLセッションが作成されませんでした")
+                    print("[init_db] SQLiteにフォールバック")
             except Exception as e:
                 print(f"[init_db] PostgreSQL初期化エラー: {e}")
+                import traceback
+                traceback.print_exc()
                 print("[init_db] SQLiteにフォールバック")
         
         # SQLiteフォールバック
