@@ -592,6 +592,168 @@ class PostgreSQLDatabase:
             print(f"Error creating future task: {e}")
             return False
 
+    def get_user_future_tasks(self, user_id: str, status: str = "active") -> List[Task]:
+        """ユーザーの未来タスク一覧を取得"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        tasks = session.query(TaskModel).filter_by(
+                            user_id=user_id, 
+                            status=status, 
+                            task_type='future'
+                        ).all()
+                        session.close()
+                        
+                        # TaskModelをTaskオブジェクトに変換
+                        result = []
+                        for task_model in tasks:
+                            task = Task(
+                                task_id=task_model.task_id,
+                                user_id=task_model.user_id,
+                                name=task_model.name,
+                                duration_minutes=task_model.duration_minutes,
+                                repeat=task_model.repeat,
+                                status=task_model.status,
+                                created_at=task_model.created_at,
+                                due_date=task_model.due_date,
+                                priority=task_model.priority,
+                                task_type=task_model.task_type
+                            )
+                            result.append(task)
+                        
+                        print(f"[get_user_future_tasks] PostgreSQL取得成功: user_id={user_id}, status={status}, タスク数={len(result)}")
+                        return result
+                    except Exception as e:
+                        session.close()
+                        print(f"[get_user_future_tasks] PostgreSQL取得エラー: {e}")
+                        return []
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_user_future_tasks(user_id, status)
+        except Exception as e:
+            print(f"Error getting user future tasks: {e}")
+            return []
+
+    def get_task_by_id(self, task_id: str) -> Optional[Task]:
+        """タスクIDでタスクを取得"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        task_model = session.query(TaskModel).filter_by(task_id=task_id).first()
+                        session.close()
+                        
+                        if task_model:
+                            task = Task(
+                                task_id=task_model.task_id,
+                                user_id=task_model.user_id,
+                                name=task_model.name,
+                                duration_minutes=task_model.duration_minutes,
+                                repeat=task_model.repeat,
+                                status=task_model.status,
+                                created_at=task_model.created_at,
+                                due_date=task_model.due_date,
+                                priority=task_model.priority,
+                                task_type=task_model.task_type
+                            )
+                            print(f"[get_task_by_id] PostgreSQL取得成功: task_id={task_id}")
+                            return task
+                        else:
+                            print(f"[get_task_by_id] PostgreSQLタスクが見つかりません: task_id={task_id}")
+                            return None
+                    except Exception as e:
+                        session.close()
+                        print(f"[get_task_by_id] PostgreSQL取得エラー: {e}")
+                        return None
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_task_by_id(task_id)
+        except Exception as e:
+            print(f"Error getting task by id: {e}")
+            return None
+
+    def update_task_status(self, task_id: str, status: str) -> bool:
+        """タスクのステータスを更新"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        task = session.query(TaskModel).filter_by(task_id=task_id).first()
+                        if task:
+                            task.status = status
+                            session.commit()
+                            session.close()
+                            print(f"[update_task_status] PostgreSQL更新成功: task_id={task_id}, status={status}")
+                            return True
+                        else:
+                            session.close()
+                            print(f"[update_task_status] PostgreSQLタスクが見つかりません: task_id={task_id}")
+                            return False
+                    except Exception as e:
+                        session.rollback()
+                        session.close()
+                        print(f"[update_task_status] PostgreSQL更新エラー: {e}")
+                        return False
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.update_task_status(task_id, status)
+        except Exception as e:
+            print(f"Error updating task status: {e}")
+            return False
+
+    def save_schedule_proposal(self, user_id: str, proposal_data: dict) -> bool:
+        """スケジュール提案を保存（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        try:
+            if self.Session:
+                # PostgreSQLでは未実装のため、SQLiteフォールバック
+                return self.sqlite_db.save_schedule_proposal(user_id, proposal_data)
+            else:
+                return self.sqlite_db.save_schedule_proposal(user_id, proposal_data)
+        except Exception as e:
+            print(f"Error saving schedule proposal: {e}")
+            return False
+
+    def get_schedule_proposal(self, user_id: str) -> Optional[dict]:
+        """スケジュール提案を取得（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        try:
+            if self.Session:
+                # PostgreSQLでは未実装のため、SQLiteフォールバック
+                return self.sqlite_db.get_schedule_proposal(user_id)
+            else:
+                return self.sqlite_db.get_schedule_proposal(user_id)
+        except Exception as e:
+            print(f"Error getting schedule proposal: {e}")
+            return None
+
+    def save_user_settings(self, user_id: str, calendar_id: Optional[str] = None, 
+                          notification_time: str = "08:00") -> bool:
+        """ユーザー設定を保存（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        try:
+            if self.Session:
+                # PostgreSQLでは未実装のため、SQLiteフォールバック
+                return self.sqlite_db.save_user_settings(user_id, calendar_id, notification_time)
+            else:
+                return self.sqlite_db.save_user_settings(user_id, calendar_id, notification_time)
+        except Exception as e:
+            print(f"Error saving user settings: {e}")
+            return False
+
+    def get_user_settings(self, user_id: str) -> Optional[dict]:
+        """ユーザー設定を取得（PostgreSQLでは未実装、SQLiteフォールバック）"""
+        try:
+            if self.Session:
+                # PostgreSQLでは未実装のため、SQLiteフォールバック
+                return self.sqlite_db.get_user_settings(user_id)
+            else:
+                return self.sqlite_db.get_user_settings(user_id)
+        except Exception as e:
+            print(f"Error getting user settings: {e}")
+            return None
+
 # グローバルデータベースインスタンス
 postgres_db = None
 
