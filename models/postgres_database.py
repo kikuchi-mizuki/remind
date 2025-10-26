@@ -512,6 +512,46 @@ class PostgreSQLDatabase:
         except Exception as e:
             print(f"Error deleting task: {e}")
             return False
+    
+    def get_user_tasks(self, user_id: str) -> List[Task]:
+        """ユーザーのタスクを取得（SQLite互換性）"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        tasks = session.query(TaskModel).filter_by(user_id=user_id).all()
+                        session.close()
+                        
+                        # TaskModelをTaskオブジェクトに変換
+                        result = []
+                        for task_model in tasks:
+                            task = Task(
+                                task_id=task_model.task_id,
+                                user_id=task_model.user_id,
+                                name=task_model.name,
+                                duration_minutes=task_model.duration_minutes,
+                                repeat=task_model.repeat,
+                                status=task_model.status,
+                                created_at=task_model.created_at,
+                                due_date=task_model.due_date,
+                                priority=task_model.priority,
+                                task_type=task_model.task_type
+                            )
+                            result.append(task)
+                        
+                        print(f"[get_user_tasks] PostgreSQL取得成功: user_id={user_id}, タスク数={len(result)}")
+                        return result
+                    except Exception as e:
+                        session.close()
+                        print(f"[get_user_tasks] PostgreSQL取得エラー: {e}")
+                        return []
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_user_tasks(user_id)
+        except Exception as e:
+            print(f"Error getting user tasks: {e}")
+            return []
 
 # グローバルデータベースインスタンス
 postgres_db = None
