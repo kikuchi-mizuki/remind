@@ -513,14 +513,18 @@ class PostgreSQLDatabase:
             print(f"Error deleting task: {e}")
             return False
     
-    def get_user_tasks(self, user_id: str) -> List[Task]:
+    def get_user_tasks(self, user_id: str, status: str = "active", task_type: str = "daily") -> List[Task]:
         """ユーザーのタスクを取得（SQLite互換性）"""
         try:
             if self.Session:
                 session = self._get_session()
                 if session:
                     try:
-                        tasks = session.query(TaskModel).filter_by(user_id=user_id).all()
+                        tasks = session.query(TaskModel).filter_by(
+                            user_id=user_id, 
+                            status=status, 
+                            task_type=task_type
+                        ).all()
                         session.close()
                         
                         # TaskModelをTaskオブジェクトに変換
@@ -540,7 +544,7 @@ class PostgreSQLDatabase:
                             )
                             result.append(task)
                         
-                        print(f"[get_user_tasks] PostgreSQL取得成功: user_id={user_id}, タスク数={len(result)}")
+                        print(f"[get_user_tasks] PostgreSQL取得成功: user_id={user_id}, status={status}, task_type={task_type}, タスク数={len(result)}")
                         return result
                     except Exception as e:
                         session.close()
@@ -548,7 +552,7 @@ class PostgreSQLDatabase:
                         return []
             else:
                 # SQLiteフォールバック
-                return self.sqlite_db.get_user_tasks(user_id)
+                return self.sqlite_db.get_user_tasks(user_id, status, task_type)
         except Exception as e:
             print(f"Error getting user tasks: {e}")
             return []
