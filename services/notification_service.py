@@ -118,14 +118,27 @@ class NotificationService:
                 print(f"[_send_task_notification_to_user_multi_tenant] チャネル {user_channel_id} のAPIクライアントが取得できません")
                 return
             
-            # タスク一覧を取得して通知メッセージを作成
+            # タスク一覧を取得して通知メッセージを作成（8時通知では全てのタスクを表示）
             tasks = self.task_service.get_user_tasks(user_id)
-            today_tasks = [task for task in tasks if task.due_date == datetime.now().strftime('%Y-%m-%d')]
             
-            if not today_tasks:
-                message = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n今日のタスクはありません。\n＝＝＝＝＝＝"
-            else:
-                message = self.task_service.format_task_list(today_tasks, show_select_guide=True)
+            # 期限切れタスクを今日に移動
+            moved_count = self._move_overdue_tasks_to_today(user_id)
+            
+            # タスク選択モードフラグを作成
+            import os
+            select_flag = f"task_select_mode_{user_id}.flag"
+            with open(select_flag, "w") as f:
+                # 朝8時: スケジュール提案モード
+                f.write("mode=schedule")
+            print(f"[_send_task_notification_to_user_multi_tenant] タスク選択モードフラグ作成: {select_flag}")
+            
+            # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
+            morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
+            message = self.task_service.format_task_list(tasks, show_select_guide=True, guide_text=morning_guide)
+            
+            # 期限切れタスクが移動された場合は通知を追加
+            if moved_count > 0:
+                message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
             
             # 通知送信
             line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
@@ -314,12 +327,9 @@ class NotificationService:
                 f.write("mode=schedule")
             print(f"[send_daily_task_notification] タスク選択モードフラグ作成: {select_flag}")
 
-            # 今日のタスクのみを表示（朝8時は「今日やるタスク」ガイド）
+            # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
             morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
-            if today_tasks:
-                message = self.task_service.format_task_list(today_tasks, show_select_guide=True, guide_text=morning_guide)
-            else:
-                message = "📋 今日のタスク一覧\n＝＝＝＝＝＝\n本日分のタスクはありません。\n＝＝＝＝＝＝"
+            message = self.task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
             # 期限切れタスクが移動された場合は通知を追加
             if moved_count > 0:
                 message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
