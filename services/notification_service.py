@@ -126,6 +126,30 @@ class NotificationService:
             import traceback
             traceback.print_exc()
 
+    def _send_carryover_notification_to_user_multi_tenant(self, user_id: str, message: str):
+        """マルチテナント対応の21時通知送信"""
+        try:
+            # ユーザーのチャネルIDを取得（データベースから）
+            user_channel_id = self._get_user_channel_id(user_id)
+            if not user_channel_id:
+                print(f"[_send_carryover_notification_to_user_multi_tenant] ユーザー {user_id} のチャネルIDが見つかりません")
+                return
+            
+            # チャネルIDに対応するMessagingApiクライアントを取得
+            line_bot_api = self.multi_tenant_service.get_messaging_api(user_channel_id)
+            if not line_bot_api:
+                print(f"[_send_carryover_notification_to_user_multi_tenant] チャネル {user_channel_id} のAPIクライアントが取得できません")
+                return
+            
+            # 通知送信
+            line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
+            print(f"[_send_carryover_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) に送信完了")
+            
+        except Exception as e:
+            print(f"[_send_carryover_notification_to_user_multi_tenant] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+
     def _get_user_channel_id(self, user_id: str) -> str:
         """ユーザーのチャネルIDを取得"""
         try:
@@ -566,7 +590,8 @@ class NotificationService:
                     print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}")
                 
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
-                self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=msg)]))
+                # マルチテナント対応で通知送信
+                self._send_carryover_notification_to_user_multi_tenant(user_id, msg)
                 print(f"[send_carryover_check] ユーザー {user_id} に送信完了")
             except Exception as e:
                 print(f"[send_carryover_check] ユーザー {user_id} への送信エラー: {e}")
