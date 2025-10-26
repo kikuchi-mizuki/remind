@@ -338,6 +338,34 @@ class Database:
             print(f"Error updating task status: {e}")
             return False
 
+    def delete_task(self, task_id: str) -> bool:
+        """タスクを削除（通常タスクと未来タスクの両方に対応）"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # tasksテーブルから削除を試行
+            cursor.execute('''
+                DELETE FROM tasks
+                WHERE task_id = ?
+            ''', (task_id,))
+            
+            # 削除された行数を確認
+            rows_deleted = cursor.rowcount
+            
+            conn.commit()
+            conn.close()
+            
+            if rows_deleted > 0:
+                print(f"[delete_task] 成功: task_id={task_id}, rows_deleted={rows_deleted}")
+                return True
+            else:
+                print(f"[delete_task] 失敗: task_id={task_id} が見つかりません")
+                return False
+        except Exception as e:
+            print(f"Error deleting task: {e}")
+            return False
+
     def save_schedule_proposal(self, user_id: str, proposal_data: dict) -> bool:
         """スケジュール提案を保存"""
         try:

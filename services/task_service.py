@@ -1,6 +1,5 @@
 import re
 import uuid
-import sqlite3
 from datetime import datetime, timedelta
 import pytz
 from typing import List, Dict, Optional
@@ -543,23 +542,8 @@ class TaskService:
     def delete_future_task(self, task_id: str) -> bool:
         """未来タスクを削除"""
         try:
-            # tasksテーブルからtask_type='future'のタスクを削除
-            conn = sqlite3.connect(self.db.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                DELETE FROM tasks
-                WHERE task_id = ? AND task_type = 'future'
-            ''', (task_id,))
-            rows_deleted = cursor.rowcount
-            conn.commit()
-            conn.close()
-            
-            if rows_deleted > 0:
-                print(f"[delete_future_task] 成功: task_id={task_id}")
-                return True
-            else:
-                print(f"[delete_future_task] 失敗: task_id={task_id} (該当する未来タスクが見つかりません)")
-                return False
+            # データベースクラスのdelete_taskメソッドを使用
+            return self.db.delete_task(task_id)
         except Exception as e:
             print(f"[delete_future_task] エラー: {e}")
             return False
@@ -567,21 +551,8 @@ class TaskService:
     def delete_task(self, task_id: str) -> bool:
         """通常タスクを削除"""
         try:
-            conn = sqlite3.connect(self.db.db_path)
-            cursor = conn.cursor()
-            cursor.execute('''
-                DELETE FROM tasks
-                WHERE task_id = ? AND task_type = 'daily'
-            ''', (task_id,))
-            rows_deleted = cursor.rowcount
-            conn.commit()
-            conn.close()
-            if rows_deleted > 0:
-                print(f"[delete_task] 成功: task_id={task_id}")
-                return True
-            else:
-                print(f"[delete_task] 失敗: task_id={task_id} (該当する通常タスクが見つかりません)")
-                return False
+            # データベースクラスのdelete_taskメソッドを使用
+            return self.db.delete_task(task_id)
         except Exception as e:
             print(f"[delete_task] エラー: {e}")
             return False
