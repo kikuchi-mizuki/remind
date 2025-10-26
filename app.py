@@ -671,16 +671,18 @@ def callback():
                     future_mode_file = f"future_task_mode_{user_id}.json"
                     if os.path.exists(future_mode_file):
                         print(f"[DEBUG] 未来タスク追加モードフラグ検出: {future_mode_file}")
-                        try:
-                            task_info = task_service.parse_task_message(user_message)
-                            task = task_service.create_future_task(user_id, task_info)
+                        
+                        # AIで意図を分類
+                        intent_result = openai_service.classify_user_intent(user_message)
+                        intent = intent_result.get("intent", "other")
+                        confidence = intent_result.get("confidence", 0.0)
+                        
+                        print(f"[DEBUG] 意図分類結果: {intent} (信頼度: {confidence})")
+                        
+                        # キャンセル処理
+                        if intent == "cancel" and confidence > 0.7:
                             os.remove(future_mode_file)
-                            
-                            # 未来タスク一覧を取得して表示
-                            future_tasks = task_service.get_user_future_tasks(user_id)
-                            reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                            reply_text += "\n\n✅ 未来タスクを追加しました！"
-                            
+                            reply_text = "❌ 未来タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
@@ -688,9 +690,21 @@ def callback():
                                 )
                             )
                             continue
-                        except Exception as e:
-                            print(f"[DEBUG] 未来タスク追加エラー: {e}")
-                            reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                        
+                        # 不完全なタスク依頼の処理
+                        elif intent == "incomplete_task" and confidence > 0.7:
+                            reply_text = """⚠️ タスクの情報が不完全です。
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「新規事業計画 2時間」
+・例：「営業資料の見直し 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+もう一度、タスク名と所要時間を含めて送信してください。"""
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
@@ -698,19 +712,152 @@ def callback():
                                 )
                             )
                             continue
+                        
+                        # ヘルプ要求の処理
+                        elif intent == "help" and confidence > 0.7:
+                            reply_text = """🔮 未来タスク追加モード
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「新規事業計画 2時間」
+・例：「営業資料の見直し 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+❌ キャンセルする場合：
+「キャンセル」「やめる」「中止」と送信してください。"""
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+                        
+                        # 完全なタスクの処理
+                        elif intent == "complete_task" and confidence > 0.7:
+                            try:
+                                task_info = task_service.parse_task_message(user_message)
+                                task = task_service.create_future_task(user_id, task_info)
+                                os.remove(future_mode_file)
+                                
+                                # 未来タスク一覧を取得して表示
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
+                                reply_text += "\n\n✅ 未来タスクを追加しました！"
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
+                                )
+                                continue
+                            except Exception as e:
+                                print(f"[DEBUG] 未来タスク追加エラー: {e}")
+                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
+                                )
+                                continue
+                        
+                        # その他の場合（従来の処理）
+                        else:
+                            try:
+                                task_info = task_service.parse_task_message(user_message)
+                                task = task_service.create_future_task(user_id, task_info)
+                                os.remove(future_mode_file)
+                                
+                                # 未来タスク一覧を取得して表示
+                                future_tasks = task_service.get_user_future_tasks(user_id)
+                                reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
+                                reply_text += "\n\n✅ 未来タスクを追加しました！"
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
+                                )
+                                continue
+                            except Exception as e:
+                                print(f"[DEBUG] 未来タスク追加エラー: {e}")
+                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
+                                )
+                                continue
 
                     # タスク追加モードフラグを判定
                     import os
                     add_flag = f"add_task_mode_{user_id}.flag"
                     if os.path.exists(add_flag):
                         print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
-                        # キャンセルワード判定（全角・半角空白、改行、大小文字を吸収）
-                        cancel_words = ["キャンセル", "やめる", "中止"]
-                        normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
-                        print(f"[DEBUG] キャンセル判定: normalized_message='{normalized_message}'")
-                        if normalized_message in [w.lower() for w in cancel_words]:
+                        
+                        # AIで意図を分類
+                        intent_result = openai_service.classify_user_intent(user_message)
+                        intent = intent_result.get("intent", "other")
+                        confidence = intent_result.get("confidence", 0.0)
+                        
+                        print(f"[DEBUG] 意図分類結果: {intent} (信頼度: {confidence})")
+                        
+                        # キャンセル処理
+                        if intent == "cancel" and confidence > 0.7:
                             os.remove(add_flag)
-                            reply_text = "タスク追加をキャンセルしました。"
+                            reply_text = "❌ タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+                        
+                        # 不完全なタスク依頼の処理
+                        elif intent == "incomplete_task" and confidence > 0.7:
+                            reply_text = """⚠️ タスクの情報が不完全です。
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「資料作成 2時間」
+・例：「会議準備 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+もう一度、タスク名と所要時間を含めて送信してください。"""
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text)],
+                                )
+                            )
+                            continue
+                        
+                        # ヘルプ要求の処理
+                        elif intent == "help" and confidence > 0.7:
+                            reply_text = """📋 タスク追加モード
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「資料作成 2時間」
+・例：「会議準備 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+❌ キャンセルする場合：
+「キャンセル」「やめる」「中止」と送信してください。"""
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,

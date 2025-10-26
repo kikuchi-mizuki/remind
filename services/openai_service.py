@@ -438,6 +438,63 @@ class OpenAIService:
             print(f"OpenAI API error (extract_due_date): {e}")
             return None 
 
+    def classify_user_intent(self, message: str) -> dict:
+        """ユーザーの意図をAIで分類する"""
+        prompt = f"""
+次の日本語メッセージの意図を分類し、JSONで返してください。
+メッセージ: '{message}'
+
+分類項目:
+1. "cancel" - キャンセル、やめる、中止、終了などの操作終了を表す言葉
+2. "incomplete_task" - タスク名はあるが時間が不明、または時間はあるがタスク名が不明
+3. "complete_task" - タスク名と時間の両方が含まれている
+4. "help" - ヘルプ、使い方、説明を求めている
+5. "other" - 上記以外
+
+出力形式:
+{{
+    "intent": "cancel|incomplete_task|complete_task|help|other",
+    "confidence": 0.95,
+    "reason": "分類理由の簡潔な説明"
+}}
+
+例:
+- "キャンセル" → {{"intent": "cancel", "confidence": 0.98, "reason": "操作終了の意図"}}
+- "資料作成" → {{"intent": "incomplete_task", "confidence": 0.9, "reason": "タスク名のみで時間が不明"}}
+- "資料作成 2時間" → {{"intent": "complete_task", "confidence": 0.95, "reason": "タスク名と時間の両方あり"}}
+- "使い方を教えて" → {{"intent": "help", "confidence": 0.9, "reason": "ヘルプを求めている"}}
+
+JSON以外の余計な説明や文章は一切出力しないでください。
+"""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "あなたは日本語メッセージの意図を分類するAIです。指定された形式でJSONのみを返してください。"},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                max_tokens=300
+            )
+            
+            result_text = response.choices[0].message.content.strip()
+            print(f"[classify_user_intent] AI応答: {result_text}")
+            
+            # JSONパース
+            import json
+            import re
+            m = re.search(r'\{.*\}', result_text, re.DOTALL)
+            if m:
+                result = json.loads(m.group(0))
+                print(f"[classify_user_intent] 分類結果: {result}")
+                return result
+            
+            return {"intent": "other", "confidence": 0.0, "reason": "JSON解析エラー"}
+            
+        except Exception as e:
+            print(f"[classify_user_intent] エラー: {e}")
+            return {"intent": "other", "confidence": 0.0, "reason": "分類エラー"}
+
     def extract_task_numbers_from_message(self, message: str) -> Optional[dict]:
         """日本語メッセージから通常タスク・未来タスクの番号をAIで抽出し、{"tasks": [1,3], "future_tasks": [2]}のdictで返す"""
         prompt = f"""
