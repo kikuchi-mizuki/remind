@@ -557,6 +557,41 @@ class PostgreSQLDatabase:
             print(f"Error getting user tasks: {e}")
             return []
 
+    def create_future_task(self, task: Task) -> bool:
+        """未来タスクを作成"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        task_model = TaskModel(
+                            task_id=task.task_id,
+                            user_id=task.user_id,
+                            name=task.name,
+                            duration_minutes=task.duration_minutes,
+                            repeat=task.repeat,
+                            status=task.status,
+                            created_at=task.created_at,
+                            due_date=task.due_date,
+                            priority=task.priority,
+                            task_type=task.task_type
+                        )
+                        session.add(task_model)
+                        session.commit()
+                        session.close()
+                        print(f"[create_future_task] PostgreSQL作成成功: {task.task_id}")
+                        return True
+                    except Exception as e:
+                        session.close()
+                        print(f"[create_future_task] PostgreSQL作成エラー: {e}")
+                        return False
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.create_future_task(task)
+        except Exception as e:
+            print(f"Error creating future task: {e}")
+            return False
+
 # グローバルデータベースインスタンス
 postgres_db = None
 
