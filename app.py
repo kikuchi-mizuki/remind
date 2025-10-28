@@ -1185,15 +1185,20 @@ def callback():
                                     from collections import defaultdict
                                     tasks_sorted = sorted(all_tasks, key=sort_key)
                                     
-                                    # 期日ごとにグループ化して、表示順序と同じにする
+                                    # format_task_listと同じ順序でタスクを取得
+                                    # 期日ごとにグループ化（format_task_listと同じロジック）
                                     grouped = defaultdict(list)
                                     for task in tasks_sorted:
                                         grouped[task.due_date or '未設定'].append(task)
                                     
-                                    # 表示順序と同じタスクリストを作成
+                                    # 表示順序と同じタスクリストを作成（format_task_listと同じ順序）
                                     display_tasks = []
                                     for due, group in sorted(grouped.items()):
                                         display_tasks.extend(group)
+                                    
+                                    # デバッグ情報を追加
+                                    print(f"[DEBUG] グループ化されたタスク: {[(due, [task.name for task in group]) for due, group in sorted(grouped.items())]}")
+                                    print(f"[DEBUG] 最終的なdisplay_tasks順序: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                     
                                     # 表示された番号と一致するように、ソート済みタスクから選択
                                     print(f"[DEBUG] ソート済みタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
@@ -1314,6 +1319,7 @@ def callback():
                                                 pass
 
                                         print(f"[DEBUG] スケジュール提案開始: {len(selected_tasks)}個のタスク")
+                                        print(f"[DEBUG] 選択されたタスク詳細: {[(i+1, task.name, task.duration_minutes) for i, task in enumerate(selected_tasks)]}")
                                         jst = pytz.timezone('Asia/Tokyo')
                                         base_day = datetime.now(jst)
                                         if is_future_schedule_mode:

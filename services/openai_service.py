@@ -16,6 +16,10 @@ class OpenAIService:
         if not tasks:
             return "タスクが選択されていません。"
         
+        # デバッグ情報を追加
+        print(f"[DEBUG] OpenAIサービス: 受信したタスク数: {len(tasks)}")
+        print(f"[DEBUG] OpenAIサービス: 受信したタスク詳細: {[(i+1, task.name, task.duration_minutes) for i, task in enumerate(tasks)]}")
+        
         # タスク情報を整理（優先度付き）
         task_info = []
         total_duration = 0
@@ -45,6 +49,9 @@ class OpenAIService:
         now_str = now_jst.strftime("%Y-%m-%dT%H:%M:%S%z")
         now_str = now_str[:-2] + ":" + now_str[-2:]  # +0900 → +09:00 形式に
         
+        # デバッグ情報を追加
+        print(f"[DEBUG] OpenAIサービス: プロンプト作成前のタスク情報: {task_info}")
+        
         # プロンプトを作成
         prompt = (
             f"現在の日時（日本時間）は {now_str} です。\n"
@@ -52,6 +59,9 @@ class OpenAIService:
             "会話の流れや前回の入力に引きずられることなく、毎回この現在日時を最優先にしてください。\n"
         )
         prompt += self._create_schedule_prompt(task_info, total_duration, free_time_str, week_info, now_str)
+        
+        # デバッグ情報を追加
+        print(f"[DEBUG] OpenAIサービス: 作成されたプロンプト: {prompt[:500]}...")
         
         try:
             response = self.client.chat.completions.create(
