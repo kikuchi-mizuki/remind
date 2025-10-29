@@ -2356,21 +2356,26 @@ def callback():
                                 f"[DEBUG] 未来タスク追加モード開始: user_message='{user_message}'"
                             )
                             try:
-                                # 未来タスクとして登録
-                                task_info = task_service.parse_task_message(
-                                    user_message
-                                )
-                                task_info["priority"] = (
-                                    "not_urgent_important"  # 重要なタスクとして設定
-                                )
-                                task_info["due_date"] = None  # 期限なし（未来タスク）
-
-                                task = task_service.create_future_task(
-                                    user_id, task_info
-                                )
-                                print(
-                                    f"[DEBUG] 未来タスク作成完了: task_id={task.task_id}"
-                                )
+                                created_count = 0
+                                created_names = []
+                                # 改行区切りで複数登録に対応
+                                if "\n" in user_message:
+                                    parsed_list = task_service.parse_multiple_tasks(user_message)
+                                    for info in parsed_list:
+                                        info["priority"] = "not_urgent_important"
+                                        info["due_date"] = None
+                                        task = task_service.create_future_task(user_id, info)
+                                        created_count += 1
+                                        created_names.append(task.name)
+                                else:
+                                    # 単一登録
+                                    task_info = task_service.parse_task_message(user_message)
+                                    task_info["priority"] = "not_urgent_important"
+                                    task_info["due_date"] = None
+                                    task = task_service.create_future_task(user_id, task_info)
+                                    created_count = 1
+                                    created_names = [task.name]
+                                print(f"[DEBUG] 未来タスク作成完了: {created_count}件, names={created_names}")
 
                                 # 未来タスク一覧を取得して表示
                                 future_tasks = task_service.get_user_future_tasks(
@@ -2391,7 +2396,10 @@ def callback():
                                     )
 
                                 reply_text = self.task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                                reply_text += "\n\n✅ 未来タスクを追加しました！"
+                                if created_count > 1:
+                                    reply_text += f"\n\n✅ 未来タスクを{created_count}件追加しました！"
+                                else:
+                                    reply_text += "\n\n✅ 未来タスクを追加しました！"
 
                                 # 未来タスク追加モードファイルを削除
                                 if os.path.exists(future_mode_file):
