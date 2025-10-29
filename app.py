@@ -2358,10 +2358,11 @@ def callback():
                             try:
                                 created_count = 0
                                 created_names = []
-                                # 改行区切りで複数登録に対応
+                                # 改行区切りで複数登録に対応（1行ずつ確実に解析）
                                 if "\n" in user_message:
-                                    parsed_list = task_service.parse_multiple_tasks(user_message)
-                                    for info in parsed_list:
+                                    lines = [l.strip() for l in user_message.splitlines() if l.strip()]
+                                    for line in lines:
+                                        info = task_service.parse_task_message(line)
                                         info["priority"] = "not_urgent_important"
                                         info["due_date"] = None
                                         task = task_service.create_future_task(user_id, info)
