@@ -118,11 +118,10 @@ class NotificationService:
                 print(f"[_send_task_notification_to_user_multi_tenant] チャネル {user_channel_id} のAPIクライアントが取得できません")
                 return
             
+            # 期限切れタスクを今日に移動（先に実施してから一覧を取得）
+            moved_count = self._move_overdue_tasks_to_today(user_id)
             # タスク一覧を取得して通知メッセージを作成（8時通知では全てのタスクを表示）
             tasks = self.task_service.get_user_tasks(user_id)
-            
-            # 期限切れタスクを今日に移動
-            moved_count = self._move_overdue_tasks_to_today(user_id)
             
             # タスク選択モードフラグを作成
             import os
