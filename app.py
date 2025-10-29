@@ -1646,8 +1646,10 @@ def callback():
                                     else:
                                         due_str = "期日未設定"
 
-                                    reply_text += f"タスク {idx}. {priority_icon} {task.name} ({task.duration_minutes}分) - {due_str}\n"
-                                reply_text += "\n"
+                                    # カード風に改行分割（タイトル行→メタ行）
+                                    reply_text += f"タスク {idx}\n"
+                                    reply_text += f"{task.name}\n"
+                                    reply_text += f"   ▸ 優先度: {priority_icon}   ⏳ {task.duration_minutes}分   📅 {due_str}\n\n"
                             else:
                                 reply_text += "📋 通常タスク\n登録されているタスクはありません。\n\n"
 
@@ -1655,8 +1657,9 @@ def callback():
                             if future_tasks:
                                 reply_text += "🔮 未来タスク\n"
                                 for idx, task in enumerate(future_tasks, 1):
-                                    reply_text += f"未来タスク {idx}. {task.name} ({task.duration_minutes}分)\n"
-                                reply_text += "\n"
+                                    reply_text += f"未来タスク {idx}\n"
+                                    reply_text += f"{task.name}\n"
+                                    reply_text += f"   ▸ ⏳ {task.duration_minutes}分\n\n"
                             else:
                                 reply_text += "🔮 未来タスク\n登録されている未来タスクはありません。\n\n"
 

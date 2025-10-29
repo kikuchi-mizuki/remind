@@ -686,41 +686,42 @@ class TaskService:
         today_str = today.strftime('%Y-%m-%d')
         
         for due, group in sorted(grouped.items()):
+            # 期日見出し
             if due == today_str:
-                formatted_list += "🕐 本日まで\n"
+                section_title = "本日まで"
             elif due != '未設定':
                 try:
                     y, m, d = due.split('-')
-                    # 曜日を取得
                     due_date_obj = datetime(int(y), int(m), int(d))
                     weekday_names = ['月', '火', '水', '木', '金', '土', '日']
                     weekday = weekday_names[due_date_obj.weekday()]
-                    due_str = f"{int(m)}月{int(d)}日({weekday})"
+                    section_title = f"{int(m)}月{int(d)}日({weekday})まで"
                 except Exception:
-                    due_str = due
-                formatted_list += f"🕐 {due_str}まで\n"
+                    section_title = f"{due}まで"
             else:
-                formatted_list += "🕐 期日未設定\n"
-            
-            formatted_list += "-------------------\n"
-            
+                section_title = "期日未設定"
+
+            formatted_list += f"🕐 {section_title}\n"
+            formatted_list += "――――――――――\n"
+
             for task in group:
-                # 優先度アイコン（A/B/C/-）
                 priority_icon = {
                     "urgent_important": "A",
                     "urgent_not_important": "B",
                     "not_urgent_important": "C",
                     "normal": "-"
                 }.get(task.priority, "-")
-                
+
                 name = task.name
-                if due == '未設定' and ('今日' in name or '明日' in name):
-                    name += f" {due}"
-                
-                formatted_list += f"{idx}. {priority_icon} {name} ({task.duration_minutes}分)\n"
+                # 1カード（タイトル→メタ情報）
+                formatted_list += f"{idx}. {name}\n"
+                # メタ行（期日と時間）: タイトルと日付/時間は必ず改行して分離
+                meta_due = section_title.replace('まで', '') if 'まで' in section_title else section_title
+                duration = f"{task.duration_minutes}分"
+                formatted_list += f"   ▸ 優先度: {priority_icon}   ⏳ {duration}   📅 {meta_due}\n"
+                formatted_list += "\n"  # カード間余白
                 idx += 1
-            
-            formatted_list += "\n"
+
         formatted_list += "━━━━━━━━━━━━"
         if for_deletion:
             formatted_list += "\n削除するタスクを選んでください！\n例：１、３、５"
