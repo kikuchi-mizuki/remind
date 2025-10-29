@@ -736,18 +736,34 @@ def callback():
                             )
                             continue
                         
-                        # 完全なタスクの処理
+                        # 完全なタスクの処理（複数行対応）
                         elif intent == "complete_task" and confidence > 0.7:
                             try:
-                                task_info = task_service.parse_task_message(user_message)
-                                task = task_service.create_future_task(user_id, task_info)
+                                created_count = 0
+                                # すべての改行コードに対応して分割
+                                lines = [l.strip() for l in regex.split(r"[\r\n\u000B\u000C\u0085\u2028\u2029]+", user_message) if l.strip()]
+                                if len(lines) > 1:
+                                    for line in lines:
+                                        info = task_service.parse_task_message(line)
+                                        info["priority"] = "not_urgent_important"
+                                        info["due_date"] = None
+                                        task_service.create_future_task(user_id, info)
+                                        created_count += 1
+                                else:
+                                    task_info = task_service.parse_task_message(user_message)
+                                    task_info["priority"] = "not_urgent_important"
+                                    task_info["due_date"] = None
+                                    task_service.create_future_task(user_id, task_info)
+                                    created_count = 1
+                                # フラグ削除
                                 os.remove(future_mode_file)
-                                
                                 # 未来タスク一覧を取得して表示
                                 future_tasks = task_service.get_user_future_tasks(user_id)
                                 reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                                reply_text += "\n\n✅ 未来タスクを追加しました！"
-                                
+                                if created_count > 1:
+                                    reply_text += f"\n\n✅ 未来タスクを{created_count}件追加しました！"
+                                else:
+                                    reply_text += "\n\n✅ 未来タスクを追加しました！"
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
