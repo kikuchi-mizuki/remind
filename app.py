@@ -2358,9 +2358,9 @@ def callback():
                             try:
                                 created_count = 0
                                 created_names = []
-                                # 改行区切りで複数登録に対応（1行ずつ確実に解析）
-                                if "\n" in user_message:
-                                    lines = [l.strip() for l in user_message.splitlines() if l.strip()]
+                                # 改行区切りで複数登録に対応（splitlinesで全ての改行コードに対応）
+                                lines = [l.strip() for l in user_message.splitlines() if l.strip()]
+                                if len(lines) > 1:
                                     for line in lines:
                                         info = task_service.parse_task_message(line)
                                         info["priority"] = "not_urgent_important"
@@ -2370,7 +2370,7 @@ def callback():
                                         created_names.append(task.name)
                                 else:
                                     # 単一登録
-                                    task_info = task_service.parse_task_message(user_message)
+                                    task_info = task_service.parse_task_message(user_message.strip())
                                     task_info["priority"] = "not_urgent_important"
                                     task_info["due_date"] = None
                                     task = task_service.create_future_task(user_id, task_info)
