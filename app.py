@@ -1611,13 +1611,6 @@ def callback():
                             if all_tasks:
                                 reply_text += "📋 通常タスク\n"
                                 for idx, task in enumerate(all_tasks, 1):
-                                    # 優先度アイコン（A/B/C/-）
-                                    priority_icon = {
-                                        "urgent_important": "A",
-                                        "urgent_not_important": "B",
-                                        "not_urgent_important": "C",
-                                        "normal": "-",
-                                    }.get(task.priority, "-")
 
                                     # 期日表示
                                     if task.due_date:
@@ -1649,7 +1642,7 @@ def callback():
                                     # カード風に改行分割（タイトル行→メタ行）
                                     reply_text += f"タスク {idx}\n"
                                     reply_text += f"{task.name}\n"
-                                    reply_text += f"   ▸ 優先度: {priority_icon}   ⏳ {task.duration_minutes}分   📅 {due_str}\n\n"
+                                    reply_text += f"   ⏳ {task.duration_minutes}分   📅 {due_str}\n\n"
                             else:
                                 reply_text += "📋 通常タスク\n登録されているタスクはありません。\n\n"
 

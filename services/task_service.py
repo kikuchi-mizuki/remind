@@ -705,20 +705,13 @@ class TaskService:
             formatted_list += "――――――――――\n"
 
             for task in group:
-                priority_icon = {
-                    "urgent_important": "A",
-                    "urgent_not_important": "B",
-                    "not_urgent_important": "C",
-                    "normal": "-"
-                }.get(task.priority, "-")
-
                 name = task.name
                 # 1カード（タイトル→メタ情報）
                 formatted_list += f"{idx}. {name}\n"
                 # メタ行（期日と時間）: タイトルと日付/時間は必ず改行して分離
                 meta_due = section_title.replace('まで', '') if 'まで' in section_title else section_title
                 duration = f"{task.duration_minutes}分"
-                formatted_list += f"   ▸ 優先度: {priority_icon}   ⏳ {duration}   📅 {meta_due}\n"
+                formatted_list += f"   ⏳ {duration}   📅 {meta_due}\n"
                 formatted_list += "\n"  # カード間余白
                 idx += 1
 
