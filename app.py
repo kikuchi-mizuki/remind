@@ -1200,6 +1200,37 @@ def callback():
                                     print(f"[DEBUG] グループ化されたタスク: {[(due, [task.name for task in group]) for due, group in sorted(grouped.items())]}")
                                     print(f"[DEBUG] 最終的なdisplay_tasks順序: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                     
+                                    # format_task_listの実際の表示順序を再現
+                                    # 期日ごとにグループ化して、表示順序を正確に再現
+                                    jst = pytz.timezone('Asia/Tokyo')
+                                    today = datetime.now(jst)
+                                    today_str = today.strftime('%Y-%m-%d')
+                                    
+                                    # 期日の順序を正確に再現（format_task_listと同じ）
+                                    due_order = []
+                                    for due, group in sorted(grouped.items()):
+                                        if due == today_str:
+                                            due_order.append(('本日まで', due, group))
+                                        elif due != '未設定':
+                                            try:
+                                                y, m, d = due.split('-')
+                                                due_date_obj = datetime(int(y), int(m), int(d))
+                                                weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+                                                weekday = weekday_names[due_date_obj.weekday()]
+                                                due_str = f"{int(m)}月{int(d)}日({weekday})"
+                                                due_order.append((due_str, due, group))
+                                            except Exception:
+                                                due_order.append((due, due, group))
+                                        else:
+                                            due_order.append(('期日未設定', due, group))
+                                    
+                                    # 表示順序と同じタスクリストを作成
+                                    display_tasks = []
+                                    for due_str, due, group in due_order:
+                                        display_tasks.extend(group)
+                                    
+                                    print(f"[DEBUG] 正確な表示順序: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
+                                    
                                     # 表示された番号と一致するように、ソート済みタスクから選択
                                     print(f"[DEBUG] ソート済みタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
                                     
@@ -1301,6 +1332,38 @@ def callback():
                                     is_schedule_mode = "mode=schedule" in mode_content
                                     is_future_schedule_mode = "mode=future_schedule" in mode_content
                                     print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else 'complete')}")
+
+                                    # 完了（削除）モードでは、表示されたリスト＝「今日のタスク」の並びに合わせて再マッピングする
+                                    if not is_schedule_mode and not is_future_schedule_mode:
+                                        try:
+                                            import pytz
+                                            jst = pytz.timezone('Asia/Tokyo')
+                                            today = datetime.now(jst)
+                                            today_str = today.strftime('%Y-%m-%d')
+
+                                            # 通知で表示したのと同じフィルタ（今日のタスクのみ）
+                                            today_tasks = []
+                                            for t in all_tasks:
+                                                try:
+                                                    if not t.due_date:
+                                                        continue
+                                                    task_due = datetime.strptime(t.due_date, '%Y-%m-%d').date()
+                                                    if task_due == today.date():
+                                                        today_tasks.append(t)
+                                                except Exception:
+                                                    continue
+
+                                            # 並びは通知と同様に today_tasks の列挙順を使用
+                                            remapped = []
+                                            for num in selected_numbers:
+                                                idx = num - 1
+                                                if 0 <= idx < len(today_tasks):
+                                                    remapped.append(today_tasks[idx])
+                                            if remapped:
+                                                selected_tasks = remapped
+                                                print(f"[DEBUG] 削除モード再マッピング: {[(i+1, t.name) for i, t in enumerate(selected_tasks)]}")
+                                        except Exception as _e:
+                                            print(f"[DEBUG] 削除モード再マッピング失敗: {_e}")
 
                                     if is_schedule_mode or is_future_schedule_mode:
                                         # スケジュール提案フロー（朝）
