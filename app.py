@@ -1055,8 +1055,11 @@ def callback():
                         print(f"[DEBUG] コマンド一覧: {commands}")
 
                         # 自然言語でのタスク追加処理を先に実行
-                        # コマンドでない場合、自然言語でのタスク追加として処理
-                        if user_message.strip() not in commands:
+                        # ただしモード中（未来/緊急/削除等）はここをスキップして各モードの処理へ委譲
+                        future_mode_guard = os.path.exists(f"future_task_mode_{user_id}.json")
+                        urgent_mode_guard = os.path.exists(f"urgent_task_mode_{user_id}.json") if os.path.exists(f"urgent_task_mode_{user_id}.json") else False
+                        delete_mode_guard = os.path.exists(f"delete_mode_{user_id}.json")
+                        if user_message.strip() not in commands and not (future_mode_guard or urgent_mode_guard or delete_mode_guard):
                             print(f"[DEBUG] 自然言語タスク追加判定: '{user_message}' はコマンドではありません")
                             # 時間表現が含まれているかチェック（分、時間、半など）
                             time_patterns = ['分', '時間', '半', 'hour', 'min', 'minute']
