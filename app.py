@@ -2358,8 +2358,13 @@ def callback():
                             try:
                                 created_count = 0
                                 created_names = []
-                                # 改行区切りで複数登録に対応（splitlinesで全ての改行コードに対応）
-                                lines = [l.strip() for l in user_message.splitlines() if l.strip()]
+                                # 改行区切りで複数登録に対応（全改行コード対応）
+                                try:
+                                    print(f"[DEBUG] 未来タスク入力repr: {repr(user_message)}")
+                                except Exception:
+                                    pass
+                                lines = [l.strip() for l in regex.split(r"[\r\n\u000B\u000C\u0085\u2028\u2029]+", user_message) if l.strip()]
+                                print(f"[DEBUG] 未来タスク行数判定: {len(lines)}")
                                 if len(lines) > 1:
                                     for line in lines:
                                         info = task_service.parse_task_message(line)
