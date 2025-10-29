@@ -708,10 +708,9 @@ class TaskService:
                 name = task.name
                 # 1カード（タイトル→メタ情報）
                 formatted_list += f"{idx}. {name}\n"
-                # メタ行（期日と時間）: タイトルと日付/時間は必ず改行して分離
-                meta_due = section_title.replace('まで', '') if 'まで' in section_title else section_title
+                # メタ行（所要時間のみ表示）
                 duration = f"{task.duration_minutes}分"
-                formatted_list += f"   ⏳ {duration}   📅 {meta_due}\n"
+                formatted_list += f"   ⏳ {duration}\n"
                 formatted_list += "\n"  # カード間余白
                 idx += 1
 
