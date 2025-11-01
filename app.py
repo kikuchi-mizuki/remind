@@ -1352,37 +1352,9 @@ def callback():
                                     is_future_schedule_mode = "mode=future_schedule" in mode_content
                                     print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else 'complete')}")
 
-                                    # 完了（削除）モードでは、表示されたリスト＝「今日のタスク」の並びに合わせて再マッピングする
-                                    if not is_schedule_mode and not is_future_schedule_mode:
-                                        try:
-                                            import pytz
-                                            jst = pytz.timezone('Asia/Tokyo')
-                                            today = datetime.now(jst)
-                                            today_str = today.strftime('%Y-%m-%d')
-
-                                            # 通知で表示したのと同じフィルタ（今日のタスクのみ）
-                                            today_tasks = []
-                                            for t in all_tasks:
-                                                try:
-                                                    if not t.due_date:
-                                                        continue
-                                                    task_due = datetime.strptime(t.due_date, '%Y-%m-%d').date()
-                                                    if task_due == today.date():
-                                                        today_tasks.append(t)
-                                                except Exception:
-                                                    continue
-
-                                            # 並びは通知と同様に today_tasks の列挙順を使用
-                                            remapped = []
-                                            for num in selected_numbers:
-                                                idx = num - 1
-                                                if 0 <= idx < len(today_tasks):
-                                                    remapped.append(today_tasks[idx])
-                                            if remapped:
-                                                selected_tasks = remapped
-                                                print(f"[DEBUG] 削除モード再マッピング: {[(i+1, t.name) for i, t in enumerate(selected_tasks)]}")
-                                        except Exception as _e:
-                                            print(f"[DEBUG] 削除モード再マッピング失敗: {_e}")
+                                    # 完了（削除）モードでも、display_tasksをそのまま使用
+                                    # display_tasksはformat_task_listと同じ順序でソートされているため、
+                                    # 通知で表示されたリストと一致する
 
                                     if is_schedule_mode or is_future_schedule_mode:
                                         # スケジュール提案フロー（朝）
