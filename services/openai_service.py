@@ -39,7 +39,14 @@ class OpenAIService:
             for ft in free_times:
                 start = ft['start'].strftime('%H:%M')
                 end = ft['end'].strftime('%H:%M')
-                free_time_str += f"- {start}〜{end} ({ft['duration_minutes']}分)\n"
+                # 日付情報がある場合は表示（来週のスケジュール提案の場合）
+                if 'date' in ft:
+                    date_str = ft['date'].strftime('%m/%d')
+                    weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+                    weekday = weekday_names[ft['date'].weekday()]
+                    free_time_str += f"- {date_str}({weekday}) {start}〜{end} ({ft['duration_minutes']}分)\n"
+                else:
+                    free_time_str += f"- {start}〜{end} ({ft['duration_minutes']}分)\n"
         
         # 現在日時（日本時間）を取得
         from datetime import datetime, timedelta, timezone

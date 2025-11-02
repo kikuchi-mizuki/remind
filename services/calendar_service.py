@@ -123,6 +123,28 @@ class CalendarService:
             print(f'Calendar API error: {error}')
             return []
 
+    def get_week_free_busy_times(self, user_id: str, start_date: datetime) -> List[Dict]:
+        """指定週の空き時間を取得（7日間）"""
+        if not self.authenticate_user(user_id):
+            return []
+        
+        try:
+            # 週全体の空き時間を取得
+            free_times = []
+            for i in range(7):  # 7日間
+                target_date = start_date + timedelta(days=i)
+                day_free_times = self.get_free_busy_times(user_id, target_date)
+                # 各空き時間に日付情報を追加
+                for ft in day_free_times:
+                    ft['date'] = target_date.date()
+                free_times.extend(day_free_times)
+            
+            return free_times
+            
+        except Exception as e:
+            print(f'Error getting week free busy times: {e}')
+            return []
+
     def add_event_to_calendar(self, user_id: str, task_name: str, start_time: datetime, 
                             duration_minutes: int, description: str = "") -> bool:
         """カレンダーにイベントを追加"""

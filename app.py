@@ -1360,10 +1360,20 @@ def callback():
                                         print(f"[DEBUG] スケジュール提案開始: {len(selected_tasks)}個のタスク")
                                         print(f"[DEBUG] 選択されたタスク詳細: {[(i+1, task.name, task.duration_minutes) for i, task in enumerate(selected_tasks)]}")
                                         jst = pytz.timezone('Asia/Tokyo')
-                                        base_day = datetime.now(jst)
+                                        today = datetime.now(jst)
                                         if is_future_schedule_mode:
-                                            base_day = base_day + timedelta(days=7)
-                                        free_times = calendar_service.get_free_busy_times(user_id, base_day)
+                                            # 来週のスケジュール提案の場合：来週の月曜日から7日間の空き時間を取得
+                                            # 来週の月曜日を計算（月曜日は0）
+                                            days_until_next_monday = (0 - today.weekday() + 7) % 7
+                                            if days_until_next_monday == 0:
+                                                days_until_next_monday = 7  # 今日が月曜日の場合は1週間後
+                                            next_week_monday = today + timedelta(days=days_until_next_monday)
+                                            next_week_monday = next_week_monday.replace(hour=0, minute=0, second=0, microsecond=0)
+                                            free_times = calendar_service.get_week_free_busy_times(user_id, next_week_monday)
+                                            print(f"[DEBUG] 来週の空き時間取得: 開始日={next_week_monday.strftime('%Y-%m-%d')}, 取得数={len(free_times)}")
+                                        else:
+                                            # 今日のスケジュール提案の場合：今日の空き時間を取得
+                                            free_times = calendar_service.get_free_busy_times(user_id, today)
                                         if free_times:
                                             week_info = "来週" if is_future_schedule_mode else ""
                                             proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times, week_info=week_info)
@@ -1937,12 +1947,14 @@ def callback():
                                         
                                         # 未来タスクの場合は来週のスケジュール、通常タスクの場合は今日のスケジュールを表示
                                         if selected_future_tasks or is_future_schedule_proposal:
-                                            # 来週のスケジュール提案の場合：来週の最初の日（次の週の日曜日）を計算
+                                            # 来週のスケジュール提案の場合：来週の最初の日（次の週の月曜日）を計算
                                             today = datetime.now(jst)
-                                            # 来週の日曜日を計算（日曜日は6）
-                                            days_until_next_sunday = 6 - today.weekday() + 7
-                                            next_week_sunday = today + timedelta(days=days_until_next_sunday)
-                                            schedule_date = next_week_sunday
+                                            # 来週の月曜日を計算（月曜日は0）
+                                            days_until_next_monday = (0 - today.weekday() + 7) % 7
+                                            if days_until_next_monday == 0:
+                                                days_until_next_monday = 7  # 今日が月曜日の場合は1週間後
+                                            next_week_monday = today + timedelta(days=days_until_next_monday)
+                                            schedule_date = next_week_monday.replace(hour=0, minute=0, second=0, microsecond=0)
                                             week_schedule = (
                                                 calendar_service.get_week_schedule(
                                                     user_id, schedule_date
