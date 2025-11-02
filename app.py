@@ -682,77 +682,56 @@ def callback():
                     if os.path.exists(future_mode_file):
                         print(f"[DEBUG] 未来タスク追加モードフラグ検出: {future_mode_file}")
                         
-                        # AIで意図を分類
-                        intent_result = openai_service.classify_user_intent(user_message)
-                        intent = intent_result.get("intent", "other")
-                        confidence = intent_result.get("confidence", 0.0)
-                        
-                        print(f"[DEBUG] 意図分類結果: {intent} (信頼度: {confidence})")
-                        
-                        # キャンセル処理
-                        if intent == "cancel" and confidence > 0.7:
+                        # キャンセル処理を先に確認
+                        cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
+                        normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
+                        if normalized_message in [w.lower() for w in cancel_words]:
                             os.remove(future_mode_file)
                             reply_text = "❌ 未来タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
+                            
+                            # メニュー画面を表示
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
+                            flex_message_content = get_simple_flex_menu()
+                            flex_container = FlexContainer.from_dict(flex_message_content)
+                            flex_message = FlexMessage(
+                                alt_text="メニュー",
+                                contents=flex_container
+                            )
+                            
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
+                                    messages=[TextMessage(text=reply_text), flex_message],
                                 )
                             )
                             continue
                         
-                        # 不完全なタスク依頼の処理
-                        elif intent == "incomplete_task" and confidence > 0.7:
-                            reply_text = """⚠️ タスクの情報が不完全です。
-
-📝 正しい形式で送信してください：
-・タスク名と所要時間の両方を記載
-・例：「新規事業計画 2時間」
-・例：「営業資料の見直し 1時間半」
-
-⏰ 時間の表記例：
-・「2時間」「1時間半」「30分」
-・「2h」「1.5h」「30m」
-
-もう一度、タスク名と所要時間を含めて送信してください。"""
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
-                            continue
+                        # まずパース処理を試行（単一行または複数行に対応）
+                        parse_success = False
+                        task_info = None
+                        parse_error_msg = None
                         
-                        # ヘルプ要求の処理
-                        elif intent == "help" and confidence > 0.7:
-                            reply_text = """🔮 未来タスク追加モード
-
-📝 正しい形式で送信してください：
-・タスク名と所要時間の両方を記載
-・例：「新規事業計画 2時間」
-・例：「営業資料の見直し 1時間半」
-
-⏰ 時間の表記例：
-・「2時間」「1時間半」「30分」
-・「2h」「1.5h」「30m」
-
-❌ キャンセルする場合：
-「キャンセル」「やめる」「中止」と送信してください。"""
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
-                            continue
+                        try:
+                            # 複数行の場合は最初の行のみをパース（複数行の処理は後で行う）
+                            first_line = user_message.split('\n')[0].strip() if '\n' in user_message else user_message.strip()
+                            task_info = task_service.parse_task_message(first_line)
+                            # パースが成功し、タスク名と所要時間の両方が存在する場合
+                            if task_info.get("name") and task_info.get("duration_minutes"):
+                                print(f"[DEBUG] パース成功: {task_info}")
+                                parse_success = True
+                        except Exception as parse_error:
+                            print(f"[DEBUG] パース失敗: {parse_error}")
+                            parse_error_msg = str(parse_error)
+                            parse_success = False
                         
-                        # 完全なタスクの処理（複数行対応）
-                        elif intent == "complete_task" and confidence > 0.7:
+                        # パースが成功した場合
+                        if parse_success:
                             try:
                                 created_count = 0
-                                # すべての改行コードに対応して分割
+                                # 複数行対応：すべての改行コードに対応して分割
                                 lines = [l.strip() for l in regex.split(r"[\r\n\u000B\u000C\u0085\u2028\u2029]+", user_message) if l.strip()]
                                 if len(lines) > 1:
+                                    # 複数タスクの場合は各行を処理
                                     for line in lines:
                                         info = task_service.parse_task_message(line)
                                         info["priority"] = "not_urgent_important"
@@ -760,13 +739,15 @@ def callback():
                                         task_service.create_future_task(user_id, info)
                                         created_count += 1
                                 else:
-                                    task_info = task_service.parse_task_message(user_message)
+                                    # 単一タスクの場合は最初にパースした情報を使用
                                     task_info["priority"] = "not_urgent_important"
                                     task_info["due_date"] = None
                                     task_service.create_future_task(user_id, task_info)
                                     created_count = 1
+                                
                                 # フラグ削除
                                 os.remove(future_mode_file)
+                                
                                 # 未来タスク一覧を取得して表示
                                 future_tasks = task_service.get_user_future_tasks(user_id)
                                 reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
@@ -793,7 +774,50 @@ def callback():
                                 continue
                             except Exception as e:
                                 print(f"[DEBUG] 未来タスク追加エラー: {e}")
+                                # エラー時はモードを終了してメニューを表示
+                                os.remove(future_mode_file)
                                 reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text), flex_message],
+                                    )
+                                )
+                                continue
+                        
+                        # パースが失敗した場合：AIで意図を分類
+                        else:
+                            intent_result = openai_service.classify_user_intent(user_message)
+                            intent = intent_result.get("intent", "other")
+                            confidence = intent_result.get("confidence", 0.0)
+                            
+                            print(f"[DEBUG] 意図分類結果: {intent} (信頼度: {confidence})")
+                            
+                            # ヘルプ要求の処理
+                            if intent == "help" and confidence > 0.7:
+                                reply_text = """🔮 未来タスク追加モード
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「新規事業計画 2時間」
+・例：「営業資料の見直し 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+❌ キャンセルする場合：
+「キャンセル」「やめる」「中止」と送信してください。"""
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
@@ -801,18 +825,109 @@ def callback():
                                     )
                                 )
                                 continue
-                        
-                        # その他の場合（従来の処理）
-                        else:
-                            try:
-                                task_info = task_service.parse_task_message(user_message)
-                                task = task_service.create_future_task(user_id, task_info)
+                            
+                            # 不完全なタスク依頼またはその他の場合：モードを終了してメニューを表示
+                            else:
+                                # モードを終了してメニューを表示
                                 os.remove(future_mode_file)
+                                reply_text = """⚠️ タスクの情報が不完全です。
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「新規事業計画 2時間」
+・例：「営業資料の見直し 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+もう一度、タスク名と所要時間を含めて送信してください。"""
                                 
-                                # 未来タスク一覧を取得して表示
-                                future_tasks = task_service.get_user_future_tasks(user_id)
-                                reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                                reply_text += "\n\n✅ 未来タスクを追加しました！"
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text), flex_message],
+                                    )
+                                )
+                                continue
+
+                    # タスク追加モードフラグを判定
+                    add_flag = f"add_task_mode_{user_id}.flag"
+                    if os.path.exists(add_flag):
+                        print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
+                        
+                        # キャンセル処理を先に確認
+                        cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
+                        normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
+                        if normalized_message in [w.lower() for w in cancel_words]:
+                            os.remove(add_flag)
+                            reply_text = "❌ タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
+                            
+                            # メニュー画面を表示
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
+                            flex_message_content = get_simple_flex_menu()
+                            flex_container = FlexContainer.from_dict(flex_message_content)
+                            flex_message = FlexMessage(
+                                alt_text="メニュー",
+                                contents=flex_container
+                            )
+                            
+                            line_bot_api.reply_message(
+                                ReplyMessageRequest(
+                                    replyToken=reply_token,
+                                    messages=[TextMessage(text=reply_text), flex_message],
+                                )
+                            )
+                            continue
+                        
+                        # まずパース処理を試行（単一行または複数行に対応）
+                        parse_success = False
+                        task_info = None
+                        
+                        try:
+                            # 複数行の場合は最初の行のみをパース（複数行の処理は後で行う）
+                            first_line = user_message.split('\n')[0].strip() if '\n' in user_message else user_message.strip()
+                            task_info = task_service.parse_task_message(first_line)
+                            # パースが成功し、タスク名と所要時間の両方が存在する場合
+                            if task_info.get("name") and task_info.get("duration_minutes"):
+                                print(f"[DEBUG] パース成功: {task_info}")
+                                parse_success = True
+                        except Exception as parse_error:
+                            print(f"[DEBUG] パース失敗: {parse_error}")
+                            parse_success = False
+                        
+                        # パースが成功した場合
+                        if parse_success:
+                            try:
+                                # 改行がある場合は複数タスクとして処理
+                                if '\n' in user_message:
+                                    print(f"[DEBUG] 複数タスク検出: {user_message}")
+                                    tasks_info = task_service.parse_multiple_tasks(user_message)
+                                    created_tasks = []
+                                    for task_info in tasks_info:
+                                        task = task_service.create_task(user_id, task_info)
+                                        created_tasks.append(task.name)
+                                    
+                                    os.remove(add_flag)
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                    reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                                else:
+                                    # 単一タスクの場合は最初にパースした情報を使用
+                                    task = task_service.create_task(user_id, task_info)
+                                    os.remove(add_flag)
+                                    all_tasks = task_service.get_user_tasks(user_id)
+                                    task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
+                                    reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                                 
                                 # メニュー画面を表示
                                 from linebot.v3.messaging import FlexMessage, FlexContainer
@@ -831,66 +946,39 @@ def callback():
                                 )
                                 continue
                             except Exception as e:
-                                print(f"[DEBUG] 未来タスク追加エラー: {e}")
-                                reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
+                                print(f"[DEBUG] タスク追加エラー: {e}")
+                                # エラー時はモードを終了してメニューを表示
+                                os.remove(add_flag)
+                                reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
+                                
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
+                                        messages=[TextMessage(text=reply_text), flex_message],
                                     )
                                 )
                                 continue
-
-                    # タスク追加モードフラグを判定
-                    import os
-                    add_flag = f"add_task_mode_{user_id}.flag"
-                    if os.path.exists(add_flag):
-                        print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
                         
-                        # AIで意図を分類
-                        intent_result = openai_service.classify_user_intent(user_message)
-                        intent = intent_result.get("intent", "other")
-                        confidence = intent_result.get("confidence", 0.0)
-                        
-                        print(f"[DEBUG] 意図分類結果: {intent} (信頼度: {confidence})")
-                        
-                        # キャンセル処理
-                        if intent == "cancel" and confidence > 0.7:
-                            os.remove(add_flag)
-                            reply_text = "❌ タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
-                            continue
-                        
-                        # 不完全なタスク依頼の処理
-                        elif intent == "incomplete_task" and confidence > 0.7:
-                            reply_text = """⚠️ タスクの情報が不完全です。
-
-📝 正しい形式で送信してください：
-・タスク名と所要時間の両方を記載
-・例：「資料作成 2時間」
-・例：「会議準備 1時間半」
-
-⏰ 時間の表記例：
-・「2時間」「1時間半」「30分」
-・「2h」「1.5h」「30m」
-
-もう一度、タスク名と所要時間を含めて送信してください。"""
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
-                            continue
-                        
-                        # ヘルプ要求の処理
-                        elif intent == "help" and confidence > 0.7:
-                            reply_text = """📋 タスク追加モード
+                        # パースが失敗した場合：AIで意図を分類
+                        else:
+                            intent_result = openai_service.classify_user_intent(user_message)
+                            intent = intent_result.get("intent", "other")
+                            confidence = intent_result.get("confidence", 0.0)
+                            
+                            print(f"[DEBUG] 意図分類結果: {intent} (信頼度: {confidence})")
+                            
+                            # ヘルプ要求の処理
+                            if intent == "help" and confidence > 0.7:
+                                reply_text = """📋 タスク追加モード
 
 📝 正しい形式で送信してください：
 ・タスク名と所要時間の両方を記載
@@ -903,62 +991,47 @@ def callback():
 
 ❌ キャンセルする場合：
 「キャンセル」「やめる」「中止」と送信してください。"""
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text)],
+                                    )
                                 )
-                            )
-                            continue
-                        try:
-                            # 改行がある場合は複数タスクとして処理
-                            if '\n' in user_message:
-                                print(f"[DEBUG] 複数タスク検出: {user_message}")
-                                tasks_info = task_service.parse_multiple_tasks(user_message)
-                                created_tasks = []
-                                for task_info in tasks_info:
-                                    task = task_service.create_task(user_id, task_info)
-                                    created_tasks.append(task.name)
-                                
-                                os.remove(add_flag)
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
-                                reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
+                                continue
+                            
+                            # 不完全なタスク依頼またはその他の場合：モードを終了してメニューを表示
                             else:
-                                # 単一タスクとして処理
-                                task_info = task_service.parse_task_message(user_message)
-                                task = task_service.create_task(user_id, task_info)
+                                # モードを終了してメニューを表示
                                 os.remove(add_flag)
-                                all_tasks = task_service.get_user_tasks(user_id)
-                                task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
-                                reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
-                            
-                            # メニュー画面を表示
-                            from linebot.v3.messaging import FlexMessage, FlexContainer
-                            flex_message_content = get_simple_flex_menu()
-                            flex_container = FlexContainer.from_dict(flex_message_content)
-                            flex_message = FlexMessage(
-                                alt_text="メニュー",
-                                contents=flex_container
-                            )
-                            
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text), flex_message],
+                                reply_text = """⚠️ タスクの情報が不完全です。
+
+📝 正しい形式で送信してください：
+・タスク名と所要時間の両方を記載
+・例：「資料作成 2時間」
+・例：「会議準備 1時間半」
+
+⏰ 時間の表記例：
+・「2時間」「1時間半」「30分」
+・「2h」「1.5h」「30m」
+
+もう一度、タスク名と所要時間を含めて送信してください。"""
+                                
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
                                 )
-                            )
-                            continue
-                        except Exception as e:
-                            print(f"[DEBUG] タスク追加エラー: {e}")
-                            reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
-                            line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
+                                
+                                line_bot_api.reply_message(
+                                    ReplyMessageRequest(
+                                        replyToken=reply_token,
+                                        messages=[TextMessage(text=reply_text), flex_message],
+                                    )
                                 )
-                            )
-                            continue
+                                continue
 
                     try:
                         # 削除モード判定を追加
