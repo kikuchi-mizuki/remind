@@ -1374,8 +1374,12 @@ def callback():
                                             import json
                                             with open(selected_tasks_file, "w", encoding="utf-8") as f:
                                                 json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
-                                            header = "【来週のスケジュール提案】" if is_future_schedule_mode else "【今日のスケジュール提案】"
-                                            reply_text = f"{header}\n\n{proposal}"
+                                            # proposalに既にタイトルが含まれている場合は追加しない
+                                            if "【来週のスケジュール提案】" in proposal or "【本日のスケジュール提案】" in proposal or "【今日のスケジュール提案】" in proposal:
+                                                reply_text = proposal
+                                            else:
+                                                header = "【来週のスケジュール提案】" if is_future_schedule_mode else "【今日のスケジュール提案】"
+                                                reply_text = f"{header}\n\n{proposal}"
                                         else:
                                             reply_text = "⚠️ 空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
                                     else:
@@ -1931,10 +1935,17 @@ def callback():
 
                                         reply_text = f"✅ スケジュールを承認しました！\n\n{success_count}個のタスクをカレンダーに追加しました。\n\n"
 
+                                        # スケジュール提案に「来週のスケジュール提案」が含まれているかチェック
+                                        is_future_schedule_proposal = "来週のスケジュール提案" in proposal
+                                        
                                         # 未来タスクの場合は来週のスケジュール、通常タスクの場合は今日のスケジュールを表示
-                                        if selected_future_tasks:
-                                            # 未来タスクの場合：来週全体のスケジュールを表示
-                                            schedule_date = target_date
+                                        if selected_future_tasks or is_future_schedule_proposal:
+                                            # 来週のスケジュール提案の場合：来週の最初の日（次の週の日曜日）を計算
+                                            today = datetime.now(jst)
+                                            # 来週の日曜日を計算（日曜日は6）
+                                            days_until_next_sunday = 6 - today.weekday() + 7
+                                            next_week_sunday = today + timedelta(days=days_until_next_sunday)
+                                            schedule_date = next_week_sunday
                                             week_schedule = (
                                                 calendar_service.get_week_schedule(
                                                     user_id, schedule_date
@@ -1942,7 +1953,7 @@ def callback():
                                             )
                                             date_label = f"📅 来週のスケジュール ({schedule_date.strftime('%m/%d')}〜):"
                                             print(
-                                                f"[DEBUG] 来週のスケジュール取得結果: {len(week_schedule)}日分"
+                                                f"[DEBUG] 来週のスケジュール取得結果: {len(week_schedule)}日分, 開始日={schedule_date.strftime('%Y-%m-%d')}"
                                             )
                                         else:
                                             # 通常タスクの場合：今日のスケジュールを表示
@@ -1957,8 +1968,8 @@ def callback():
                                                 f"[DEBUG] 今日のスケジュール取得結果: {len(schedule_list)}件"
                                             )
 
-                                        if selected_future_tasks:
-                                            # 未来タスクの場合：来週全体のスケジュールを表示
+                                        if selected_future_tasks or is_future_schedule_proposal:
+                                            # 来週のスケジュール提案の場合：来週全体のスケジュールを表示
                                             if week_schedule:
                                                 reply_text += date_label + "\n"
                                                 reply_text += "━━━━━━━━━━━━━━\n"
