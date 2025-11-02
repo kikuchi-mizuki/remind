@@ -897,10 +897,14 @@ def callback():
                             # 複数行の場合は最初の行のみをパース（複数行の処理は後で行う）
                             first_line = user_message.split('\n')[0].strip() if '\n' in user_message else user_message.strip()
                             task_info = task_service.parse_task_message(first_line)
-                            # パースが成功し、タスク名と所要時間の両方が存在する場合
-                            if task_info.get("name") and task_info.get("duration_minutes"):
+                            # パースが成功し、タスク名・所要時間・期限の全てが存在する場合
+                            if task_info.get("name") and task_info.get("duration_minutes") and task_info.get("due_date"):
                                 print(f"[DEBUG] パース成功: {task_info}")
                                 parse_success = True
+                            elif task_info.get("name") and task_info.get("duration_minutes"):
+                                # タスク名と所要時間はあるが期限がない場合は不完全
+                                print(f"[DEBUG] パース成功だが期限なし: {task_info}")
+                                parse_success = False
                         except Exception as parse_error:
                             print(f"[DEBUG] パース失敗: {parse_error}")
                             parse_success = False
@@ -981,13 +985,17 @@ def callback():
                                 reply_text = """📋 タスク追加モード
 
 📝 正しい形式で送信してください：
-・タスク名と所要時間の両方を記載
-・例：「資料作成 2時間」
-・例：「会議準備 1時間半」
+・タスク名・所要時間・期限の3つが必要です
+・例：「資料作成 2時間 明日」
+・例：「会議準備 1時間半 明後日」
 
 ⏰ 時間の表記例：
 ・「2時間」「1時間半」「30分」
 ・「2h」「1.5h」「30m」
+
+📅 期限の表記例：
+・「今日」「明日」「明後日」
+・「来週中」「来週末」など
 
 ❌ キャンセルする場合：
 「キャンセル」「やめる」「中止」と送信してください。"""
@@ -1006,15 +1014,19 @@ def callback():
                                 reply_text = """⚠️ タスクの情報が不完全です。
 
 📝 正しい形式で送信してください：
-・タスク名と所要時間の両方を記載
-・例：「資料作成 2時間」
-・例：「会議準備 1時間半」
+・タスク名・所要時間・期限の3つが必要です
+・例：「資料作成 2時間 明日」
+・例：「会議準備 1時間半 明後日」
 
 ⏰ 時間の表記例：
 ・「2時間」「1時間半」「30分」
 ・「2h」「1.5h」「30m」
 
-もう一度、タスク名と所要時間を含めて送信してください。"""
+📅 期限の表記例：
+・「今日」「明日」「明後日」
+・「来週中」「来週末」など
+
+もう一度、タスク名・所要時間・期限の3つを含めて送信してください。"""
                                 
                                 # メニュー画面を表示
                                 from linebot.v3.messaging import FlexMessage, FlexContainer
