@@ -649,10 +649,20 @@ def callback():
                                 reply_text = f"✅ 緊急タスクを追加しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
                             
                             os.remove(urgent_mode_file)
+                            
+                            # メニュー画面を表示
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
+                            flex_message_content = get_simple_flex_menu()
+                            flex_container = FlexContainer.from_dict(flex_message_content)
+                            flex_message = FlexMessage(
+                                alt_text="メニュー",
+                                contents=flex_container
+                            )
+                            
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
+                                    messages=[TextMessage(text=reply_text), flex_message],
                                 )
                             )
                             continue
@@ -764,10 +774,20 @@ def callback():
                                     reply_text += f"\n\n✅ 未来タスクを{created_count}件追加しました！"
                                 else:
                                     reply_text += "\n\n✅ 未来タスクを追加しました！"
+                                
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
+                                        messages=[TextMessage(text=reply_text), flex_message],
                                     )
                                 )
                                 continue
@@ -794,10 +814,19 @@ def callback():
                                 reply_text = task_service.format_future_task_list(future_tasks, show_select_guide=False)
                                 reply_text += "\n\n✅ 未来タスクを追加しました！"
                                 
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
+                                        messages=[TextMessage(text=reply_text), flex_message],
                                     )
                                 )
                                 continue
@@ -904,10 +933,19 @@ def callback():
                                 task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                 reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                             
+                            # メニュー画面を表示
+                            from linebot.v3.messaging import FlexMessage, FlexContainer
+                            flex_message_content = get_simple_flex_menu()
+                            flex_container = FlexContainer.from_dict(flex_message_content)
+                            flex_message = FlexMessage(
+                                alt_text="メニュー",
+                                contents=flex_container
+                            )
+                            
                             line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
+                                    messages=[TextMessage(text=reply_text), flex_message],
                                 )
                             )
                             continue
@@ -1104,10 +1142,19 @@ def callback():
                                         task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                         reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                                     
+                                    # メニュー画面を表示
+                                    from linebot.v3.messaging import FlexMessage, FlexContainer
+                                    flex_message_content = get_simple_flex_menu()
+                                    flex_container = FlexContainer.from_dict(flex_message_content)
+                                    flex_message = FlexMessage(
+                                        alt_text="メニュー",
+                                        contents=flex_container
+                                    )
+                                    
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
-                                            messages=[TextMessage(text=reply_text)],
+                                            messages=[TextMessage(text=reply_text), flex_message],
                                         )
                                     )
                                     continue
@@ -1740,10 +1787,19 @@ def callback():
                                     # 選択されたタスクファイルを削除
                                     os.remove(selected_tasks_file)
                                     
+                                    # メニュー画面を表示
+                                    from linebot.v3.messaging import FlexMessage, FlexContainer
+                                    flex_message_content = get_simple_flex_menu()
+                                    flex_container = FlexContainer.from_dict(flex_message_content)
+                                    flex_message = FlexMessage(
+                                        alt_text="メニュー",
+                                        contents=flex_container
+                                    )
+                                    
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
-                                            messages=[TextMessage(text=reply_text)],
+                                            messages=[TextMessage(text=reply_text), flex_message],
                                         )
                                     )
                                     continue
@@ -2080,19 +2136,40 @@ def callback():
                                             os.remove(schedule_proposal_file)
                                         if os.path.exists(selected_tasks_file):
                                             os.remove(selected_tasks_file)
+                                        
+                                        # メニュー画面を表示
+                                        from linebot.v3.messaging import FlexMessage, FlexContainer
+                                        flex_message_content = get_simple_flex_menu()
+                                        flex_container = FlexContainer.from_dict(flex_message_content)
+                                        flex_message = FlexMessage(
+                                            alt_text="メニュー",
+                                            contents=flex_container
+                                        )
+                                        
+                                        line_bot_api.reply_message(
+                                            ReplyMessageRequest(
+                                                replyToken=reply_token,
+                                                messages=[TextMessage(text=reply_text), flex_message],
+                                            )
+                                        )
                                     else:
                                         reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
+                                        line_bot_api.reply_message(
+                                            ReplyMessageRequest(
+                                                replyToken=reply_token,
+                                                messages=[TextMessage(text=reply_text)],
+                                            )
+                                        )
                                 else:
                                     reply_text = (
                                         "⚠️ スケジュール提案が見つかりませんでした。"
                                     )
-
-                                line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
+                                    line_bot_api.reply_message(
+                                        ReplyMessageRequest(
+                                            replyToken=reply_token,
+                                            messages=[TextMessage(text=reply_text)],
+                                        )
                                     )
-                                )
                             except Exception as e:
                                 print(f"[ERROR] 承認処理: {e}")
                                 import traceback
@@ -2323,10 +2400,20 @@ def callback():
                                     reply_text += "手動でスケジュールを調整してください。"
                                 os.remove(urgent_mode_file)
                                 print(f"[DEBUG] 緊急タスク追加モードフラグ削除: {urgent_mode_file}")
+                                
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+                                
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
+                                        messages=[TextMessage(text=reply_text), flex_message],
                                     )
                                 )
                                 continue
@@ -2407,13 +2494,22 @@ def callback():
                                 if os.path.exists(future_mode_file):
                                     os.remove(future_mode_file)
 
+                                # メニュー画面を表示
+                                from linebot.v3.messaging import FlexMessage, FlexContainer
+                                flex_message_content = get_simple_flex_menu()
+                                flex_container = FlexContainer.from_dict(flex_message_content)
+                                flex_message = FlexMessage(
+                                    alt_text="メニュー",
+                                    contents=flex_container
+                                )
+
                                 print(
                                     f"[DEBUG] 未来タスク追加モード返信メッセージ送信開始: {reply_text[:100]}..."
                                 )
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
+                                        messages=[TextMessage(text=reply_text), flex_message],
                                     )
                                 )
                                 print(
