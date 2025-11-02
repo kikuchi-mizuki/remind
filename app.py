@@ -1180,78 +1180,78 @@ def callback():
                                     f"[DEBUG] タスク選択処理開始: user_message='{user_message}'"
                                 )
                                 try:
-                                    # 全タスクを取得して、表示された番号と一致させる
+                                    # 選択モードを先に判定（display_tasksの作成方法を決めるため）
+                                    try:
+                                        with open(select_flag, "r", encoding="utf-8") as f:
+                                            mode_content = f.read().strip()
+                                    except Exception:
+                                        mode_content = ""
+
+                                    is_schedule_mode = "mode=schedule" in mode_content
+                                    is_future_schedule_mode = "mode=future_schedule" in mode_content
+                                    is_complete_mode = "mode=complete" in mode_content
+                                    print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else ('complete' if is_complete_mode else 'unknown'))}")
+                                    
                                     # datetime は先頭でインポート済み
                                     import pytz
-                                    jst = pytz.timezone('Asia/Tokyo')
-                                    today_str = datetime.now(jst).strftime('%Y-%m-%d')
-                                    
-                                    all_tasks = task_service.get_user_tasks(user_id)
-                                    
-                                    # format_task_listと同じソート順序を適用
-                                    def sort_key(task):
-                                        priority_order = {
-                                            "urgent_important": 0,
-                                            "not_urgent_important": 1,
-                                            "urgent_not_important": 2,
-                                            "normal": 3
-                                        }
-                                        priority_score = priority_order.get(task.priority, 3)
-                                        due_date = task.due_date or '9999-12-31'
-                                        return (priority_score, due_date, task.name)
-                                    
-                                    # 優先度と期日でソート
-                                    from collections import defaultdict
-                                    tasks_sorted = sorted(all_tasks, key=sort_key)
-                                    
-                                    # format_task_listと同じ順序でタスクを取得
-                                    # 期日ごとにグループ化（format_task_listと同じロジック）
-                                    grouped = defaultdict(list)
-                                    for task in tasks_sorted:
-                                        grouped[task.due_date or '未設定'].append(task)
-                                    
-                                    # 表示順序と同じタスクリストを作成（format_task_listと同じ順序）
-                                    display_tasks = []
-                                    for due, group in sorted(grouped.items()):
-                                        display_tasks.extend(group)
-                                    
-                                    # デバッグ情報を追加
-                                    print(f"[DEBUG] グループ化されたタスク: {[(due, [task.name for task in group]) for due, group in sorted(grouped.items())]}")
-                                    print(f"[DEBUG] 最終的なdisplay_tasks順序: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
-                                    
-                                    # format_task_listの実際の表示順序を再現
-                                    # 期日ごとにグループ化して、表示順序を正確に再現
                                     jst = pytz.timezone('Asia/Tokyo')
                                     today = datetime.now(jst)
                                     today_str = today.strftime('%Y-%m-%d')
                                     
-                                    # 期日の順序を正確に再現（format_task_listと同じ）
-                                    due_order = []
-                                    for due, group in sorted(grouped.items()):
-                                        if due == today_str:
-                                            due_order.append(('本日まで', due, group))
-                                        elif due != '未設定':
-                                            try:
-                                                y, m, d = due.split('-')
-                                                due_date_obj = datetime(int(y), int(m), int(d))
-                                                weekday_names = ['月', '火', '水', '木', '金', '土', '日']
-                                                weekday = weekday_names[due_date_obj.weekday()]
-                                                due_str = f"{int(m)}月{int(d)}日({weekday})"
-                                                due_order.append((due_str, due, group))
-                                            except Exception:
-                                                due_order.append((due, due, group))
-                                        else:
-                                            due_order.append(('期日未設定', due, group))
+                                    all_tasks = task_service.get_user_tasks(user_id)
                                     
-                                    # 表示順序と同じタスクリストを作成
-                                    display_tasks = []
-                                    for due_str, due, group in due_order:
-                                        display_tasks.extend(group)
-                                    
-                                    print(f"[DEBUG] 正確な表示順序: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
-                                    
-                                    # 表示された番号と一致するように、ソート済みタスクから選択
-                                    print(f"[DEBUG] ソート済みタスク: {[f'{i+1}.{task.name}' for i, task in enumerate(display_tasks)]}")
+                                    # 削除モード（夜の通知）の場合は、通知と同じ方法で今日のタスクを取得
+                                    if is_complete_mode:
+                                        # 通知と同じ方法で今日のタスクを取得（単純なフィルタリング）
+                                        display_tasks = [t for t in all_tasks if t.due_date == today_str]
+                                        print(f"[DEBUG] 削除モード: 今日のタスク数={len(display_tasks)}, タスク一覧={[(i+1, t.name) for i, t in enumerate(display_tasks)]}")
+                                    else:
+                                        # スケジュールモード（朝の通知）の場合は、format_task_listと同じソート順序を適用
+                                        def sort_key(task):
+                                            priority_order = {
+                                                "urgent_important": 0,
+                                                "not_urgent_important": 1,
+                                                "urgent_not_important": 2,
+                                                "normal": 3
+                                            }
+                                            priority_score = priority_order.get(task.priority, 3)
+                                            due_date = task.due_date or '9999-12-31'
+                                            return (priority_score, due_date, task.name)
+                                        
+                                        # 優先度と期日でソート
+                                        from collections import defaultdict
+                                        tasks_sorted = sorted(all_tasks, key=sort_key)
+                                        
+                                        # format_task_listと同じ順序でタスクを取得
+                                        # 期日ごとにグループ化（format_task_listと同じロジック）
+                                        grouped = defaultdict(list)
+                                        for task in tasks_sorted:
+                                            grouped[task.due_date or '未設定'].append(task)
+                                        
+                                        # 期日の順序を正確に再現（format_task_listと同じ）
+                                        due_order = []
+                                        for due, group in sorted(grouped.items()):
+                                            if due == today_str:
+                                                due_order.append(('本日まで', due, group))
+                                            elif due != '未設定':
+                                                try:
+                                                    y, m, d = due.split('-')
+                                                    due_date_obj = datetime(int(y), int(m), int(d))
+                                                    weekday_names = ['月', '火', '水', '木', '金', '土', '日']
+                                                    weekday = weekday_names[due_date_obj.weekday()]
+                                                    due_str = f"{int(m)}月{int(d)}日({weekday})"
+                                                    due_order.append((due_str, due, group))
+                                                except Exception:
+                                                    due_order.append((due, due, group))
+                                            else:
+                                                due_order.append(('期日未設定', due, group))
+                                        
+                                        # 表示順序と同じタスクリストを作成
+                                        display_tasks = []
+                                        for due_str, due, group in due_order:
+                                            display_tasks.extend(group)
+                                        
+                                        print(f"[DEBUG] スケジュールモード: タスク数={len(display_tasks)}, タスク一覧={[(i+1, t.name) for i, t in enumerate(display_tasks)]}")
                                     
                                     # AIによる数字解析を試行
                                     selected_numbers = []
@@ -1340,21 +1340,6 @@ def callback():
                                             )
                                         )
                                         continue
-                                    
-                                    # 選択モードをフラグファイルから判定（mode=schedule|mode=complete）
-                                    try:
-                                        with open(select_flag, "r", encoding="utf-8") as f:
-                                            mode_content = f.read().strip()
-                                    except Exception:
-                                        mode_content = ""
-
-                                    is_schedule_mode = "mode=schedule" in mode_content
-                                    is_future_schedule_mode = "mode=future_schedule" in mode_content
-                                    print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else 'complete')}")
-
-                                    # 完了（削除）モードでも、display_tasksをそのまま使用
-                                    # display_tasksはformat_task_listと同じ順序でソートされているため、
-                                    # 通知で表示されたリストと一致する
 
                                     if is_schedule_mode or is_future_schedule_mode:
                                         # スケジュール提案フロー（朝）
