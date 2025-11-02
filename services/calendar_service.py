@@ -63,6 +63,12 @@ class CalendarService:
             jst = pytz.timezone('Asia/Tokyo')
             now = datetime.now(jst)
             
+            # dateがタイムゾーン情報を持っていない場合はJSTを設定
+            if date.tzinfo is None:
+                date = jst.localize(date)
+            elif date.tzinfo != jst:
+                date = date.astimezone(jst)
+            
             # 指定日の開始と終了時間（現在時刻以降に限定）
             if date.date() == now.date():
                 # 今日の場合は現在時刻以降
@@ -76,16 +82,23 @@ class CalendarService:
             
             end_time = date.replace(hour=22, minute=0, second=0, microsecond=0)
             
+            print(f"[get_free_busy_times] 日付={date.date()}, 開始時刻={start_time}, 終了時刻={end_time}")
+            
             # 既存の予定を取得
+            time_min_str = start_time.isoformat()
+            time_max_str = end_time.isoformat()
+            print(f"[get_free_busy_times] カレンダーAPI呼び出し: timeMin={time_min_str}, timeMax={time_max_str}")
+            
             events_result = self.service.events().list(
                 calendarId='primary',
-                timeMin=start_time.isoformat(),
-                timeMax=end_time.isoformat(),
+                timeMin=time_min_str,
+                timeMax=time_max_str,
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
             
             events = events_result.get('items', [])
+            print(f"[get_free_busy_times] 取得したイベント数: {len(events)}")
             
             # 空き時間を計算
             free_times = []
@@ -117,6 +130,7 @@ class CalendarService:
                         'duration_minutes': int(free_duration)
                     })
             
+            print(f"[get_free_busy_times] 空き時間数: {len(free_times)}")
             return free_times
             
         except HttpError as error:
@@ -129,16 +143,28 @@ class CalendarService:
             return []
         
         try:
+            # start_dateがタイムゾーン情報を持っていない場合はJSTを設定
+            import pytz
+            jst = pytz.timezone('Asia/Tokyo')
+            if start_date.tzinfo is None:
+                start_date = jst.localize(start_date)
+            elif start_date.tzinfo != jst:
+                start_date = start_date.astimezone(jst)
+            
+            print(f"[get_week_free_busy_times] 開始日: {start_date.strftime('%Y-%m-%d %A')}")
+            
             # 週全体の空き時間を取得
             free_times = []
             for i in range(7):  # 7日間
                 target_date = start_date + timedelta(days=i)
+                print(f"[get_week_free_busy_times] 日{i+1}: {target_date.strftime('%Y-%m-%d %A')}")
                 day_free_times = self.get_free_busy_times(user_id, target_date)
                 # 各空き時間に日付情報を追加
                 for ft in day_free_times:
                     ft['date'] = target_date.date()
                 free_times.extend(day_free_times)
             
+            print(f"[get_week_free_busy_times] 合計空き時間数: {len(free_times)}")
             return free_times
             
         except Exception as e:

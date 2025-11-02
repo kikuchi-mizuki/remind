@@ -1504,8 +1504,10 @@ def callback():
                                                 days_until_next_monday = 7  # 今日が月曜日の場合は1週間後
                                             next_week_monday = today + timedelta(days=days_until_next_monday)
                                             next_week_monday = next_week_monday.replace(hour=0, minute=0, second=0, microsecond=0)
+                                            # タイムゾーン情報が保持されていることを確認
+                                            print(f"[DEBUG] 来週の月曜日計算: 今日={today.strftime('%Y-%m-%d %A')}, 来週月曜日={next_week_monday.strftime('%Y-%m-%d %A')}, タイムゾーン={next_week_monday.tzinfo}")
                                             free_times = calendar_service.get_week_free_busy_times(user_id, next_week_monday)
-                                            print(f"[DEBUG] 来週の空き時間取得: 開始日={next_week_monday.strftime('%Y-%m-%d')}, 取得数={len(free_times)}")
+                                            print(f"[DEBUG] 来週の空き時間取得: 開始日={next_week_monday.strftime('%Y-%m-%d %A')}, 取得数={len(free_times)}")
                                         else:
                                             # 今日のスケジュール提案の場合：今日の空き時間を取得
                                             free_times = calendar_service.get_free_busy_times(user_id, today)
