@@ -405,14 +405,15 @@ class NotificationService:
         # Railway等UTCサーバーの場合、JST 8:00 = UTC 23:00、JST 21:00 = UTC 12:00、JST 18:00 = UTC 09:00
         schedule.every().day.at("23:00").do(self.send_daily_task_notification)  # JST 8:00
         schedule.every().sunday.at("09:00").do(self.send_future_task_selection)  # JST 18:00
-        schedule.every().sunday.at("11:00").do(self._send_weekly_reports_to_all_users)  # JST 20:00→UTC 11:00
+        # 週次レポートは不要のため無効化
+        # schedule.every().sunday.at("11:00").do(self._send_weekly_reports_to_all_users)  # JST 20:00→UTC 11:00
         schedule.every().day.at("12:00").do(self.send_carryover_check)  # JST 21:00
         
         print(f"[start_scheduler] スケジュール設定完了:")
         print(f"[start_scheduler] - 毎日 23:00 UTC (JST 8:00): タスク一覧通知")
         print(f"[start_scheduler] - 毎日 12:00 UTC (JST 21:00): タスク確認通知")
         print(f"[start_scheduler] - 日曜 09:00 UTC (JST 18:00): 未来タスク選択通知")
-        print(f"[start_scheduler] - 日曜 11:00 UTC (JST 20:00): 週次レポート")
+        # print(f"[start_scheduler] - 日曜 11:00 UTC (JST 20:00): 週次レポート")  # 無効化
         
         # 現在時刻と次の実行時刻を表示
         import pytz
