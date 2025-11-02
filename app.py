@@ -1881,12 +1881,9 @@ def callback():
                                             )
                                             selected_tasks.append(converted_task)
 
-                                            # 元の未来タスクを削除
-                                            task_service.delete_future_task(
-                                                future_task.task_id
-                                            )
+                                            # 未来タスクは残す（削除しない）
                                             print(
-                                                f"[DEBUG] 未来タスクを通常タスクに変換: {future_task.name} -> {converted_task.task_id}"
+                                                f"[DEBUG] 未来タスクを通常タスクに変換（未来タスクは保持）: {future_task.name} -> {converted_task.task_id}"
                                             )
 
                                         # カレンダーに追加
