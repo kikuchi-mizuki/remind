@@ -1061,7 +1061,9 @@ def callback():
                                 os.remove(delete_mode_file)
                                 print(f"[DEBUG] 削除モードリセット: {delete_mode_file} 削除")
                                 
-                                # 通常のFlexMessageメニューを表示
+                                reply_text = "❌ タスク削除をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
+                                
+                                # メニュー画面を表示
                                 from linebot.v3.messaging import FlexMessage, FlexContainer
                                 flex_message_content = get_simple_flex_menu()
                                 flex_container = FlexContainer.from_dict(flex_message_content)
@@ -1069,10 +1071,11 @@ def callback():
                                     alt_text="メニュー",
                                     contents=flex_container
                                 )
+                                
                                 line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
-                                        messages=[flex_message],
+                                        messages=[TextMessage(text=reply_text), flex_message],
                                     )
                                 )
                                 continue
