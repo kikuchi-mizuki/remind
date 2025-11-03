@@ -1316,16 +1316,31 @@ def callback():
                                 )
                                 try:
                                     # 選択モードを先に判定（display_tasksの作成方法を決めるため）
+                                    mode_content = ""
+                                    flag_timestamp = None
                                     try:
                                         with open(select_flag, "r", encoding="utf-8") as f:
-                                            mode_content = f.read().strip()
-                                    except Exception:
+                                            content = f.read().strip()
+                                            # JSON形式の場合はパース
+                                            if content.startswith("{"):
+                                                import json
+                                                flag_data = json.loads(content)
+                                                mode_content = flag_data.get("mode", "")
+                                                flag_timestamp = flag_data.get("timestamp")
+                                                # 旧形式互換のため、mode=schedule の形式に変換
+                                                if mode_content:
+                                                    mode_content = f"mode={mode_content}"
+                                            else:
+                                                # 旧形式（mode=schedule など）
+                                                mode_content = content
+                                    except Exception as e:
+                                        print(f"[DEBUG] フラグファイル読み込みエラー: {e}")
                                         mode_content = ""
 
                                     is_schedule_mode = "mode=schedule" in mode_content
                                     is_future_schedule_mode = "mode=future_schedule" in mode_content
                                     is_complete_mode = "mode=complete" in mode_content
-                                    print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else ('complete' if is_complete_mode else 'unknown'))}")
+                                    print(f"[DEBUG] 選択モード: {'future_schedule' if is_future_schedule_mode else ('schedule' if is_schedule_mode else ('complete' if is_complete_mode else 'unknown'))}, フラグ作成時刻: {flag_timestamp}")
                                     
                                     # datetime は先頭でインポート済み
                                     import pytz
@@ -1334,6 +1349,7 @@ def callback():
                                     today_str = today.strftime('%Y-%m-%d')
                                     
                                     all_tasks = task_service.get_user_tasks(user_id)
+                                    print(f"[DEBUG] 全タスク取得: {len(all_tasks)}件, タスク一覧={[(i+1, t.name, t.due_date) for i, t in enumerate(all_tasks)]}")
                                     
                                     # 削除モード（夜の通知）の場合は、通知と同じ方法で今日のタスクを取得
                                     if is_complete_mode:
@@ -1356,12 +1372,14 @@ def callback():
                                         # 優先度と期日でソート
                                         from collections import defaultdict
                                         tasks_sorted = sorted(all_tasks, key=sort_key)
+                                        print(f"[DEBUG] ソート後タスク数: {len(tasks_sorted)}件")
                                         
                                         # format_task_listと同じ順序でタスクを取得
                                         # 期日ごとにグループ化（format_task_listと同じロジック）
                                         grouped = defaultdict(list)
                                         for task in tasks_sorted:
                                             grouped[task.due_date or '未設定'].append(task)
+                                        print(f"[DEBUG] グループ化後: {len(grouped)}グループ")
                                         
                                         # 期日の順序を正確に再現（format_task_listと同じ）
                                         due_order = []
@@ -1387,6 +1405,10 @@ def callback():
                                             display_tasks.extend(group)
                                         
                                         print(f"[DEBUG] スケジュールモード: タスク数={len(display_tasks)}, タスク一覧={[(i+1, t.name) for i, t in enumerate(display_tasks)]}")
+                                    
+                                    # display_tasksが空の場合のデバッグ
+                                    if not display_tasks:
+                                        print(f"[DEBUG] 警告: display_tasksが空です！ all_tasks={len(all_tasks)}, is_complete_mode={is_complete_mode}, is_schedule_mode={is_schedule_mode}, is_future_schedule_mode={is_future_schedule_mode}, mode_content='{mode_content}'")
                                     
                                     # AIによる数字解析を試行
                                     selected_numbers = []
@@ -1462,12 +1484,22 @@ def callback():
                                             )
                                     if not selected_tasks:
                                         # より詳細なエラーメッセージを提供
-                                        available_numbers = list(range(1, len(display_tasks) + 1))
-                                        reply_text = (
-                                            f"⚠️ 選択されたタスクが見つかりませんでした。\n\n"
-                                            f"選択可能な番号: {', '.join(map(str, available_numbers))}\n"
-                                            f"入力された番号: {', '.join(map(str, selected_numbers))}"
-                                        )
+                                        if display_tasks:
+                                            available_numbers = list(range(1, len(display_tasks) + 1))
+                                            reply_text = (
+                                                f"⚠️ 選択されたタスクが見つかりませんでした。\n\n"
+                                                f"選択可能な番号: {', '.join(map(str, available_numbers))}\n"
+                                                f"入力された番号: {', '.join(map(str, selected_numbers))}"
+                                            )
+                                        else:
+                                            # display_tasksが空の場合の特別なエラーメッセージ
+                                            reply_text = (
+                                                f"⚠️ エラーが発生しました。\n\n"
+                                                f"タスク一覧を取得できませんでした。\n"
+                                                f"入力された番号: {', '.join(map(str, selected_numbers))}\n\n"
+                                                f"もう一度「タスク一覧」と送信して、タスク一覧を確認してください。"
+                                            )
+                                            print(f"[DEBUG] エラー: display_tasksが空です。all_tasks={len(all_tasks)}, mode_content='{mode_content}'")
                                         line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
@@ -2282,15 +2314,24 @@ def callback():
                                 select_flag = f"task_select_mode_{user_id}.flag"
                                 current_mode = "schedule"  # デフォルト
                                 
-                                # フラグファイルから現在のモードを読み取り
+                                # フラグファイルから現在のモードを読み取り（JSON形式と旧形式に対応）
                                 try:
                                     with open(select_flag, "r", encoding="utf-8") as f:
-                                        mode_content = f.read().strip()
-                                        print(f"[修正処理] フラグファイル内容: '{mode_content}'")
-                                        if "mode=future_schedule" in mode_content:
-                                            current_mode = "future_schedule"
-                                        elif "mode=schedule" in mode_content:
-                                            current_mode = "schedule"
+                                        content = f.read().strip()
+                                        print(f"[修正処理] フラグファイル内容: '{content[:100]}'")
+                                        # JSON形式の場合はパース
+                                        if content.startswith("{"):
+                                            import json
+                                            flag_data = json.loads(content)
+                                            mode = flag_data.get("mode", "schedule")
+                                            current_mode = mode
+                                            print(f"[修正処理] JSON形式のフラグを読み取り: mode={mode}")
+                                        else:
+                                            # 旧形式（mode=schedule など）
+                                            if "mode=future_schedule" in content:
+                                                current_mode = "future_schedule"
+                                            elif "mode=schedule" in content:
+                                                current_mode = "schedule"
                                 except Exception as e:
                                     print(f"[修正処理] フラグファイル読み取りエラー: {e}")
                                     pass
@@ -2635,7 +2676,17 @@ def callback():
                         if os.path.exists(legacy_select_flag):
                             try:
                                 with open(legacy_select_flag, "r", encoding="utf-8") as f:
-                                    legacy_mode = f.read().strip()
+                                    content = f.read().strip()
+                                    # JSON形式の場合はパース
+                                    if content.startswith("{"):
+                                        import json
+                                        flag_data = json.loads(content)
+                                        mode = flag_data.get("mode", "")
+                                        if mode:
+                                            legacy_mode = f"mode={mode}"
+                                    else:
+                                        # 旧形式
+                                        legacy_mode = content
                             except Exception:
                                 legacy_mode = None
                         print(

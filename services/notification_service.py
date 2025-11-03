@@ -123,13 +123,40 @@ class NotificationService:
             # タスク一覧を取得して通知メッセージを作成（8時通知では全てのタスクを表示）
             tasks = self.task_service.get_user_tasks(user_id)
             
-            # タスク選択モードフラグを作成
+            # タスク選択モードフラグを作成（タイムスタンプ付き）
             import os
+            import json
             select_flag = f"task_select_mode_{user_id}.flag"
-            with open(select_flag, "w") as f:
-                # 朝8時: スケジュール提案モード
-                f.write("mode=schedule")
-            print(f"[_send_task_notification_to_user_multi_tenant] タスク選択モードフラグ作成: {select_flag}")
+            # 既存のフラグファイルを確認（タイムスタンプ付きフォーマットに対応）
+            existing_flag_valid = False
+            if os.path.exists(select_flag):
+                try:
+                    with open(select_flag, "r", encoding="utf-8") as f:
+                        content = f.read().strip()
+                        # JSON形式の場合はタイムスタンプを確認
+                        if content.startswith("{"):
+                            flag_data = json.loads(content)
+                            flag_timestamp = flag_data.get("timestamp")
+                            if flag_timestamp:
+                                from datetime import datetime as dt
+                                flag_time = dt.fromisoformat(flag_timestamp)
+                                # フラグが作成されてから24時間以内の場合は保持
+                                if (dt.now() - flag_time).total_seconds() < 24 * 3600:
+                                    existing_flag_valid = True
+                                    print(f"[_send_task_notification_to_user_multi_tenant] 既存のフラグが有効（作成時刻: {flag_timestamp}）")
+                except Exception as e:
+                    print(f"[_send_task_notification_to_user_multi_tenant] 既存フラグ確認エラー: {e}")
+            
+            # 既存のフラグが有効でない場合のみ新規作成
+            if not existing_flag_valid:
+                flag_data = {
+                    "mode": "schedule",
+                    "timestamp": datetime.now().isoformat(),
+                    "task_count": len(tasks)
+                }
+                with open(select_flag, "w", encoding="utf-8") as f:
+                    json.dump(flag_data, f, ensure_ascii=False)
+                print(f"[_send_task_notification_to_user_multi_tenant] タスク選択モードフラグ作成: {select_flag} (タスク数: {len(tasks)})")
             
             # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
             morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
@@ -318,13 +345,40 @@ class NotificationService:
                 except Exception:
                     continue
 
-            # --- ここでタスク選択モードフラグを必ず作成 ---
+            # --- ここでタスク選択モードフラグを必ず作成（タイムスタンプ付き） ---
             import os
+            import json
             select_flag = f"task_select_mode_{user_id}.flag"
-            with open(select_flag, "w") as f:
-                # 朝8時: スケジュール提案モード
-                f.write("mode=schedule")
-            print(f"[send_daily_task_notification] タスク選択モードフラグ作成: {select_flag}")
+            # 既存のフラグファイルを確認（タイムスタンプ付きフォーマットに対応）
+            existing_flag_valid = False
+            if os.path.exists(select_flag):
+                try:
+                    with open(select_flag, "r", encoding="utf-8") as f:
+                        content = f.read().strip()
+                        # JSON形式の場合はタイムスタンプを確認
+                        if content.startswith("{"):
+                            flag_data = json.loads(content)
+                            flag_timestamp = flag_data.get("timestamp")
+                            if flag_timestamp:
+                                from datetime import datetime as dt
+                                flag_time = dt.fromisoformat(flag_timestamp)
+                                # フラグが作成されてから24時間以内の場合は保持
+                                if (dt.now() - flag_time).total_seconds() < 24 * 3600:
+                                    existing_flag_valid = True
+                                    print(f"[send_daily_task_notification] 既存のフラグが有効（作成時刻: {flag_timestamp}）")
+                except Exception as e:
+                    print(f"[send_daily_task_notification] 既存フラグ確認エラー: {e}")
+            
+            # 既存のフラグが有効でない場合のみ新規作成
+            if not existing_flag_valid:
+                flag_data = {
+                    "mode": "schedule",
+                    "timestamp": datetime.now().isoformat(),
+                    "task_count": len(all_tasks)
+                }
+                with open(select_flag, "w", encoding="utf-8") as f:
+                    json.dump(flag_data, f, ensure_ascii=False)
+                print(f"[send_daily_task_notification] タスク選択モードフラグ作成: {select_flag} (タスク数: {len(all_tasks)})")
 
             # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
             morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
