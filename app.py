@@ -2215,8 +2215,10 @@ def callback():
                                     continue
 
                                 except Exception as e:
-                                    print(f"[DEBUG] はいコマンド処理エラー: {e}")
-                                    reply_text = f"⚠️ スケジュール提案生成中にエラーが発生しました: {e}"
+                                    print(f"[DEBUG] はいコマンド削除処理エラー: {e}")
+                                    import traceback
+                                    traceback.print_exc()
+                                    reply_text = f"⚠️ タスク削除中にエラーが発生しました: {e}"
                                     line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
