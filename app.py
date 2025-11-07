@@ -29,11 +29,27 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import re as regex
 from datetime import datetime, timedelta
 import pytz
+import json
+import hmac
+import hashlib
+import base64
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your-default-secret-key")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+
+def validate_line_signature(body: bytes, signature: str, channel_secret: str) -> bool:
+    """LINE webhook署名を検証"""
+    if not signature or not channel_secret:
+        return False
+
+    mac = hmac.new(
+        channel_secret.encode("utf-8"), body, hashlib.sha256
+    ).digest()
+    expected_signature = base64.b64encode(mac).decode("utf-8")
+    return hmac.compare_digest(expected_signature, signature)
 
 # データベースを最初に初期化
 init_db()
@@ -518,20 +534,40 @@ def oauth2callback():
 @app.route("/callback", methods=["POST"])
 def callback():
     # グローバル変数を明示的に宣言
-    global calendar_service, openai_service, task_service, line_bot_api, multi_tenant_service
+    global calendar_service, openai_service, task_service, multi_tenant_service
     
     try:
-        data = request.get_json(force=True, silent=True)
+        signature = request.headers.get("X-Line-Signature", "")
+        body_bytes = request.get_data()
+        body_text = body_bytes.decode("utf-8") if body_bytes else ""
+        try:
+            data = json.loads(body_text) if body_text else {}
+        except json.JSONDecodeError:
+            print("[callback] 受信データのJSONデコードに失敗しました")
+            data = {}
+
+        destination = data.get("destination", "")
+        channel_secret = multi_tenant_service.get_channel_secret(destination) or os.getenv(
+            "LINE_CHANNEL_SECRET", ""
+        )
+
+        if not channel_secret:
+            print(f"[callback] チャネルシークレットが設定されていません: {destination}")
+            return "Internal Server Error", 500
+
+        if not validate_line_signature(body_bytes, signature, channel_secret):
+            print("[callback] 署名検証に失敗しました")
+            return "Invalid signature", 403
+
         print("受信:", data)
-        if data is not None:
+        if data:
             events = data.get("events", [])
-            destination = data.get("destination", "")
-            
             # マルチテナント対応: チャネルID別のLINE APIクライアントを取得
-            line_bot_api = multi_tenant_service.get_messaging_api(destination)
-            if not line_bot_api:
+            messaging_api = multi_tenant_service.get_messaging_api(destination) or line_bot_api
+            if not messaging_api:
                 print(f"[callback] チャネル設定が見つかりません: {destination}")
                 return "OK", 200
+            line_bot_api = messaging_api
             
             for event in events:
                 if event.get("type") == "message" and "replyToken" in event:
@@ -3376,9 +3412,8 @@ if __name__ == "__main__":
 
     port = int(os.getenv("PORT", 5000))
     print(f"[app.py] Flaskアプリケーション起動: port={port}, time={datetime.now()}")
-    print(
-        f"[DEBUG] LINE_CHANNEL_ACCESS_TOKEN: {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}"
-    )
     if not os.getenv("LINE_CHANNEL_ACCESS_TOKEN"):
         print("[ERROR] LINE_CHANNEL_ACCESS_TOKENが環境変数に設定されていません！")
+    else:
+        print("[app.py] LINE_CHANNEL_ACCESS_TOKENが設定されています")
     app.run(debug=False, host="0.0.0.0", port=port)
