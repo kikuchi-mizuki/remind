@@ -547,6 +547,7 @@ def callback():
             data = {}
 
         destination = data.get("destination", "")
+        default_line_bot_api = line_bot_api
         channel_secret = multi_tenant_service.get_channel_secret(destination) or os.getenv(
             "LINE_CHANNEL_SECRET", ""
         )
@@ -563,11 +564,11 @@ def callback():
         if data:
             events = data.get("events", [])
             # マルチテナント対応: チャネルID別のLINE APIクライアントを取得
-            messaging_api = multi_tenant_service.get_messaging_api(destination) or line_bot_api
-            if not messaging_api:
+            base_line_bot_api = multi_tenant_service.get_messaging_api(destination)
+            active_line_bot_api = base_line_bot_api or default_line_bot_api
+            if not active_line_bot_api:
                 print(f"[callback] チャネル設定が見つかりません: {destination}")
                 return "OK", 200
-            line_bot_api = messaging_api
             
             for event in events:
                 if event.get("type") == "message" and "replyToken" in event:
@@ -590,7 +591,7 @@ def callback():
                     if not is_google_authenticated(user_id):
                         auth_url = get_google_auth_url(user_id)
                         reply_text = f"Googleカレンダー連携のため、まずこちらから認証をお願いします:\n{auth_url}"
-                        line_bot_api.reply_message(
+                        active_line_bot_api.reply_message(
                             ReplyMessageRequest(
                                 replyToken=reply_token,
                                 messages=[TextMessage(text=reply_text)],
@@ -695,7 +696,7 @@ def callback():
                                 contents=flex_container
                             )
                             
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text), flex_message],
@@ -705,7 +706,7 @@ def callback():
                         except Exception as e:
                             print(f"[DEBUG] 緊急タスク追加エラー: {e}")
                             reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text)],
@@ -734,7 +735,7 @@ def callback():
                                 contents=flex_container
                             )
                             
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text), flex_message],
@@ -801,7 +802,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -823,7 +824,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -854,7 +855,7 @@ def callback():
 
 ❌ キャンセルする場合：
 「キャンセル」「やめる」「中止」と送信してください。"""
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -888,7 +889,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -917,7 +918,7 @@ def callback():
                                 contents=flex_container
                             )
                             
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text), flex_message],
@@ -978,7 +979,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -1000,7 +1001,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -1035,7 +1036,7 @@ def callback():
 
 ❌ キャンセルする場合：
 「キャンセル」「やめる」「中止」と送信してください。"""
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -1073,7 +1074,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -1108,7 +1109,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -1196,7 +1197,7 @@ def callback():
                                 reply_text = "✅ タスクを削除しました！\n" + "\n".join(deleted)
                             else:
                                 reply_text = "⚠️ 削除対象のタスクが見つかりませんでした。"
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text)],
@@ -1275,7 +1276,7 @@ def callback():
                                         contents=flex_container
                                     )
                                     
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text), flex_message],
@@ -1314,7 +1315,7 @@ def callback():
                                     alt_text="メニュー",
                                     contents=flex_container
                                 )
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[flex_message],
@@ -1505,7 +1506,7 @@ def callback():
                                                 selected_numbers.append(int(user_message.strip()))
                                     if not selected_numbers:
                                         reply_text = "⚠️ 有効な数字を入力してください。\n例: 1、2、3"
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text)],
@@ -1548,7 +1549,7 @@ def callback():
                                                 f"もう一度「タスク一覧」と送信して、タスク一覧を確認してください。"
                                             )
                                             print(f"[DEBUG] エラー: display_tasksが空です。all_tasks={len(all_tasks)}, mode_content='{mode_content}'")
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text)],
@@ -1641,7 +1642,7 @@ def callback():
                                     os.remove(select_flag)
                                     print(f"[DEBUG] タスク選択モードフラグ削除完了: {select_flag}")
                                     print(f"[DEBUG] 選択結果送信開始: {reply_text[:100]}...")
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -1654,7 +1655,7 @@ def callback():
                                     reply_text = (
                                         "⚠️ タスク選択処理中にエラーが発生しました。"
                                     )
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -1683,7 +1684,7 @@ def callback():
                                     "⚠️ 所要時間は必須です！\n"
                                 )
                                 try:
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=guide_text)],
@@ -1694,7 +1695,7 @@ def callback():
                                     print(f"[DEBUG] タスク追加モード案内送信エラー(reply): {e}")
                                     # 念のためpushでフォールバック
                                     try:
-                                        line_bot_api.push_message(
+                                        active_line_bot_api.push_message(
                                             PushMessageRequest(
                                                 to=user_id,
                                                 messages=[TextMessage(text=guide_text)],
@@ -1708,7 +1709,7 @@ def callback():
                                 if not is_google_authenticated(user_id):
                                     auth_url = get_google_auth_url(user_id)
                                     reply_text = f"📅 カレンダー連携が必要です\n\nGoogleカレンダーにアクセスして認証してください：\n{auth_url}"
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -1722,7 +1723,7 @@ def callback():
                                     import json
                                     json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
                                 reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -1745,7 +1746,7 @@ def callback():
                                 reply_text += "• 3カ年事業計画をつくる 3時間\n\n"
                                 reply_text += "⚠️ 所要時間は必須です！\n"
                                 reply_text += "※毎週日曜日18時に来週やるタスクを選択できます"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -1770,7 +1771,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 print("[DEBUG] FlexMessageオブジェクト作成完了")
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[flex_message],
@@ -1786,7 +1787,7 @@ def callback():
                                     if user_id:
                                         try:
                                             print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
-                                            line_bot_api.push_message(
+                                            active_line_bot_api.push_message(
                                                 PushMessageRequest(
                                                     to=str(user_id),
                                                     messages=[flex_message],
@@ -1800,7 +1801,7 @@ def callback():
                                             traceback.print_exc()
                                             try:
                                                 reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
-                                                line_bot_api.push_message(
+                                                active_line_bot_api.push_message(
                                                     PushMessageRequest(
                                                         to=str(user_id),
                                                         messages=[TextMessage(text=reply_text)],
@@ -1912,7 +1913,7 @@ def callback():
                             print(
                                 f"[DEBUG] 削除メッセージ送信開始: {reply_text[:100]}..."
                             )
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text)],
@@ -2184,7 +2185,7 @@ def callback():
                                             contents=flex_container
                                         )
                                         
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text), flex_message],
@@ -2192,7 +2193,7 @@ def callback():
                                         )
                                     else:
                                         reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text)],
@@ -2203,7 +2204,7 @@ def callback():
                                     import traceback
                                     traceback.print_exc()
                                     reply_text = f"⚠️ スケジュール承認中にエラーが発生しました: {e}"
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -2228,7 +2229,7 @@ def callback():
 
                                     if not selected_tasks:
                                         reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[
@@ -2269,7 +2270,7 @@ def callback():
                                         contents=flex_container
                                     )
                                     
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text), flex_message],
@@ -2282,7 +2283,7 @@ def callback():
                                     import traceback
                                     traceback.print_exc()
                                     reply_text = f"⚠️ タスク削除中にエラーが発生しました: {e}"
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -2291,7 +2292,7 @@ def callback():
                                     continue
                             else:
                                 reply_text = "⚠️ 先にタスクを選択してください。"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2304,7 +2305,7 @@ def callback():
                                 reply_text = "8時テスト通知を送信しました"
                             except Exception as e:
                                 reply_text = f"8時テストエラー: {e}"
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text)],
@@ -2318,7 +2319,7 @@ def callback():
                                 continue
                             except Exception as e:
                                 reply_text = f"21時テストエラー: {e}"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2332,7 +2333,7 @@ def callback():
                                 continue
                             except Exception as e:
                                 reply_text = f"日曜18時テストエラー: {e}"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2347,7 +2348,7 @@ def callback():
                                 else False
                             )
                             reply_text = f"スケジューラー状態:\n- is_running: {scheduler_status}\n- スレッド動作: {thread_status}"
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text)],
@@ -2620,7 +2621,7 @@ def callback():
                                             contents=flex_container
                                         )
                                         
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text), flex_message],
@@ -2628,7 +2629,7 @@ def callback():
                                         )
                                     else:
                                         reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text)],
@@ -2638,7 +2639,7 @@ def callback():
                                     reply_text = (
                                         "⚠️ スケジュール提案が見つかりませんでした。"
                                     )
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -2652,7 +2653,7 @@ def callback():
                                 reply_text = (
                                     f"⚠️ 承認処理中にエラーが発生しました: {e}"
                                 )
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2744,7 +2745,7 @@ def callback():
                                     except Exception as e:
                                         print(f"[修正処理] フラグファイル更新エラー: {e}")
 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2758,7 +2759,7 @@ def callback():
                                 reply_text = (
                                     f"⚠️ 修正処理中にエラーが発生しました: {e}"
                                 )
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2784,7 +2785,7 @@ def callback():
                                 for t in today_tasks:
                                     task_service.archive_task(t.task_id)
                                 reply_text = "本日分のタスクはすべて削除しました。お疲れさまでした！"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2817,7 +2818,7 @@ def callback():
                                 else:
                                     task_service.archive_task(t.task_id)
                             reply_text = "指定されたタスクを明日に繰り越し、それ以外は削除しました。"
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[TextMessage(text=reply_text)],
@@ -2893,7 +2894,7 @@ def callback():
                                     contents=flex_container
                                 )
                                 
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -2903,7 +2904,7 @@ def callback():
                             except Exception as e:
                                 print(f"[DEBUG] 緊急タスク追加エラー: {e}")
                                 reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -2989,7 +2990,7 @@ def callback():
                                 print(
                                     f"[DEBUG] 未来タスク追加モード返信メッセージ送信開始: {reply_text[:100]}..."
                                 )
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text), flex_message],
@@ -3010,7 +3011,7 @@ def callback():
                                 reply_text = (
                                     f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
                                 )
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -3146,7 +3147,7 @@ def callback():
                                             except Exception:
                                                 pass
 
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text)],
@@ -3155,7 +3156,7 @@ def callback():
                                         continue
                                     else:
                                         reply_text = f"⚠️ 無効な番号です。1〜{len(future_tasks)}の間で選択してください。"
-                                        line_bot_api.reply_message(
+                                        active_line_bot_api.reply_message(
                                             ReplyMessageRequest(
                                                 replyToken=reply_token,
                                                 messages=[TextMessage(text=reply_text)],
@@ -3164,7 +3165,7 @@ def callback():
                                         continue
                                 else:
                                     reply_text = "⚠️ 数字で選択してください。例: 1、3、5"
-                                    line_bot_api.reply_message(
+                                    active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
                                             replyToken=reply_token,
                                             messages=[TextMessage(text=reply_text)],
@@ -3179,7 +3180,7 @@ def callback():
                                 reply_text = (
                                     f"⚠️ 未来タスク選択中にエラーが発生しました: {e}"
                                 )
-                                line_bot_api.reply_message(
+                                active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
                                         replyToken=reply_token,
                                         messages=[TextMessage(text=reply_text)],
@@ -3209,7 +3210,7 @@ def callback():
                             )
                             print("[DEBUG] FlexMessageオブジェクト作成完了")
                             # reply_messageで送信
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[flex_message],
@@ -3226,7 +3227,7 @@ def callback():
                                 if user_id:
                                     try:
                                         print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
-                                        line_bot_api.push_message(
+                                        active_line_bot_api.push_message(
                                             PushMessageRequest(
                                                 to=str(user_id),
                                                 messages=[flex_message],
@@ -3241,7 +3242,7 @@ def callback():
                                         # 最後の手段としてテキストメッセージを送信
                                         try:
                                             reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
-                                            line_bot_api.push_message(
+                                            active_line_bot_api.push_message(
                                                 PushMessageRequest(
                                                     to=str(user_id),
                                                     messages=[TextMessage(text=reply_text)],
@@ -3263,7 +3264,7 @@ def callback():
                         print("エラー:", e)
                         # 例外発生時もユーザーにエラー内容を返信
                         try:
-                            line_bot_api.reply_message(
+                            active_line_bot_api.reply_message(
                                 ReplyMessageRequest(
                                     replyToken=reply_token,
                                     messages=[
@@ -3278,7 +3279,7 @@ def callback():
                             # reply_tokenが無効な場合はpush_messageで通知
                             if user_id:
                                 try:
-                                    line_bot_api.push_message(
+                                    active_line_bot_api.push_message(
                                         PushMessageRequest(
                                             to=str(user_id),
                                             messages=[
