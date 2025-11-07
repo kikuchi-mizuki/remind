@@ -1571,6 +1571,21 @@ def callback():
                                             else:
                                                 header = "【来週のスケジュール提案】" if is_future_schedule_mode else "【今日のスケジュール提案】"
                                                 reply_text = f"{header}\n\n{proposal}"
+                                            # スケジュールに含まれなかったタスクを追記
+                                            missing_tasks = []
+                                            normalized_reply_text = reply_text
+                                            for task in selected_tasks:
+                                                if task.name not in normalized_reply_text:
+                                                    missing_tasks.append(task)
+                                            if missing_tasks:
+                                                missing_section_lines = ["━━━━━━━━━━━━━━", "🟡未割り当てタスク"]
+                                                for task in missing_tasks:
+                                                    missing_section_lines.append(f"・{task.name}（{task.duration_minutes}分）")
+                                                missing_section = "\n".join(missing_section_lines)
+                                                if "✅理由・まとめ" in reply_text:
+                                                    reply_text = reply_text.replace("✅理由・まとめ", f"{missing_section}\n━━━━━━━━━━━━━━\n✅理由・まとめ", 1)
+                                                else:
+                                                    reply_text = f"{reply_text}\n{missing_section}"
                                         else:
                                             reply_text = "⚠️ 空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
                                     else:
