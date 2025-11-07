@@ -1361,7 +1361,6 @@ def callback():
                                             content = f.read().strip()
                                             # JSON形式の場合はパース
                                             if content.startswith("{"):
-                                                import json
                                                 flag_data = json.loads(content)
                                                 mode_content = flag_data.get("mode", "")
                                                 flag_timestamp = flag_data.get("timestamp")
@@ -1599,7 +1598,6 @@ def callback():
                                             with open(schedule_proposal_file, "w", encoding="utf-8") as f:
                                                 f.write(proposal)
                                             selected_tasks_file = f"selected_tasks_{user_id}.json"
-                                            import json
                                             with open(selected_tasks_file, "w", encoding="utf-8") as f:
                                                 json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
                                             # proposalに既にタイトルが含まれている場合は追加しない
@@ -1634,7 +1632,6 @@ def callback():
                                             reply_text += f"{i}. {name}\n"
                                         reply_text += "\n削除する場合は「はい」、キャンセルする場合は「キャンセル」と送信してください。"
                                         selected_tasks_file = f"selected_tasks_{user_id}.json"
-                                        import json
                                         with open(selected_tasks_file, "w", encoding="utf-8") as f:
                                             json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
 
@@ -1720,7 +1717,6 @@ def callback():
                                 # datetime は先頭でインポート済み
                                 urgent_mode_file = f"urgent_task_mode_{user_id}.json"
                                 with open(urgent_mode_file, "w") as f:
-                                    import json
                                     json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
                                 reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
                                 active_line_bot_api.reply_message(
@@ -1735,7 +1731,6 @@ def callback():
                                 # datetime は先頭でインポート済み
                                 future_mode_file = f"future_task_mode_{user_id}.json"
                                 with open(future_mode_file, "w") as f:
-                                    import json
                                     json.dump({"mode": "future_task", "timestamp": datetime.now().isoformat()}, f)
                                 reply_text = "🔮 未来タスク追加モード\n\n"
                                 reply_text += "投資につながるタスク名と所要時間を送信してください！\n\n"
@@ -1892,7 +1887,6 @@ def callback():
                             )
                             try:
                                 with open(delete_mode_file, "w") as f:
-                                    import json
 
                                     json.dump(
                                         {
@@ -1923,7 +1917,6 @@ def callback():
                             continue
                         elif user_message.strip() == "はい":
                             import os
-                            import json
 
                             # まずスケジュール提案ファイルをチェック
                             schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
@@ -2380,7 +2373,6 @@ def callback():
                                         f"selected_tasks_{user_id}.json"
                                     )
                                     if os.path.exists(selected_tasks_file):
-                                        import json
 
                                         with open(selected_tasks_file, "r") as f:
                                             task_ids = json.load(f)
@@ -2674,7 +2666,6 @@ def callback():
                                         print(f"[修正処理] フラグファイル内容: '{content[:100]}'")
                                         # JSON形式の場合はパース
                                         if content.startswith("{"):
-                                            import json
                                             flag_data = json.loads(content)
                                             mode = flag_data.get("mode", "schedule")
                                             current_mode = mode
@@ -2695,7 +2686,6 @@ def callback():
                                     if os.path.exists(future_selection_file):
                                         # 未来タスク選択モードファイルの内容を確認
                                         try:
-                                            import json
                                             with open(future_selection_file, "r", encoding="utf-8") as f:
                                                 future_mode_data = json.load(f)
                                                 if future_mode_data.get("mode") == "future_schedule":
@@ -3032,7 +3022,6 @@ def callback():
                                     content = f.read().strip()
                                     # JSON形式の場合はパース
                                     if content.startswith("{"):
-                                        import json
                                         flag_data = json.loads(content)
                                         mode = flag_data.get("mode", "")
                                         if mode:
@@ -3116,7 +3105,6 @@ def callback():
                                             selected_tasks_file = (
                                                 f"selected_tasks_{user_id}.json"
                                             )
-                                            import json
 
                                             with open(
                                                 selected_tasks_file,
