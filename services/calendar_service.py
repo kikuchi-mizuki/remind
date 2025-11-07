@@ -105,8 +105,28 @@ class CalendarService:
             current_time = start_time
             
             for event in events:
-                event_start = datetime.fromisoformat(event['start'].get('dateTime', event['start'].get('date')))
-                event_end = datetime.fromisoformat(event['end'].get('dateTime', event['end'].get('date')))
+                start_raw = event['start'].get('dateTime', event['start'].get('date'))
+                end_raw = event['end'].get('dateTime', event['end'].get('date'))
+
+                # 日時の正規化（タイムゾーン付き・日付のみの両方に対応）
+                def normalize_event_time(value: str, is_start: bool) -> datetime:
+                    if 'T' in value:
+                        dt = datetime.fromisoformat(value)
+                        if dt.tzinfo is None:
+                            dt = jst.localize(dt)
+                        else:
+                            dt = dt.astimezone(jst)
+                        return dt
+                    # 終日イベントの場合（date形式）
+                    date_only = datetime.fromisoformat(value)
+                    date_only = date_only.replace(hour=0, minute=0, second=0, microsecond=0)
+                    date_only = jst.localize(date_only)
+                    if not is_start:
+                        date_only += timedelta(days=1)
+                    return date_only
+
+                event_start = normalize_event_time(start_raw, True)
+                event_end = normalize_event_time(end_raw, False)
                 
                 # 現在時刻とイベント開始時刻の間に空き時間がある場合
                 if current_time < event_start:
