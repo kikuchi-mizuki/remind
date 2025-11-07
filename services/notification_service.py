@@ -660,11 +660,16 @@ class NotificationService:
                     
                     # タスク選択モードフラグを作成
                     import os
+                    import json
                     select_flag = f"task_select_mode_{user_id}.flag"
-                    with open(select_flag, "w") as f:
-                        # 21時: 完了（削除確認）モード
-                        f.write("mode=complete")
-                    print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}")
+                    flag_payload = {
+                        "mode": "complete",
+                        "target_date": today_str,
+                        "timestamp": datetime.now(jst).isoformat(),
+                    }
+                    with open(select_flag, "w", encoding="utf-8") as f:
+                        json.dump(flag_payload, f, ensure_ascii=False)
+                    print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}, payload={flag_payload}")
                 
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
                 # マルチテナント対応で通知送信

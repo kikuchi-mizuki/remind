@@ -1318,6 +1318,7 @@ def callback():
                                     # 選択モードを先に判定（display_tasksの作成方法を決めるため）
                                     mode_content = ""
                                     flag_timestamp = None
+                                    target_date_str = None
                                     try:
                                         with open(select_flag, "r", encoding="utf-8") as f:
                                             content = f.read().strip()
@@ -1327,6 +1328,7 @@ def callback():
                                                 flag_data = json.loads(content)
                                                 mode_content = flag_data.get("mode", "")
                                                 flag_timestamp = flag_data.get("timestamp")
+                                                target_date_str = flag_data.get("target_date")
                                                 # 旧形式互換のため、mode=schedule の形式に変換
                                                 if mode_content:
                                                     mode_content = f"mode={mode_content}"
@@ -1347,7 +1349,8 @@ def callback():
                                     jst = pytz.timezone('Asia/Tokyo')
                                     today = datetime.now(jst)
                                     today_str = today.strftime('%Y-%m-%d')
-                                    print(f"[DEBUG] 今日の日付文字列: {today_str}")
+                                    effective_today_str = target_date_str or today_str
+                                    print(f"[DEBUG] 今日の日付文字列: {today_str}, target_date_str: {target_date_str}, effective_today_str: {effective_today_str}")
                                     
                                     all_tasks = task_service.get_user_tasks(user_id)
                                     print(f"[DEBUG] 全タスク取得: {len(all_tasks)}件, タスク一覧={[(i+1, t.name, t.due_date) for i, t in enumerate(all_tasks)]}")
@@ -1358,9 +1361,12 @@ def callback():
                                         # デバッグ: 各タスクのdue_dateとtoday_strを比較
                                         for t in all_tasks:
                                             due_date_str = str(t.due_date) if t.due_date else None
-                                            match = (t.due_date == today_str) if t.due_date else False
+                                            match = (t.due_date == effective_today_str) if t.due_date else False
                                             print(f"[DEBUG] タスク比較: name={t.name}, due_date={due_date_str}, type={type(t.due_date)}, match={match}")
-                                        display_tasks = [t for t in all_tasks if t.due_date and str(t.due_date) == today_str]
+                                        if effective_today_str:
+                                            display_tasks = [t for t in all_tasks if t.due_date and str(t.due_date) == effective_today_str]
+                                        else:
+                                            display_tasks = [t for t in all_tasks if t.due_date and str(t.due_date) == today_str]
                                         print(f"[DEBUG] 削除モード: 今日のタスク数={len(display_tasks)}, タスク一覧={[(i+1, t.name) for i, t in enumerate(display_tasks)]}")
                                     else:
                                         # スケジュールモード（朝の通知）の場合は、format_task_listと同じソート順序を適用
