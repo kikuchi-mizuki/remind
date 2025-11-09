@@ -1593,7 +1593,13 @@ def callback():
                                             free_times = calendar_service.get_free_busy_times(user_id, today)
                                         if free_times:
                                             week_info = "来週" if is_future_schedule_mode else ""
-                                            proposal = openai_service.generate_schedule_proposal(selected_tasks, free_times, week_info=week_info)
+                                            base_date = next_week_monday if is_future_schedule_mode else today
+                                            proposal = openai_service.generate_schedule_proposal(
+                                                selected_tasks,
+                                                free_times,
+                                                week_info=week_info,
+                                                base_date=base_date
+                                            )
                                             schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
                                             with open(schedule_proposal_file, "w", encoding="utf-8") as f:
                                                 f.write(proposal)
@@ -1622,7 +1628,18 @@ def callback():
                                                 else:
                                                     reply_text = f"{reply_text}\n{missing_section}"
                                         else:
-                                            reply_text = "⚠️ 空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
+                                            base_date = next_week_monday if is_future_schedule_mode else today
+                                            week_info = "来週" if is_future_schedule_mode else ""
+                                            fallback_proposal = openai_service.generate_schedule_proposal(
+                                                selected_tasks,
+                                                [],
+                                                week_info=week_info,
+                                                base_date=base_date
+                                            )
+                                            if fallback_proposal:
+                                                reply_text = fallback_proposal
+                                            else:
+                                                reply_text = "⚠️ 空き時間が見つかりませんでした。\n手動でスケジュールを調整してください。"
                                     else:
                                         # 完了（削除確認）フロー（夜）
                                         print(f"[DEBUG] タスク削除開始: {len(selected_tasks)}個のタスク")

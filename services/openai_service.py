@@ -11,7 +11,13 @@ class OpenAIService:
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.model = "gpt-4o-mini"  # または "gpt-4o"
 
-    def generate_schedule_proposal(self, tasks: List[Task], free_times: List[dict] = [], week_info: str = "") -> str:
+    def generate_schedule_proposal(
+        self,
+        tasks: List[Task],
+        free_times: List[dict] = [],
+        week_info: str = "",
+        base_date: Optional[datetime] = None
+    ) -> str:
         """選択されたタスクと空き時間からスケジュール提案を生成"""
         if not tasks:
             return "タスクが選択されていません。"
@@ -87,9 +93,18 @@ class OpenAIService:
                 temperature=0.7
             )
             raw = response.choices[0].message.content or ""
-            return self._format_schedule_output(raw)
+            proposal = self._format_schedule_output(raw)
+            if self._needs_fallback(proposal, tasks):
+                print("[DEBUG] フォールバック判定: AI出力が要件を満たしていません。決定的スケジュールを生成します。")
+                fallback = self._build_deterministic_schedule(tasks, free_times, week_info, base_date)
+                if fallback:
+                    return fallback
+            return proposal
         except Exception as e:
             print(f"OpenAI API error: {e}")
+            fallback = self._build_deterministic_schedule(tasks, free_times, week_info, base_date)
+            if fallback:
+                return fallback
             return self._generate_fallback_schedule(tasks) or ""
 
     def generate_modified_schedule(self, user_id: str, modification: Dict) -> str:
@@ -411,6 +426,175 @@ class OpenAIService:
         # 5. 最後に案内文を1回だけ
         result.append('このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。')
         return '\n'.join(result) 
+
+    def _needs_fallback(self, proposal: str, tasks: List[Task]) -> bool:
+        """AI提案の妥当性を検証し、不足していればフォールバックを要求"""
+        lines = proposal.splitlines()
+        has_time_line = any(line.startswith('🕒') for line in lines)
+        has_task_line = any(line.startswith('📝') for line in lines)
+        contains_unassigned = any('未割り当てタスク' in line for line in lines)
+        if not has_time_line or not has_task_line:
+            print(f"[DEBUG] フォールバック理由: 時刻行有={has_time_line}, タスク行有={has_task_line}")
+            return True
+        if contains_unassigned and not has_task_line:
+            print("[DEBUG] フォールバック理由: 未割り当てセクションのみ検出")
+            return True
+        normalized_proposal = proposal.replace(' ', '')
+        for task in tasks:
+            if task.name and task.name.replace(' ', '') not in normalized_proposal:
+                print(f"[DEBUG] フォールバック理由: タスク '{task.name}' が提案に含まれていません")
+                return True
+        if 'エラー' in proposal:
+            print("[DEBUG] フォールバック理由: エラーメッセージを検出")
+            return True
+        return False
+
+    def _build_deterministic_schedule(
+        self,
+        tasks: List[Task],
+        free_times: List[dict],
+        week_info: str,
+        base_date: Optional[datetime]
+    ) -> str:
+        """空き時間情報を用いた決定的なスケジュール生成（フォールバック用）"""
+        import pytz
+        from collections import deque
+
+        if not free_times:
+            free_times = self._generate_default_free_times(week_info, base_date)
+        if not free_times:
+            print("[DEBUG] 決定的スケジュール生成中止: 空き時間情報がありません。")
+            return ""
+
+        jst = pytz.timezone('Asia/Tokyo')
+        slots = []
+        for ft in free_times:
+            start = ft.get('start')
+            end = ft.get('end')
+            if not start or not end:
+                print(f"[DEBUG] 空き時間データ不正: start={start}, end={end}")
+                continue
+            if start.tzinfo is None:
+                start = jst.localize(start)
+            else:
+                start = start.astimezone(jst)
+            if end.tzinfo is None:
+                end = jst.localize(end)
+            else:
+                end = end.astimezone(jst)
+            if end <= start:
+                print(f"[DEBUG] 空き時間スキップ: end<=start (start={start}, end={end})")
+                continue
+            slots.append([start, end])
+
+        if not slots:
+            print("[DEBUG] 決定的スケジュール生成中止: 有効な空き時間スロットがありません。")
+            return ""
+
+        slots.sort(key=lambda pair: pair[0])
+        remaining_tasks = deque(tasks)
+        assignments = []
+        unassigned = []
+
+        print(f"[DEBUG] 決定的スケジュール割当開始: タスク数={len(remaining_tasks)}, スロット数={len(slots)}")
+        while remaining_tasks:
+            task = remaining_tasks.popleft()
+            duration = max(task.duration_minutes, 0)
+            assigned = False
+            for slot in slots:
+                slot_start, slot_end = slot
+                available = int((slot_end - slot_start).total_seconds() / 60)
+                print(f"[DEBUG] スロット確認: task={task.name}, duration={duration}, slot_start={slot_start}, slot_end={slot_end}, available={available}")
+                if available >= duration and duration > 0:
+                    assigned_start = slot_start
+                    assigned_end = slot_start + timedelta(minutes=duration)
+                    assignments.append((assigned_start, assigned_end, task))
+                    slot[0] = assigned_end
+                    assigned = True
+                    print(f"[DEBUG] 割当成功: task={task.name}, start={assigned_start}, end={assigned_end}")
+                    break
+            if not assigned:
+                print(f"[DEBUG] 割当失敗: task={task.name}")
+                unassigned.append(task)
+
+        if not assignments:
+            print("[DEBUG] 決定的スケジュール生成失敗: 割当結果が空です。")
+            return ""
+
+        weekday_map = ['月', '火', '水', '木', '金', '土', '日']
+        priority_icons = {
+            "urgent_important": "🚨",
+            "not_urgent_important": "⭐",
+            "urgent_not_important": "⚡",
+            "normal": "📝"
+        }
+
+        header = "🗓️【来週のスケジュール提案】" if week_info else "🗓️【本日のスケジュール提案】"
+        def append_separator(container: List[str]):
+            if not container or container[-1] != "━━━━━━━━━━━━━━":
+                container.append("━━━━━━━━━━━━━━")
+
+        lines = [header]
+        append_separator(lines)
+        assignments.sort(key=lambda item: item[0])
+
+        current_date = None
+        for start, end, task in assignments:
+            task_date = start.date()
+            if week_info and current_date != task_date:
+                append_separator(lines)
+                lines.append(f"{start.strftime('%m/%d')}({weekday_map[start.weekday()]})")
+                append_separator(lines)
+                current_date = task_date
+            elif not week_info and current_date is None:
+                current_date = task_date
+
+            append_separator(lines)
+            lines.append(f"🕒 {start.strftime('%H:%M')}〜{end.strftime('%H:%M')}")
+            icon = priority_icons.get(task.priority, "📝")
+            lines.append(f"📝 {icon} {task.name}（{task.duration_minutes}分）")
+            append_separator(lines)
+
+        if unassigned:
+            append_separator(lines)
+            lines.append("🟡未割り当てタスク")
+            for task in unassigned:
+                lines.append(f"・{task.name}（{task.duration_minutes}分）")
+            append_separator(lines)
+
+        append_separator(lines)
+        lines.append("✅理由・まとめ")
+        lines.append("・空き時間に基づき機械的に割り当てました。")
+        lines.append("このスケジュールでよろしければ「承認する」、修正したい場合は「修正する」と返信してください。")
+        return "\n".join(lines)
+
+    def _generate_default_free_times(
+        self,
+        week_info: str,
+        base_date: Optional[datetime]
+    ) -> List[dict]:
+        """カレンダー情報が取得できない場合のデフォルト空き時間を生成"""
+        import pytz
+
+        jst = pytz.timezone('Asia/Tokyo')
+        if base_date is None:
+            base_date = datetime.now(jst)
+        elif base_date.tzinfo is None:
+            base_date = jst.localize(base_date)
+        else:
+            base_date = base_date.astimezone(jst)
+
+        days = 7 if week_info else 1
+        slots = []
+        for i in range(days):
+            day_start = base_date + timedelta(days=i)
+            start_time = day_start.replace(hour=9, minute=0, second=0, microsecond=0)
+            end_time = day_start.replace(hour=17, minute=0, second=0, microsecond=0)
+            slots.append({
+                "start": start_time,
+                "end": end_time
+            })
+        return slots
 
     def extract_due_date_from_text(self, text: str) -> Optional[str]:
         """自然言語テキストから期日を抽出し、YYYY-MM-DD形式で返す（JST基準・口語対応）"""
