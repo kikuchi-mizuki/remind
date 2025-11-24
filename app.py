@@ -53,7 +53,7 @@ from handlers.future_handler import (
     handle_future_task_add_command,
     handle_future_task_process,
 )
-from handlers.helpers import send_reply_with_menu
+from handlers.helpers import send_reply_with_menu, check_flag_file, delete_flag_file
 from handlers.selection_handler import (
     handle_task_selection_cancel,
     handle_task_selection_process,
@@ -1163,7 +1163,6 @@ def callback():
 
                         # 自然言語でのタスク追加処理を先に実行
                         # ただしモード中（未来/緊急/削除等）はここをスキップして各モードの処理へ委譲
-                        from handlers.helpers import check_flag_file
                         future_mode_guard = check_flag_file(user_id, "future_task")
                         urgent_mode_guard = check_flag_file(user_id, "urgent_task")
                         delete_mode_guard = check_flag_file(user_id, "delete")
