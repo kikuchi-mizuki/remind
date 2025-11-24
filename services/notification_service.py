@@ -486,9 +486,18 @@ class NotificationService:
             # 期限切れタスクが移動された場合は通知を追加
             if moved_count > 0:
                 message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
-            # LINEでメッセージを送信
-            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            
+
+            # LINEでメッセージを送信（リトライロジック付き）
+            success = self._send_message_with_retry(
+                line_bot_api=self.line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="daily_notification"
+            )
+
+            if not success:
+                print(f"Error sending notification to user {user_id}: Failed after retries")
+
         except Exception as e:
             print(f"Error sending notification to user {user_id}: {e}")
 
@@ -496,8 +505,17 @@ class NotificationService:
         """スケジュールリマインダーを送信"""
         try:
             message = f"⏰ スケジュールリマインダー\n\n{schedule_info}\n\n準備を始めましょう！"
-            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            
+
+            success = self._send_message_with_retry(
+                line_bot_api=self.line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="schedule_reminder"
+            )
+
+            if not success:
+                print(f"Error sending schedule reminder to {user_id}: Failed after retries")
+
         except Exception as e:
             print(f"Error sending schedule reminder: {e}")
 
@@ -505,8 +523,17 @@ class NotificationService:
         """タスク完了リマインダーを送信"""
         try:
             message = f"✅ タスク完了確認\n\n「{task_name}」は完了しましたか？\n\n完了した場合は「完了」と返信してください。"
-            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            
+
+            success = self._send_message_with_retry(
+                line_bot_api=self.line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="task_completion_reminder"
+            )
+
+            if not success:
+                print(f"Error sending completion reminder to {user_id}: Failed after retries")
+
         except Exception as e:
             print(f"Error sending completion reminder: {e}")
 
@@ -530,9 +557,17 @@ class NotificationService:
                 message += "今週は完了したタスクがありません。\n"
             
             message += "\n来週も頑張りましょう！"
-            
-            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            
+
+            success = self._send_message_with_retry(
+                line_bot_api=self.line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="weekly_report"
+            )
+
+            if not success:
+                print(f"Error sending weekly report to {user_id}: Failed after retries")
+
         except Exception as e:
             print(f"Error sending weekly report: {e}")
 
@@ -663,8 +698,18 @@ class NotificationService:
     def send_custom_notification(self, user_id: str, message: str):
         """カスタム通知を送信（APIレスポンスをprint）"""
         try:
-            res = self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            print(f"[send_custom_notification] push_message response: {res}")
+            success = self._send_message_with_retry(
+                line_bot_api=self.line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="custom_notification"
+            )
+
+            if success:
+                print(f"[send_custom_notification] Message sent successfully to {user_id}")
+            else:
+                print(f"[send_custom_notification] Failed to send message to {user_id} after retries")
+
         except Exception as e:
             print(f"Error sending custom notification: {e}")
             import traceback
@@ -674,7 +719,17 @@ class NotificationService:
         """エラー通知を送信"""
         try:
             message = f"⚠️ エラーが発生しました\n\n{error_message}\n\nしばらく時間をおいて再度お試しください。"
-            self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
+
+            success = self._send_message_with_retry(
+                line_bot_api=self.line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="error_notification"
+            )
+
+            if not success:
+                print(f"Error sending error notification to {user_id}: Failed after retries")
+
         except Exception as e:
             print(f"Error sending error notification: {e}")
 
@@ -841,9 +896,19 @@ class NotificationService:
                             print(f"[send_future_task_selection] 互換フラグ作成エラー: {ee}")
                     
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
-                    self.line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-                    print(f"[send_future_task_selection] ユーザー {user_id} に送信完了")
-                    
+
+                    success = self._send_message_with_retry(
+                        line_bot_api=self.line_bot_api,
+                        user_id=user_id,
+                        messages=[TextMessage(text=message)],
+                        operation_name="future_task_selection"
+                    )
+
+                    if success:
+                        print(f"[send_future_task_selection] ユーザー {user_id} に送信完了")
+                    else:
+                        print(f"[send_future_task_selection] ユーザー {user_id} への送信失敗（リトライ後）")
+
                 except Exception as e:
                     print(f"[send_future_task_selection] ユーザー {user_id} への送信エラー: {e}")
                     import traceback
