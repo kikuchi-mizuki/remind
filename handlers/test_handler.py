@@ -17,15 +17,15 @@ def handle_8am_test(line_bot_api, reply_token: str, user_id: str, notification_s
         notification_service: 通知サービス
 
     Returns:
-        bool: 処理成功時True
+        bool: 処理成功時True（実際の通知が送信されるため、確認メッセージは送信しない）
     """
     try:
         notification_service.send_daily_task_notification()
-        reply_text = "8時テスト通知を送信しました"
+        # 実際の通知内容も送信するため、確認メッセージは送信しない
+        return True
     except Exception as e:
         reply_text = f"8時テストエラー: {e}"
-
-    return send_reply_message(line_bot_api, reply_token, reply_text)
+        return send_reply_message(line_bot_api, reply_token, reply_text)
 
 
 def handle_9pm_test(line_bot_api, reply_token: str, user_id: str, notification_service) -> bool:

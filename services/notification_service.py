@@ -106,14 +106,13 @@ class NotificationService:
             if os.getenv('DISABLE_DUPLICATE_PREVENTION') == 'true':
                 print(f"[_check_duplicate_execution] 重複実行防止を無効化: {notification_type}")
                 return False
-                
-            from models.database import db
+
             import pytz
             jst = pytz.timezone('Asia/Tokyo')
             now = datetime.now(jst)
 
             # DBから最後の実行時刻を取得
-            last_execution = db.get_last_notification_execution(notification_type)
+            last_execution = self.db.get_last_notification_execution(notification_type)
 
             if last_execution:
                 last_time = datetime.fromisoformat(last_execution)
@@ -152,8 +151,7 @@ class NotificationService:
             return
 
         # N+1クエリ問題の解決：全ユーザーのチャネルIDを一括取得
-        from models.database import db
-        user_channels = db.get_all_user_channels()
+        user_channels = self.db.get_all_user_channels()
         print(f"[send_daily_task_notification] チャネル情報を一括取得: {len(user_channels)}件")
 
         for user_id in user_ids:
@@ -297,9 +295,8 @@ class NotificationService:
         """ユーザーのチャネルIDを取得"""
         try:
             # データベースからユーザーのチャネルIDを取得
-            from models.database import db
-            user_channel_id = db.get_user_channel(user_id)
-            
+            user_channel_id = self.db.get_user_channel(user_id)
+
             if user_channel_id:
                 print(f"[_get_user_channel_id] ユーザー {user_id} のチャネルID: {user_channel_id}")
                 return user_channel_id
@@ -330,8 +327,7 @@ class NotificationService:
 
     def _is_google_authenticated(self, user_id):
         """tokenの存在と有効性をDBでチェック"""
-        from models.database import db
-        token_json = db.get_token(user_id)
+        token_json = self.db.get_token(user_id)
         if not token_json:
             return False
         try:
@@ -798,8 +794,7 @@ class NotificationService:
         print(f"[send_carryover_check] ユーザー数: {len(user_ids)}")
 
         # N+1クエリ問題の解決：全ユーザーのチャネルIDを一括取得
-        from models.database import db
-        user_channels = db.get_all_user_channels()
+        user_channels = self.db.get_all_user_channels()
         print(f"[send_carryover_check] チャネル情報を一括取得: {len(user_channels)}件")
 
         jst = pytz.timezone('Asia/Tokyo')
