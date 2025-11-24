@@ -47,6 +47,7 @@ from handlers.task_handler import (
 )
 from handlers.urgent_handler import handle_urgent_task_add_command
 from handlers.future_handler import handle_future_task_add_command
+from handlers.helpers import send_reply_with_menu
 
 load_dotenv()
 
@@ -724,20 +725,7 @@ def callback():
                             os.remove(urgent_mode_file)
                             
                             # メニュー画面を表示
-                            from linebot.v3.messaging import FlexMessage, FlexContainer
-                            flex_message_content = get_simple_flex_menu()
-                            flex_container = FlexContainer.from_dict(flex_message_content)
-                            flex_message = FlexMessage(
-                                alt_text="メニュー",
-                                contents=flex_container
-                            )
-                            
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text), flex_message],
-                                )
-                            )
+                            send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                             continue
                         except Exception as e:
                             print(f"[DEBUG] 緊急タスク追加エラー: {e}")
@@ -763,20 +751,7 @@ def callback():
                             reply_text = "❌ 未来タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
                             
                             # メニュー画面を表示
-                            from linebot.v3.messaging import FlexMessage, FlexContainer
-                            flex_message_content = get_simple_flex_menu()
-                            flex_container = FlexContainer.from_dict(flex_message_content)
-                            flex_message = FlexMessage(
-                                alt_text="メニュー",
-                                contents=flex_container
-                            )
-                            
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text), flex_message],
-                                )
-                            )
+                            send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                             continue
                         
                         # まずパース処理を試行（単一行または複数行に対応）
@@ -946,20 +921,7 @@ def callback():
                             reply_text = "❌ タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
                             
                             # メニュー画面を表示
-                            from linebot.v3.messaging import FlexMessage, FlexContainer
-                            flex_message_content = get_simple_flex_menu()
-                            flex_container = FlexContainer.from_dict(flex_message_content)
-                            flex_message = FlexMessage(
-                                alt_text="メニュー",
-                                contents=flex_container
-                            )
-                            
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text), flex_message],
-                                )
-                            )
+                            send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                             continue
                         
                         # まずパース処理を試行（単一行または複数行に対応）
@@ -1344,19 +1306,7 @@ def callback():
                                 print(f"[DEBUG] タスク選択モードリセット: {select_flag} 削除")
                                 
                                 # 通常のFlexMessageメニューを表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu)
                                 continue
                         # AIによる数字入力判定を試行
                         is_number_input = False
@@ -1732,63 +1682,10 @@ def callback():
                         else:
                             print(f"[DEBUG] else節（未登録コマンド分岐）到達: '{user_message}' - FlexMessageボタンメニューを返します")
                             print("[DEBUG] Flex送信直前")
-                            button_message_sent = False
-                            try:
-                                from linebot.v3.messaging import FlexMessage
-                                flex_message_content = get_simple_flex_menu(user_id)
-                                print(f"[DEBUG] get_simple_flex_menu返り値: {flex_message_content}")
-                                print("[DEBUG] FlexContainer作成直前")
-                                from linebot.v3.messaging import FlexContainer
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                print("[DEBUG] FlexMessageオブジェクト作成完了")
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[flex_message],
-                                    )
-                                )
-                                button_message_sent = True
+                            button_message_sent = send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, user_id=user_id)
+                            if button_message_sent:
                                 print("[DEBUG] FlexMessage送信成功")
-                            except Exception as e:
-                                print(f"[DEBUG] FlexMessage送信エラー: {e}")
-                                import traceback
-                                traceback.print_exc()
-                                if "Invalid reply token" in str(e) or "400" in str(e):
-                                    if user_id:
-                                        try:
-                                            print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
-                                            active_line_bot_api.push_message(
-                                                PushMessageRequest(
-                                                    to=str(user_id),
-                                                    messages=[flex_message],
-                                                )
-                                            )
-                                            button_message_sent = True
-                                            print("[DEBUG] push_messageでFlexMessage送信成功")
-                                        except Exception as push_e:
-                                            print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
-                                            import traceback
-                                            traceback.print_exc()
-                                            try:
-                                                reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
-                                                active_line_bot_api.push_message(
-                                                    PushMessageRequest(
-                                                        to=str(user_id),
-                                                        messages=[TextMessage(text=reply_text)],
-                                                    )
-                                                )
-                                                print("[DEBUG] テキストメッセージ送信成功")
-                                            except Exception as text_e:
-                                                print(f"[DEBUG] テキストメッセージ送信も失敗: {text_e}")
-                                    else:
-                                        print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
-                                else:
-                                    print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
-                            if not button_message_sent:
+                            else:
                                 print("[DEBUG] ボタンメニュー送信に失敗しました")
                             print("[DEBUG] Flex送信後")
                             continue
@@ -3020,68 +2917,10 @@ def callback():
                         )
                         print("[DEBUG] Flex送信直前")
                         # FlexMessageを使用してボタンメニューを送信
-                        button_message_sent = False
-                        try:
-                            from linebot.v3.messaging import FlexMessage
-                            # 既存のget_simple_flex_menu関数を使用
-                            flex_message_content = get_simple_flex_menu(user_id)
-                            print(f"[DEBUG] get_simple_flex_menu返り値: {flex_message_content}")
-                            print("[DEBUG] FlexContainer作成直前")
-                            # FlexMessageオブジェクトを作成
-                            from linebot.v3.messaging import FlexContainer
-                            flex_container = FlexContainer.from_dict(flex_message_content)
-                            flex_message = FlexMessage(
-                                alt_text="メニュー",
-                                contents=flex_container
-                            )
-                            print("[DEBUG] FlexMessageオブジェクト作成完了")
-                            # reply_messageで送信
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[flex_message],
-                                )
-                            )
-                            button_message_sent = True
+                        button_message_sent = send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, user_id=user_id)
+                        if button_message_sent:
                             print("[DEBUG] FlexMessage送信成功")
-                        except Exception as e:
-                            print(f"[DEBUG] FlexMessage送信エラー: {e}")
-                            import traceback
-                            traceback.print_exc()
-                            # reply tokenが無効な場合のみpush_messageを使用
-                            if "Invalid reply token" in str(e) or "400" in str(e):
-                                if user_id:
-                                    try:
-                                        print("[DEBUG] reply tokenが無効なため、push_messageでFlexMessageを送信")
-                                        active_line_bot_api.push_message(
-                                            PushMessageRequest(
-                                                to=str(user_id),
-                                                messages=[flex_message],
-                                            )
-                                        )
-                                        button_message_sent = True
-                                        print("[DEBUG] push_messageでFlexMessage送信成功")
-                                    except Exception as push_e:
-                                        print(f"[DEBUG] push_messageでFlexMessage送信も失敗: {push_e}")
-                                        import traceback
-                                        traceback.print_exc()
-                                        # 最後の手段としてテキストメッセージを送信
-                                        try:
-                                            reply_text = "何をお手伝いしますか？\n\n以下のコマンドから選択してください：\n• タスク追加\n• 緊急タスク追加\n• 未来タスク追加\n• タスク削除\n• タスク一覧\n• 未来タスク一覧"
-                                            active_line_bot_api.push_message(
-                                                PushMessageRequest(
-                                                    to=str(user_id),
-                                                    messages=[TextMessage(text=reply_text)],
-                                                )
-                                            )
-                                            print("[DEBUG] テキストメッセージ送信成功")
-                                        except Exception as text_e:
-                                            print(f"[DEBUG] テキストメッセージ送信も失敗: {text_e}")
-                                else:
-                                    print("[DEBUG] user_idが取得できないため、push_messageを送信できません")
-                            else:
-                                print("[DEBUG] reply token以外のエラーのため、push_messageは使用しません")
-                        if not button_message_sent:
+                        else:
                             print("[DEBUG] ボタンメニュー送信に失敗しました")
                         print("[DEBUG] Flex送信後")
                         continue

@@ -9,6 +9,8 @@ from .helpers import (
     send_reply_message,
     send_reply_with_fallback,
     format_due_date,
+    create_flex_menu,
+    send_reply_with_menu,
 )
 
 __all__ = [
@@ -18,4 +20,6 @@ __all__ = [
     'send_reply_message',
     'send_reply_with_fallback',
     'format_due_date',
+    'create_flex_menu',
+    'send_reply_with_menu',
 ]

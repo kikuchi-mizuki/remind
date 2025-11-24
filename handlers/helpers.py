@@ -6,11 +6,13 @@ LINE botのコマンド処理で共通して使われる機能を提供
 import os
 import json
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Union
 from linebot.v3.messaging import (
     TextMessage,
     ReplyMessageRequest,
     PushMessageRequest,
+    FlexMessage,
+    FlexContainer,
 )
 
 
@@ -265,3 +267,78 @@ def delete_data_file(filename: str) -> bool:
     except Exception as e:
         print(f"[delete_data_file] エラー: {e}")
         return None
+
+
+def create_flex_menu(flex_menu_func, user_id: Optional[str] = None) -> FlexMessage:
+    """
+    FlexMessageメニューを作成
+
+    Args:
+        flex_menu_func: メニュー生成関数（get_simple_flex_menuなど）
+        user_id: ユーザーID（オプション）
+
+    Returns:
+        FlexMessage: 作成されたFlexMessage
+    """
+    try:
+        if user_id:
+            flex_message_content = flex_menu_func(user_id)
+        else:
+            flex_message_content = flex_menu_func()
+
+        flex_container = FlexContainer.from_dict(flex_message_content)
+        flex_message = FlexMessage(
+            alt_text="メニュー",
+            contents=flex_container
+        )
+        return flex_message
+    except Exception as e:
+        print(f"[create_flex_menu] エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+
+def send_reply_with_menu(
+    line_bot_api,
+    reply_token: str,
+    flex_menu_func,
+    text: Optional[str] = None,
+    user_id: Optional[str] = None
+) -> bool:
+    """
+    テキストメッセージとFlexMenuを返信
+
+    Args:
+        line_bot_api: LINE Messaging APIクライアント
+        reply_token: リプライトークン
+        flex_menu_func: メニュー生成関数（get_simple_flex_menuなど）
+        text: 送信するテキスト（オプション、Noneの場合はメニューのみ）
+        user_id: ユーザーID（オプション）
+
+    Returns:
+        bool: 送信成功時True
+    """
+    try:
+        flex_message = create_flex_menu(flex_menu_func, user_id)
+
+        if text:
+            # テキストとメニューの両方を送信
+            messages = [TextMessage(text=text), flex_message]
+        else:
+            # メニューのみ送信
+            messages = [flex_message]
+
+        line_bot_api.reply_message(
+            ReplyMessageRequest(
+                replyToken=reply_token,
+                messages=messages,
+            )
+        )
+        print(f"[send_reply_with_menu] メッセージ送信成功")
+        return True
+    except Exception as e:
+        print(f"[send_reply_with_menu] エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
