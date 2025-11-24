@@ -103,8 +103,13 @@ def handle_task_selection_process(
         effective_today_str = target_date_str or today_str
         print(f"[DEBUG] 今日の日付文字列: {today_str}, target_date_str: {target_date_str}, effective_today_str: {effective_today_str}")
 
-        all_tasks = task_service.get_user_tasks(user_id)
-        print(f"[DEBUG] 全タスク取得: {len(all_tasks)}件, タスク一覧={[(i+1, t.name, t.due_date) for i, t in enumerate(all_tasks)]}")
+        # 未来タスク選択モードの場合は未来タスクを取得
+        if is_future_schedule_mode:
+            all_tasks = task_service.get_user_future_tasks(user_id)
+            print(f"[DEBUG] 未来タスク取得: {len(all_tasks)}件, タスク一覧={[(i+1, t.name, t.due_date) for i, t in enumerate(all_tasks)]}")
+        else:
+            all_tasks = task_service.get_user_tasks(user_id)
+            print(f"[DEBUG] 全タスク取得: {len(all_tasks)}件, タスク一覧={[(i+1, t.name, t.due_date) for i, t in enumerate(all_tasks)]}")
 
         # 削除モード（夜の通知）の場合は、通知と同じ方法で今日のタスクを取得
         if is_complete_mode:
