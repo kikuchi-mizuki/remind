@@ -212,7 +212,8 @@ def load_flag_data(user_id: str, mode: str) -> Optional[dict]:
         Optional[dict]: 読み込んだデータ、失敗時None
     """
     try:
-        from models.database import db
+        from models.database import init_db
+        db = init_db()
 
         state_type = f"{mode}_mode"
         return db.get_user_state(user_id, state_type)

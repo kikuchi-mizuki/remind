@@ -185,6 +185,8 @@ def handle_task_selection_process(
                 print(f"[DEBUG] AI数字解析成功: {selected_numbers}")
         except Exception as e:
             print(f"[DEBUG] AI数字解析失敗: {e}, フォールバック処理に移行")
+            import traceback
+            traceback.print_exc()
 
         # AIが失敗した場合は従来の方法で解析
         if not selected_numbers:
@@ -283,6 +285,8 @@ def handle_task_selection_process(
                     reply_text = "⚠️ スケジュール提案の生成に失敗しました。"
             except Exception as e:
                 print(f"[DEBUG] スケジュール提案エラー: {e}")
+                import traceback
+                traceback.print_exc()
                 reply_text = f"⚠️ スケジュール提案中にエラーが発生しました: {e}"
         else:
             # 完了（削除確認）フロー（夜）

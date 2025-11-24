@@ -11,17 +11,19 @@ import re
 
 class CalendarService:
     """Googleカレンダー操作サービスクラス"""
-    
+
     def __init__(self):
         self.SCOPES = ['https://www.googleapis.com/auth/calendar']
         self.service = None
         self.credentials = None
+        # データベースインスタンスを初期化
+        from models.database import init_db
+        self.db = init_db()
 
     def authenticate_user(self, user_id: str) -> bool:
         """ユーザーの認証を行う（DB保存方式）"""
         try:
-            from models.database import db
-            token_json = db.get_token(user_id)
+            token_json = self.db.get_token(user_id)
             if not token_json:
                 print(f"Token not found in DB for user: {user_id}")
                 return False
@@ -39,7 +41,7 @@ class CalendarService:
                 try:
                     creds.refresh(Request())
                     # 更新されたトークンをDBに保存
-                    db.save_token(user_id, creds.to_json())
+                    self.db.save_token(user_id, creds.to_json())
                 except Exception as e:
                     print(f"Token refresh failed: {e}")
                     return False
@@ -895,10 +897,9 @@ class CalendarService:
             flow.fetch_token(code=code)
             # 認証情報を保存
             creds = flow.credentials
-            
+
             # トークンをデータベースに保存
-            from models.database import db
-            if db.save_token(user_id, creds.to_json()):
+            if self.db.save_token(user_id, creds.to_json()):
                 print(f"Token saved to database for user: {user_id}")
                 return True
             else:

@@ -101,10 +101,8 @@ def validate_line_signature(body: bytes, signature: str, channel_secret: str) ->
     return hmac.compare_digest(expected_signature, signature)
 
 # データベースを最初に初期化
-init_db()
+db = init_db()
 print(f"[app.py] データベース初期化完了: {datetime.now()}")
-
-from models.database import db
 
 # PostgreSQLテーブル作成の確認
 if hasattr(db, 'Session') and db.Session:

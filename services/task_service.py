@@ -3,15 +3,18 @@ import uuid
 from datetime import datetime, timedelta
 import pytz
 from typing import List, Dict, Optional
-from models.database import db, Task
+from models.database import Task
 from collections import defaultdict
 
 class TaskService:
     """タスク管理サービスクラス"""
-    
+
     def __init__(self, db_instance=None):
-        from models.database import db
-        self.db = db_instance or db
+        if db_instance:
+            self.db = db_instance
+        else:
+            from models.database import init_db
+            self.db = init_db()
 
     def parse_task_message(self, message: str) -> Dict:
         """LINEメッセージからタスク情報を解析"""

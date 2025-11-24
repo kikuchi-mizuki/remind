@@ -9,7 +9,7 @@ from typing import List
 # from linebot import LineBotApi
 # from linebot.models import TextSendMessage
 from linebot.v3.messaging import MessagingApi, PushMessageRequest, TextMessage, FlexMessage, Configuration, ApiClient
-from models.database import db, Task
+from models.database import Task
 from services.task_service import TaskService
 from services.notification_error_handler import (
     NotificationErrorHandler,

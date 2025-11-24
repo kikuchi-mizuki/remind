@@ -90,7 +90,18 @@ def _handle_schedule_approval(
             )
             return False
 
-        task_ids = json.loads(selected_tasks_data)
+        try:
+            task_ids = json.loads(selected_tasks_data)
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] JSON parsing failed: {e}")
+            reply_text = "⚠️ タスクデータの読み込みに失敗しました。もう一度タスクを選択してください。"
+            line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    replyToken=reply_token,
+                    messages=[TextMessage(text=reply_text)],
+                )
+            )
+            return False
 
         # モードを判定
         current_mode = "schedule"  # デフォルト
@@ -328,7 +339,18 @@ def _handle_task_deletion(
 
     try:
         # 選択されたタスクを読み込み
-        task_ids = json.loads(selected_tasks_data)
+        try:
+            task_ids = json.loads(selected_tasks_data)
+        except json.JSONDecodeError as e:
+            print(f"[ERROR] JSON parsing failed in task deletion: {e}")
+            reply_text = "⚠️ タスクデータの読み込みに失敗しました。もう一度タスクを選択してください。"
+            line_bot_api.reply_message(
+                ReplyMessageRequest(
+                    replyToken=reply_token,
+                    messages=[TextMessage(text=reply_text)],
+                )
+            )
+            return False
 
         # モードを判定（削除モードは通常タスクのみなので、通常はscheduleまたはcomplete）
         # ただし、将来的に未来タスクの削除もサポートする可能性を考慮
