@@ -20,6 +20,12 @@ from .approval_handler import (
     handle_approval,
     handle_modification,
 )
+from .urgent_handler import (
+    handle_urgent_task_process,
+)
+from .future_handler import (
+    handle_future_task_process,
+)
 
 __all__ = [
     'create_flag_file',
@@ -34,4 +40,6 @@ __all__ = [
     'handle_task_selection_process',
     'handle_approval',
     'handle_modification',
+    'handle_urgent_task_process',
+    'handle_future_task_process',
 ]

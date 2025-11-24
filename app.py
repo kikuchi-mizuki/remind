@@ -45,8 +45,14 @@ from handlers.task_handler import (
     handle_task_add_command,
     handle_task_delete_command,
 )
-from handlers.urgent_handler import handle_urgent_task_add_command
-from handlers.future_handler import handle_future_task_add_command
+from handlers.urgent_handler import (
+    handle_urgent_task_add_command,
+    handle_urgent_task_process,
+)
+from handlers.future_handler import (
+    handle_future_task_add_command,
+    handle_future_task_process,
+)
 from handlers.helpers import send_reply_with_menu
 from handlers.selection_handler import (
     handle_task_selection_cancel,
@@ -1701,187 +1707,34 @@ def callback():
                         import os
                         # datetime は先頭でインポート済み
 
-                        urgent_mode_file = f"urgent_task_mode_{user_id}.json"
-                        print(
-                            f"[DEBUG] 緊急タスク追加モードファイル確認: {urgent_mode_file}, exists={os.path.exists(urgent_mode_file)}"
-                        )
-                        if os.path.exists(urgent_mode_file):
-                            print(f"[DEBUG] 緊急タスク追加モードフラグ検出: {urgent_mode_file}")
-                            try:
-                                task_info = task_service.parse_task_message(user_message)
-                                task_info["priority"] = "urgent_not_important"
-                                # datetime は先頭でインポート済み
-                                import pytz
-                                jst = pytz.timezone("Asia/Tokyo")
-                                today = datetime.now(jst)
-                                task_info["due_date"] = today.strftime("%Y-%m-%d")
-                                task = task_service.create_task(user_id, task_info)
-                                print(f"[DEBUG] 緊急タスク作成完了: task_id={task.task_id}")
-                                # 今日の空き時間に直接スケジュール追加
-                                from services.calendar_service import CalendarService
-                                calendar_service = CalendarService()
-                                free_times = calendar_service.get_free_busy_times(user_id, today)
-                                if free_times:
-                                    first_free_time = free_times[0]
-                                    start_time = first_free_time["start"]
-                                    end_time = start_time + timedelta(minutes=task.duration_minutes)
-                                    success = calendar_service.add_event_to_calendar(
-                                        user_id=user_id,
-                                        task_name=task.name,
-                                        start_time=start_time,
-                                        duration_minutes=task.duration_minutes,
-                                        description=f"緊急タスク: {task.name}",
-                                    )
-                                    if success:
-                                        reply_text = "⚡ 緊急タスクを追加しました！\n\n"
-                                        reply_text += f"📅 今日のスケジュールに追加：\n"
-                                        reply_text += f"🕐 {start_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}\n"
-                                        reply_text += f"📝 {task.name}\n\n"
-                                        reply_text += "✅ カレンダーに直接追加されました！"
-                                    else:
-                                        reply_text = "⚡ 緊急タスクを追加しました！\n\n"
-                                        reply_text += "⚠️ カレンダーへの追加に失敗しました。\n"
-                                        reply_text += "手動でスケジュールを調整してください。"
-                                else:
-                                    reply_text = "⚡ 緊急タスクを追加しました！\n\n"
-                                    reply_text += "⚠️ 今日の空き時間が見つかりませんでした。\n"
-                                    reply_text += "手動でスケジュールを調整してください。"
-                                os.remove(urgent_mode_file)
-                                print(f"[DEBUG] 緊急タスク追加モードフラグ削除: {urgent_mode_file}")
-                                
-                                # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
-                                continue
-                            except Exception as e:
-                                print(f"[DEBUG] 緊急タスク追加エラー: {e}")
-                                reply_text = f"⚠️ 緊急タスク追加中にエラーが発生しました: {e}"
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                os.remove(urgent_mode_file)
-                                continue
+                        # 緊急タスク追加モードでの処理
+                        if check_flag_file(user_id, "urgent_task"):
+                            from services.calendar_service import CalendarService
+                            calendar_service = CalendarService()
+                            handle_urgent_task_process(
+                                active_line_bot_api,
+                                reply_token,
+                                user_id,
+                                user_message,
+                                task_service,
+                                calendar_service,
+                                get_simple_flex_menu
+                            )
+                            continue
 
                         # 未来タスク追加モードでの処理
-                        future_mode_file = f"future_task_mode_{user_id}.json"
-                        print(
-                            f"[DEBUG] 未来タスク追加モードファイル確認: {future_mode_file}, exists={os.path.exists(future_mode_file)}"
-                        )
-                        if os.path.exists(future_mode_file):
-                            print(
-                                f"[DEBUG] 未来タスク追加モード開始: user_message='{user_message}'"
+                        if check_flag_file(user_id, "future_task"):
+                            result = handle_future_task_process(
+                                active_line_bot_api,
+                                reply_token,
+                                user_id,
+                                user_message,
+                                task_service,
+                                get_simple_flex_menu
                             )
-                            try:
-                                created_count = 0
-                                created_names = []
-                                # 改行区切りで複数登録に対応（全改行コード対応）
-                                try:
-                                    print(f"[DEBUG] 未来タスク入力repr: {repr(user_message)}")
-                                except Exception:
-                                    pass
-                                lines = [l.strip() for l in regex.split(r"[\r\n\u000B\u000C\u0085\u2028\u2029]+", user_message) if l.strip()]
-                                print(f"[DEBUG] 未来タスク行数判定: {len(lines)}")
-                                if len(lines) > 1:
-                                    for line in lines:
-                                        info = task_service.parse_task_message(line)
-                                        info["priority"] = "not_urgent_important"
-                                        info["due_date"] = None
-                                        task = task_service.create_future_task(user_id, info)
-                                        created_count += 1
-                                        created_names.append(task.name)
-                                else:
-                                    # 単一登録
-                                    task_info = task_service.parse_task_message(user_message.strip())
-                                    task_info["priority"] = "not_urgent_important"
-                                    task_info["due_date"] = None
-                                    task = task_service.create_future_task(user_id, task_info)
-                                    created_count = 1
-                                    created_names = [task.name]
-                                print(f"[DEBUG] 未来タスク作成完了: {created_count}件, names={created_names}")
-
-                                # 未来タスク一覧を取得して表示
-                                future_tasks = task_service.get_user_future_tasks(
-                                    user_id
-                                )
-                                print(
-                                    f"[DEBUG] 未来タスク一覧取得完了: {len(future_tasks)}件"
-                                )
-
-                                # 新しく追加したタスクの情報を確認
-                                print(
-                                    f"[DEBUG] 新しく追加したタスク: task_id={task.task_id}, name={task.name}, duration={task.duration_minutes}分"
-                                )
-                                print(f"[DEBUG] 未来タスク一覧詳細:")
-                                for i, ft in enumerate(future_tasks):
-                                    print(
-                                        f"[DEBUG] 未来タスク{i+1}: task_id={ft.task_id}, name={ft.name}, duration={ft.duration_minutes}分, created_at={ft.created_at}"
-                                    )
-
-                                reply_text = self.task_service.format_future_task_list(future_tasks, show_select_guide=False)
-                                if created_count > 1:
-                                    reply_text += f"\n\n✅ 未来タスクを{created_count}件追加しました！"
-                                else:
-                                    reply_text += "\n\n✅ 未来タスクを追加しました！"
-
-                                # 未来タスク追加モードファイルを削除
-                                if os.path.exists(future_mode_file):
-                                    os.remove(future_mode_file)
-
-                                # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-
-                                print(
-                                    f"[DEBUG] 未来タスク追加モード返信メッセージ送信開始: {reply_text[:100]}..."
-                                )
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
-                                print(
-                                    f"[DEBUG] 未来タスク追加モード返信メッセージ送信完了"
-                                )
-                                print(
-                                    f"[DEBUG] 未来タスク追加モード処理完了、処理を終了"
-                                )
+                            if result:
                                 return "OK", 200
-                            except Exception as e:
-                                print(f"[DEBUG] 未来タスク追加モード処理エラー: {e}")
-                                import traceback
-
-                                traceback.print_exc()
-                                reply_text = (
-                                    f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
-                                )
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                continue
+                            continue
 
                         # 未来タスク選択モードでの処理
                         # session ディレクトリのファイルも確認
