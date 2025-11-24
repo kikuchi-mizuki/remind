@@ -282,10 +282,10 @@ class CalendarService:
 
                     # 年を考慮した日付計算
                     try:
-                        target_date = datetime(current_year, month, day, tzinfo=jst)
+                        target_date = jst.localize(datetime(current_year, month, day))
                         # もし計算した日付が過去の場合は来年にする
                         if target_date < today:
-                            target_date = datetime(current_year + 1, month, day, tzinfo=jst)
+                            target_date = jst.localize(datetime(current_year + 1, month, day))
                     except ValueError:
                         # 無効な日付の場合はbase_dateを使用
                         target_date = base_date
