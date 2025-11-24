@@ -1264,6 +1264,127 @@ class PostgreSQLDatabase:
             traceback.print_exc()
             return False
 
+    def cleanup_expired_cache(self) -> int:
+        """期限切れのキャッシュを削除"""
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    deleted_count = session.query(OpenAICacheModel).filter(
+                        OpenAICacheModel.expires_at <= datetime.now()
+                    ).delete()
+
+                    session.commit()
+                    if deleted_count > 0:
+                        print(f"[cleanup_expired_cache] {deleted_count}件の期限切れキャッシュを削除")
+                    return deleted_count
+                except Exception as e:
+                    session.rollback()
+                    print(f"[cleanup_expired_cache] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return 0
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.cleanup_expired_cache()
+        except Exception as e:
+            print(f"[cleanup_expired_cache] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+
+    def cleanup_expired_sessions(self) -> int:
+        """期限切れのセッションデータを削除"""
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    deleted_count = session.query(UserSessionModel).filter(
+                        UserSessionModel.expires_at.isnot(None),
+                        UserSessionModel.expires_at <= datetime.now()
+                    ).delete()
+
+                    session.commit()
+                    print(f"[cleanup_expired_sessions] 期限切れセッション削除: {deleted_count}件")
+                    return deleted_count
+                except Exception as e:
+                    session.rollback()
+                    print(f"[cleanup_expired_sessions] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return 0
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.cleanup_expired_sessions()
+        except Exception as e:
+            print(f"[cleanup_expired_sessions] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
+
+    def get_cache_stats(self) -> dict:
+        """キャッシュ統計を取得"""
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    from sqlalchemy import func
+
+                    # 総キャッシュ数
+                    total_count = session.query(func.count(OpenAICacheModel.cache_key)).scalar()
+
+                    # 有効なキャッシュ数
+                    valid_count = session.query(func.count(OpenAICacheModel.cache_key)).filter(
+                        OpenAICacheModel.expires_at > datetime.now()
+                    ).scalar()
+
+                    # 期限切れキャッシュ数
+                    expired_count = total_count - valid_count
+
+                    # 総ヒット数
+                    total_hits = session.query(func.sum(OpenAICacheModel.hit_count)).scalar() or 0
+
+                    # モデル別の統計
+                    model_stats_query = session.query(
+                        OpenAICacheModel.model,
+                        func.count(OpenAICacheModel.cache_key),
+                        func.sum(OpenAICacheModel.hit_count)
+                    ).filter(
+                        OpenAICacheModel.expires_at > datetime.now()
+                    ).group_by(OpenAICacheModel.model).all()
+
+                    model_stats = {}
+                    for model, count, hits in model_stats_query:
+                        model_stats[model] = {
+                            'count': count,
+                            'hits': hits or 0
+                        }
+
+                    stats = {
+                        'total_count': total_count,
+                        'valid_count': valid_count,
+                        'expired_count': expired_count,
+                        'total_hits': total_hits,
+                        'model_stats': model_stats
+                    }
+
+                    print(f"[get_cache_stats] 統計: {stats}")
+                    return stats
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_cache_stats()
+        except Exception as e:
+            print(f"[get_cache_stats] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
     def set_user_state(self, user_id: str, state_type: str, state_data: Optional[dict] = None) -> bool:
         """
         ユーザーの状態を設定（フラグファイルの代替）

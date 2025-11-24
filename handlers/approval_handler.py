@@ -92,12 +92,40 @@ def _handle_schedule_approval(
 
         task_ids = json.loads(selected_tasks_data)
 
-        # 通常のタスクと未来タスクの両方を確認
-        all_tasks = task_service.get_user_tasks(user_id)
-        future_tasks = task_service.get_user_future_tasks(user_id)
+        # モードを判定
+        current_mode = "schedule"  # デフォルト
+        flag_data = load_flag_data(user_id, "task_select")
+        if flag_data:
+            current_mode = flag_data.get("mode", "schedule")
+            print(f"[DEBUG] 承認処理モード判定: mode={current_mode}")
 
-        selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
-        selected_future_tasks = [t for t in future_tasks if t.task_id in task_ids]
+        # 未来タスク選択モードの場合は追加確認
+        if current_mode == "schedule" and db:
+            future_selection_data = db.get_user_session(user_id, 'future_task_selection')
+            if future_selection_data:
+                try:
+                    future_mode_data = json.loads(future_selection_data)
+                    if future_mode_data.get("mode") == "future_schedule":
+                        current_mode = "future_schedule"
+                        print(f"[DEBUG] 未来タスク選択モード検出")
+                except Exception:
+                    pass
+
+        # モードに応じて適切なタスクリストを取得
+        is_future_mode = (current_mode == "future_schedule")
+
+        if is_future_mode:
+            # 未来タスクのみ取得
+            future_tasks = task_service.get_user_future_tasks(user_id)
+            selected_tasks = []
+            selected_future_tasks = [t for t in future_tasks if t.task_id in task_ids]
+            print(f"[DEBUG] 未来タスクモード: {len(selected_future_tasks)}個の未来タスクを選択")
+        else:
+            # 通常タスクのみ取得
+            all_tasks = task_service.get_user_tasks(user_id)
+            selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+            selected_future_tasks = []
+            print(f"[DEBUG] 通常タスクモード: {len(selected_tasks)}個のタスクを選択")
 
         # 未来タスクがある場合は通常のタスクに変換
         for future_task in selected_future_tasks:
@@ -302,6 +330,16 @@ def _handle_task_deletion(
         # 選択されたタスクを読み込み
         task_ids = json.loads(selected_tasks_data)
 
+        # モードを判定（削除モードは通常タスクのみなので、通常はscheduleまたはcomplete）
+        # ただし、将来的に未来タスクの削除もサポートする可能性を考慮
+        current_mode = "complete"  # デフォルト（削除モード）
+        flag_data = load_flag_data(user_id, "task_select")
+        if flag_data:
+            current_mode = flag_data.get("mode", "complete")
+            print(f"[DEBUG] 削除処理モード判定: mode={current_mode}")
+
+        # 現状、削除は通常タスクのみなのでget_user_tasksを使用
+        # 将来的に未来タスクの削除もサポートする場合は条件分岐を追加
         all_tasks = task_service.get_user_tasks(user_id)
         selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
 
