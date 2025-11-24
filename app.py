@@ -800,44 +800,18 @@ def callback():
                                     reply_text += f"\n\n✅ 未来タスクを{created_count}件追加しました！"
                                 else:
                                     reply_text += "\n\n✅ 未来タスクを追加しました！"
-                                
+
                                 # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                                 continue
                             except Exception as e:
                                 print(f"[DEBUG] 未来タスク追加エラー: {e}")
                                 # エラー時はモードを終了してメニューを表示
                                 delete_flag_file(user_id, "future_task")
                                 reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
-                                
+
                                 # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                                 continue
                         
                         # パースが失敗した場合：AIで意図を分類
@@ -887,22 +861,9 @@ def callback():
 ・「2h」「1.5h」「30m」
 
 もう一度、タスク名と所要時間を含めて送信してください。"""
-                                
+
                                 # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                                 continue
 
                     # タスク追加モードフラグを判定
@@ -985,22 +946,9 @@ def callback():
                                 # エラー時はモードを終了してメニューを表示
                                 delete_flag_file(user_id, "add_task")
                                 reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
-                                
+
                                 # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                                 continue
                         
                         # パースが失敗した場合：AIで意図を分類
@@ -1058,22 +1006,9 @@ def callback():
 ・「来週中」「来週末」など
 
 もう一度、タスク名・所要時間・期限の3つを含めて送信してください。"""
-                                
+
                                 # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                                 continue
 
                     try:
@@ -1091,22 +1026,9 @@ def callback():
                                 print(f"[DEBUG] 削除モードリセット: user_id={user_id} 削除")
                                 
                                 reply_text = "❌ タスク削除をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
-                                
+
                                 # メニュー画面を表示
-                                from linebot.v3.messaging import FlexMessage, FlexContainer
-                                flex_message_content = get_simple_flex_menu()
-                                flex_container = FlexContainer.from_dict(flex_message_content)
-                                flex_message = FlexMessage(
-                                    alt_text="メニュー",
-                                    contents=flex_container
-                                )
-                                
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text), flex_message],
-                                    )
-                                )
+                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
                                 continue
                             
                             # ユーザーの入力から削除対象タスクを抽出
