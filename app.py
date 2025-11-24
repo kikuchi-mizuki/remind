@@ -34,6 +34,20 @@ import hmac
 import hashlib
 import base64
 
+# ハンドラーのインポート
+from handlers.test_handler import (
+    handle_8am_test,
+    handle_9pm_test,
+    handle_sunday_6pm_test,
+    handle_scheduler_check,
+)
+from handlers.task_handler import (
+    handle_task_add_command,
+    handle_task_delete_command,
+)
+from handlers.urgent_handler import handle_urgent_task_add_command
+from handlers.future_handler import handle_future_task_add_command
+
 load_dotenv()
 
 # 必須環境変数のチェック
@@ -1705,87 +1719,13 @@ def callback():
 
                             # --- コマンド分岐の一元化 ---
                             if user_message.strip() == "タスク追加":
-                                print("[DEBUG] タスク追加分岐: 処理開始", flush=True)
-                                # まずは軽量な案内メッセージを即時返信（長文での失敗を回避）
-                                add_flag = f"add_task_mode_{user_id}.flag"
-                                with open(add_flag, "w") as f:
-                                    f.write("add_task_mode")
-                                guide_text = (
-                                    "📝 タスク追加モード\n\n"
-                                    "タスク名・所要時間・期限を入力してください！\n\n"
-                                    "💡 例：\n"
-                                    "• 「資料作成 30分 明日」\n"
-                                    "• 「会議準備 1時間 今日」\n"
-                                    "• 「筋トレ 20分 今週中」\n\n"
-                                    "⚠️ 所要時間は必須です！\n"
-                                )
-                                try:
-                                    active_line_bot_api.reply_message(
-                                        ReplyMessageRequest(
-                                            replyToken=reply_token,
-                                            messages=[TextMessage(text=guide_text)],
-                                        )
-                                    )
-                                    print("[DEBUG] タスク追加モード案内をreplyで送信済み")
-                                except Exception as e:
-                                    print(f"[DEBUG] タスク追加モード案内送信エラー(reply): {e}")
-                                    # 念のためpushでフォールバック
-                                    try:
-                                        active_line_bot_api.push_message(
-                                            PushMessageRequest(
-                                                to=user_id,
-                                                messages=[TextMessage(text=guide_text)],
-                                            )
-                                        )
-                                        print("[DEBUG] タスク追加モード案内をpushで送信")
-                                    except Exception as e2:
-                                        print(f"[DEBUG] タスク追加モード案内送信エラー(push): {e2}")
+                                handle_task_add_command(active_line_bot_api, reply_token, user_id)
                                 continue
                             elif user_message.strip() == "緊急タスク追加":
-                                if not is_google_authenticated(user_id):
-                                    auth_url = get_google_auth_url(user_id)
-                                    reply_text = f"📅 カレンダー連携が必要です\n\nGoogleカレンダーにアクセスして認証してください：\n{auth_url}"
-                                    active_line_bot_api.reply_message(
-                                        ReplyMessageRequest(
-                                            replyToken=reply_token,
-                                            messages=[TextMessage(text=reply_text)],
-                                        )
-                                    )
-                                    continue
-                                import os
-                                # datetime は先頭でインポート済み
-                                urgent_mode_file = f"urgent_task_mode_{user_id}.json"
-                                with open(urgent_mode_file, "w") as f:
-                                    json.dump({"mode": "urgent_task", "timestamp": datetime.now().isoformat()}, f)
-                                reply_text = "🚨 緊急タスク追加モード\n\nタスク名と所要時間を送信してください！\n例：「資料作成 1時間半」\n\n※今日の空き時間に自動でスケジュールされます"
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
+                                handle_urgent_task_add_command(active_line_bot_api, reply_token, user_id, is_google_authenticated, get_google_auth_url)
                                 continue
                             elif user_message.strip() == "未来タスク追加":
-                                import os
-                                # datetime は先頭でインポート済み
-                                future_mode_file = f"future_task_mode_{user_id}.json"
-                                with open(future_mode_file, "w") as f:
-                                    json.dump({"mode": "future_task", "timestamp": datetime.now().isoformat()}, f)
-                                reply_text = "🔮 未来タスク追加モード\n\n"
-                                reply_text += "投資につながるタスク名と所要時間を送信してください！\n\n"
-                                reply_text += "📝 例：\n"
-                                reply_text += "• 新規事業計画 2時間\n"
-                                reply_text += "• 営業資料の見直し 1時間半\n"
-                                reply_text += "• 〇〇という本を読む 30分\n"
-                                reply_text += "• 3カ年事業計画をつくる 3時間\n\n"
-                                reply_text += "⚠️ 所要時間は必須です！\n"
-                                reply_text += "※毎週日曜日18時に来週やるタスクを選択できます"
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
+                                handle_future_task_add_command(active_line_bot_api, reply_token, user_id)
                                 continue
                             # ここで他のコマンド分岐（elif ...）をそのまま残す
                             # 既存のelse:（未登録コマンド分岐）は削除
@@ -1855,104 +1795,7 @@ def callback():
 
                         # タスク削除コマンドの処理
                         if user_message.strip() == "タスク削除":
-                            print(
-                                f"[DEBUG] タスク削除コマンド処理開始: user_id={user_id}"
-                            )
-                            # 通常のタスクと未来タスクを取得
-                            all_tasks = task_service.get_user_tasks(user_id)
-                            future_tasks = task_service.get_user_future_tasks(
-                                user_id
-                            )
-                            reply_text = "🗑️ タスク削除\n━━━━━━━━━━━━\n"
-                            # 通常のタスクを表示
-                            if all_tasks:
-                                reply_text += "📋 通常タスク\n"
-                                for idx, task in enumerate(all_tasks, 1):
-
-                                    # 期日表示
-                                    if task.due_date:
-                                        try:
-                                            y, m, d = task.due_date.split("-")
-                                            due_date_obj = datetime(
-                                                int(y), int(m), int(d)
-                                            )
-                                            weekday_names = [
-                                                "月",
-                                                "火",
-                                                "水",
-                                                "木",
-                                                "金",
-                                                "土",
-                                                "日",
-                                            ]
-                                            weekday = weekday_names[
-                                                due_date_obj.weekday()
-                                            ]
-                                            due_str = (
-                                                f"{int(m)}月{int(d)}日({weekday})"
-                                            )
-                                        except Exception:
-                                            due_str = task.due_date
-                                    else:
-                                        due_str = "期日未設定"
-
-                                    # カード風に改行分割（タイトル行→メタ行）
-                                    reply_text += f"タスク {idx}\n"
-                                    reply_text += f"{task.name}\n"
-                                    reply_text += f"   ⏳ {task.duration_minutes}分   📅 {due_str}\n\n"
-                            else:
-                                reply_text += "📋 通常タスク\n登録されているタスクはありません。\n\n"
-
-                            # 未来タスクを表示
-                            if future_tasks:
-                                reply_text += "🔮 未来タスク\n"
-                                for idx, task in enumerate(future_tasks, 1):
-                                    reply_text += f"未来タスク {idx}\n"
-                                    reply_text += f"{task.name}\n"
-                                    reply_text += f"   ▸ ⏳ {task.duration_minutes}分\n\n"
-                            else:
-                                reply_text += "🔮 未来タスク\n登録されている未来タスクはありません。\n\n"
-
-                            reply_text += "━━━━━━━━━━━━\n"
-                            reply_text += "削除するタスクを選んでください！\n"
-                            reply_text += "例：「タスク 1、3」「未来タスク 2」「タスク 1、未来タスク 2」\n"
-
-                            # 削除モードファイルを作成
-                            import os
-
-                            delete_mode_file = f"delete_mode_{user_id}.json"
-                            print(
-                                f"[DEBUG] 削除モードファイル作成開始: {delete_mode_file}"
-                            )
-                            try:
-                                with open(delete_mode_file, "w") as f:
-
-                                    json.dump(
-                                        {
-                                            "mode": "delete",
-                                            "timestamp": datetime.now().isoformat(),
-                                        },
-                                        f,
-                                    )
-                                print(
-                                    f"[DEBUG] 削除モードファイル作成完了: {delete_mode_file}, exists={os.path.exists(delete_mode_file)}"
-                                )
-                            except Exception as e:
-                                print(f"[ERROR] 削除モードファイル作成エラー: {e}")
-                                import traceback
-
-                                traceback.print_exc()
-
-                            print(
-                                f"[DEBUG] 削除メッセージ送信開始: {reply_text[:100]}..."
-                            )
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
-                            print(f"[DEBUG] 削除メッセージ送信完了")
+                            handle_task_delete_command(active_line_bot_api, reply_token, user_id, task_service)
                             continue
                         elif user_message.strip() == "はい":
                             import os
@@ -2332,60 +2175,16 @@ def callback():
                                 )
                             continue
                         elif user_message.strip() == "8時テスト":
-                            try:
-                                notification_service.send_daily_task_notification()
-                                reply_text = "8時テスト通知を送信しました"
-                            except Exception as e:
-                                reply_text = f"8時テストエラー: {e}"
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
+                            handle_8am_test(active_line_bot_api, reply_token, user_id, notification_service)
                             continue
                         elif user_message.strip() == "21時テスト":
-                            try:
-                                notification_service.send_carryover_check()
-                                # 実際の通知内容も送信するため、確認メッセージは送信しない
-                                continue
-                            except Exception as e:
-                                reply_text = f"21時テストエラー: {e}"
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                continue
+                            handle_9pm_test(active_line_bot_api, reply_token, user_id, notification_service)
+                            continue
                         elif user_message.strip() == "日曜18時テスト":
-                            try:
-                                notification_service.send_future_task_selection()
-                                # 実際の通知内容も送信するため、確認メッセージは送信しない
-                                continue
-                            except Exception as e:
-                                reply_text = f"日曜18時テストエラー: {e}"
-                                active_line_bot_api.reply_message(
-                                    ReplyMessageRequest(
-                                        replyToken=reply_token,
-                                        messages=[TextMessage(text=reply_text)],
-                                    )
-                                )
-                                continue
+                            handle_sunday_6pm_test(active_line_bot_api, reply_token, user_id, notification_service)
+                            continue
                         elif user_message.strip() == "スケジューラー確認":
-                            scheduler_status = notification_service.is_running
-                            thread_status = (
-                                notification_service.scheduler_thread.is_alive()
-                                if notification_service.scheduler_thread
-                                else False
-                            )
-                            reply_text = f"スケジューラー状態:\n- is_running: {scheduler_status}\n- スレッド動作: {thread_status}"
-                            active_line_bot_api.reply_message(
-                                ReplyMessageRequest(
-                                    replyToken=reply_token,
-                                    messages=[TextMessage(text=reply_text)],
-                                )
-                            )
+                            handle_scheduler_check(active_line_bot_api, reply_token, user_id, notification_service)
                             continue
                         elif user_message.strip() == "承認する":
                             try:
