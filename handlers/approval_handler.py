@@ -12,6 +12,7 @@ from linebot.v3.messaging import (
     FlexMessage,
     FlexContainer,
 )
+from .helpers import load_flag_data
 
 
 def handle_approval(
@@ -446,7 +447,7 @@ def handle_modification(
     Returns:
         bool: 処理成功時True
     """
-    from .helpers import load_flag_data, create_flag_file
+    from .helpers import create_flag_file
 
     try:
         # 現在のモードを判定
