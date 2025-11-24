@@ -187,14 +187,47 @@ class PostgreSQLDatabase:
                 except Exception as e:
                     print(f"[_ensure_tables_exist] テーブル作成エラー {table.name}: {e}")
             
+            # カラムのマイグレーション処理
+            self._migrate_columns()
+
             # 最終確認
             from sqlalchemy import inspect
             inspector = inspect(self.engine)
             tables = inspector.get_table_names()
             print(f"[_ensure_tables_exist] 最終テーブル一覧: {tables}")
-            
+
         except Exception as e:
             print(f"[_ensure_tables_exist] テーブル確認エラー: {e}")
+
+    def _migrate_columns(self):
+        """既存テーブルに不足しているカラムを追加"""
+        try:
+            from sqlalchemy import inspect, text
+            inspector = inspect(self.engine)
+
+            # user_statesテーブルのカラムを確認
+            if 'user_states' in inspector.get_table_names():
+                existing_columns = {col['name'] for col in inspector.get_columns('user_states')}
+                print(f"[_migrate_columns] user_states既存カラム: {existing_columns}")
+
+                # state_dataカラムが存在しない場合は追加
+                if 'state_data' not in existing_columns:
+                    with self.engine.connect() as conn:
+                        conn.execute(text('ALTER TABLE user_states ADD COLUMN state_data TEXT'))
+                        conn.commit()
+                        print(f"[_migrate_columns] user_states.state_dataカラムを追加しました")
+
+                # updated_atカラムが存在しない場合は追加
+                if 'updated_at' not in existing_columns:
+                    with self.engine.connect() as conn:
+                        conn.execute(text('ALTER TABLE user_states ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP'))
+                        conn.commit()
+                        print(f"[_migrate_columns] user_states.updated_atカラムを追加しました")
+
+        except Exception as e:
+            print(f"[_migrate_columns] マイグレーションエラー: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _fallback_to_sqlite(self):
         """SQLiteにフォールバック"""
