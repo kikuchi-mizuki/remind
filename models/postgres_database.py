@@ -72,7 +72,9 @@ class UserStateModel(Base):
 
     user_id = Column(String, primary_key=True)
     state_type = Column(String, primary_key=True)
+    state_data = Column(Text)
     created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 class OpenAICacheModel(Base):
     """OpenAI APIキャッシュモデル（SQLAlchemy）"""
@@ -1149,6 +1151,102 @@ class PostgreSQLDatabase:
             import traceback
             traceback.print_exc()
             return False
+
+    def set_user_state(self, user_id: str, state_type: str, state_data: Optional[dict] = None) -> bool:
+        """
+        ユーザーの状態を設定（フラグファイルの代替）
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ ('add_task_mode', 'urgent_task_mode', 'future_task_mode', 'delete_mode', 'task_select_mode' など)
+            state_data: 状態に関連するデータ（オプション、辞書形式）
+
+        Returns:
+            bool: 成功時True
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    import json
+                    state_data_json = json.dumps(state_data) if state_data else None
+
+                    # UPSERT: 既存レコードがあれば更新、なければ挿入
+                    existing = session.query(UserStateModel).filter_by(
+                        user_id=user_id,
+                        state_type=state_type
+                    ).first()
+
+                    if existing:
+                        existing.state_data = state_data_json
+                        existing.updated_at = datetime.now()
+                    else:
+                        new_state = UserStateModel(
+                            user_id=user_id,
+                            state_type=state_type,
+                            state_data=state_data_json
+                        )
+                        session.add(new_state)
+
+                    session.commit()
+                    print(f"[set_user_state] 状態設定: user_id={user_id}, state_type={state_type}")
+                    return True
+                except Exception as e:
+                    session.rollback()
+                    print(f"[set_user_state] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return False
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.set_user_state(user_id, state_type, state_data)
+        except Exception as e:
+            print(f"[set_user_state] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def get_user_state(self, user_id: str, state_type: str) -> Optional[dict]:
+        """
+        ユーザーの状態を取得
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ
+
+        Returns:
+            Optional[dict]: 状態データ（存在しない場合はNone）
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    result = session.query(UserStateModel).filter_by(
+                        user_id=user_id,
+                        state_type=state_type
+                    ).first()
+
+                    if result and result.state_data:
+                        import json
+                        return json.loads(result.state_data)
+                    return None
+                except Exception as e:
+                    print(f"[get_user_state] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return None
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_user_state(user_id, state_type)
+        except Exception as e:
+            print(f"[get_user_state] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
 # グローバルデータベースインスタンス
 postgres_db = None

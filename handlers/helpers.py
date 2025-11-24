@@ -29,7 +29,8 @@ def create_flag_file(user_id: str, mode: str, data: Optional[dict] = None) -> bo
         bool: 作成成功時True
     """
     try:
-        from models.database import db
+        from models.database import init_db
+        db = init_db()
 
         # state_typeを正規化（mode_suffixを削除）
         state_type = f"{mode}_mode"
@@ -65,7 +66,8 @@ def check_flag_file(user_id: str, mode: str) -> bool:
         bool: 状態が存在する場合True
     """
     try:
-        from models.database import db
+        from models.database import init_db
+        db = init_db()
 
         state_type = f"{mode}_mode"
         exists = db.check_user_state(user_id, state_type)
@@ -91,7 +93,8 @@ def delete_flag_file(user_id: str, mode: str) -> bool:
         bool: 削除成功時True
     """
     try:
-        from models.database import db
+        from models.database import init_db
+        db = init_db()
 
         state_type = f"{mode}_mode"
         success = db.delete_user_state(user_id, state_type)

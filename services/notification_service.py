@@ -876,7 +876,11 @@ class NotificationService:
                             expires_hours=48  # 48時間有効
                         )
                         print(f"[send_future_task_selection] 未来タスク選択モードデータ保存: user_id={user_id}")
-                    
+
+                        # 未来タスク選択モードフラグも設定
+                        self.db.set_user_state(user_id, "future_task_mode", future_selection_data)
+                        print(f"[send_future_task_selection] 未来タスク選択モードフラグ設定: user_id={user_id}")
+
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
 
                     success = self._send_message_with_retry(
