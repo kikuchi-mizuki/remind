@@ -59,12 +59,43 @@ class ScheduleProposalModel(Base):
 class UserSettingsModel(Base):
     """ユーザー設定モデル（SQLAlchemy）"""
     __tablename__ = 'user_settings'
-    
+
     user_id = Column(String, primary_key=True)
     calendar_id = Column(String)
     notification_time = Column(String, default="08:00")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+class UserStateModel(Base):
+    """ユーザー状態モデル（SQLAlchemy）"""
+    __tablename__ = 'user_states'
+
+    user_id = Column(String, primary_key=True)
+    state_type = Column(String, primary_key=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+class OpenAICacheModel(Base):
+    """OpenAI APIキャッシュモデル（SQLAlchemy）"""
+    __tablename__ = 'openai_cache'
+
+    cache_key = Column(String, primary_key=True)
+    model = Column(String, nullable=False)
+    prompt_hash = Column(String, nullable=False)
+    prompt_preview = Column(String)
+    response = Column(Text, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    hit_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+
+class UserSessionModel(Base):
+    """ユーザーセッションモデル（SQLAlchemy）"""
+    __tablename__ = 'user_sessions'
+
+    user_id = Column(String, primary_key=True)
+    session_type = Column(String, primary_key=True)
+    data = Column(Text, nullable=False)
+    expires_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.now)
 
 class Task:
     """タスクモデルクラス（互換性維持）"""
@@ -141,7 +172,10 @@ class PostgreSQLDatabase:
                 NotificationExecutionModel.__table__,
                 UserChannelModel.__table__,
                 ScheduleProposalModel.__table__,
-                UserSettingsModel.__table__
+                UserSettingsModel.__table__,
+                UserStateModel.__table__,
+                OpenAICacheModel.__table__,
+                UserSessionModel.__table__
             ]
             
             for table in tables_to_create:
@@ -891,6 +925,230 @@ class PostgreSQLDatabase:
         except Exception as e:
             print(f"Error getting user settings: {e}")
             return None
+
+    def check_user_state(self, user_id: str, state_type: str) -> bool:
+        """
+        ユーザーの状態が存在するかチェック
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ
+
+        Returns:
+            bool: 存在する場合True
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    result = session.query(UserStateModel).filter_by(
+                        user_id=user_id,
+                        state_type=state_type
+                    ).first()
+                    return result is not None
+                except Exception as e:
+                    print(f"[check_user_state] PostgreSQLエラー: {e}")
+                    return False
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.check_user_state(user_id, state_type)
+        except Exception as e:
+            print(f"[check_user_state] エラー: {e}")
+            return False
+
+    def delete_user_state(self, user_id: str, state_type: str) -> bool:
+        """
+        ユーザーの状態を削除
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ
+
+        Returns:
+            bool: 成功時True
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    session.query(UserStateModel).filter_by(
+                        user_id=user_id,
+                        state_type=state_type
+                    ).delete()
+                    session.commit()
+                    print(f"[delete_user_state] 状態削除: user_id={user_id}, state_type={state_type}")
+                    return True
+                except Exception as e:
+                    session.rollback()
+                    print(f"[delete_user_state] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return False
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.delete_user_state(user_id, state_type)
+        except Exception as e:
+            print(f"[delete_user_state] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def get_cached_response(self, model: str, prompt_hash: str) -> Optional[str]:
+        """キャッシュされたOpenAI APIレスポンスを取得"""
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    cache_key = f"{model}:{prompt_hash}"
+                    # 有効期限内のキャッシュを取得
+                    result = session.query(OpenAICacheModel).filter(
+                        OpenAICacheModel.cache_key == cache_key,
+                        OpenAICacheModel.expires_at > datetime.now()
+                    ).first()
+
+                    if result:
+                        # ヒット数を更新
+                        result.hit_count += 1
+                        session.commit()
+                        print(f"[get_cached_response] キャッシュヒット: key={cache_key}, hit_count={result.hit_count}")
+                        return result.response
+                    else:
+                        print(f"[get_cached_response] キャッシュミス: key={cache_key}")
+                        return None
+                except Exception as e:
+                    print(f"[get_cached_response] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return None
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_cached_response(model, prompt_hash)
+        except Exception as e:
+            print(f"[get_cached_response] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def set_cached_response(self, model: str, prompt_hash: str, prompt_preview: str, response: str, ttl_hours: int = 24) -> bool:
+        """OpenAI APIレスポンスをキャッシュに保存"""
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    from datetime import timedelta
+                    cache_key = f"{model}:{prompt_hash}"
+                    expires_at = datetime.now() + timedelta(hours=ttl_hours)
+
+                    # prompt_previewは最初の200文字のみ保存
+                    preview = prompt_preview[:200] if prompt_preview else ""
+
+                    # UPSERT操作（既存の場合は更新、存在しない場合は挿入）
+                    existing = session.query(OpenAICacheModel).filter_by(cache_key=cache_key).first()
+                    if existing:
+                        existing.response = response
+                        existing.expires_at = expires_at
+                        existing.created_at = datetime.now()
+                        existing.hit_count = 0
+                    else:
+                        new_cache = OpenAICacheModel(
+                            cache_key=cache_key,
+                            model=model,
+                            prompt_hash=prompt_hash,
+                            prompt_preview=preview,
+                            response=response,
+                            expires_at=expires_at,
+                            hit_count=0
+                        )
+                        session.add(new_cache)
+
+                    session.commit()
+                    print(f"[set_cached_response] キャッシュ保存: key={cache_key}, ttl={ttl_hours}h, expires_at={expires_at}")
+                    return True
+                except Exception as e:
+                    session.rollback()
+                    print(f"[set_cached_response] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return False
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.set_cached_response(model, prompt_hash, prompt_preview, response, ttl_hours)
+        except Exception as e:
+            print(f"[set_cached_response] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def set_user_session(self, user_id: str, session_type: str, data: str, expires_hours: Optional[int] = None) -> bool:
+        """
+        ユーザーセッションデータを保存（UPSERT）
+
+        Args:
+            user_id: ユーザーID
+            session_type: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+            data: セッションデータ（文字列またはJSON文字列）
+            expires_hours: 有効期限（時間）、Noneの場合は無期限
+
+        Returns:
+            保存成功時True、失敗時False
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    from datetime import timedelta
+
+                    # 有効期限を計算
+                    expires_at = None
+                    if expires_hours is not None:
+                        expires_at = datetime.now() + timedelta(hours=expires_hours)
+
+                    # UPSERT: 既存レコードがあれば更新、なければ挿入
+                    existing = session.query(UserSessionModel).filter_by(
+                        user_id=user_id,
+                        session_type=session_type
+                    ).first()
+
+                    if existing:
+                        existing.data = data
+                        existing.expires_at = expires_at
+                        existing.created_at = datetime.now()
+                    else:
+                        new_session = UserSessionModel(
+                            user_id=user_id,
+                            session_type=session_type,
+                            data=data,
+                            expires_at=expires_at
+                        )
+                        session.add(new_session)
+
+                    session.commit()
+                    print(f"[set_user_session] セッション保存成功: user_id={user_id}, type={session_type}, データ長={len(data)}, 期限={expires_at}")
+                    return True
+                except Exception as e:
+                    session.rollback()
+                    print(f"[set_user_session] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return False
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.set_user_session(user_id, session_type, data, expires_hours)
+        except Exception as e:
+            print(f"[set_user_session] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
 # グローバルデータベースインスタンス
 postgres_db = None
