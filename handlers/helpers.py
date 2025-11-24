@@ -18,7 +18,7 @@ from linebot.v3.messaging import (
 
 def create_flag_file(user_id: str, mode: str, data: Optional[dict] = None) -> bool:
     """
-    フラグファイルを作成
+    ユーザーの状態を設定（データベース版）
 
     Args:
         user_id: ユーザーID
@@ -29,20 +29,23 @@ def create_flag_file(user_id: str, mode: str, data: Optional[dict] = None) -> bo
         bool: 作成成功時True
     """
     try:
-        flag_file = f"{mode}_mode_{user_id}.json" if mode not in ["add_task"] else f"{mode}_mode_{user_id}.flag"
+        from models.database import db
 
-        if flag_file.endswith('.json'):
-            with open(flag_file, "w") as f:
-                default_data = {"mode": mode, "timestamp": datetime.now().isoformat()}
-                if data:
-                    default_data.update(data)
-                json.dump(default_data, f)
-        else:
-            with open(flag_file, "w") as f:
-                f.write(f"{mode}_mode")
+        # state_typeを正規化（mode_suffixを削除）
+        state_type = f"{mode}_mode"
 
-        print(f"[create_flag_file] フラグファイル作成: {flag_file}, exists={os.path.exists(flag_file)}")
-        return True
+        # デフォルトデータを準備
+        state_data = {"mode": mode, "timestamp": datetime.now().isoformat()}
+        if data:
+            state_data.update(data)
+
+        # データベースに保存
+        success = db.set_user_state(user_id, state_type, state_data)
+
+        if success:
+            print(f"[create_flag_file] 状態設定: user_id={user_id}, state_type={state_type}")
+
+        return success
     except Exception as e:
         print(f"[create_flag_file] エラー: {e}")
         import traceback
@@ -52,25 +55,33 @@ def create_flag_file(user_id: str, mode: str, data: Optional[dict] = None) -> bo
 
 def check_flag_file(user_id: str, mode: str) -> bool:
     """
-    フラグファイルの存在をチェック
+    ユーザーの状態の存在をチェック（データベース版）
 
     Args:
         user_id: ユーザーID
         mode: モード名
 
     Returns:
-        bool: ファイルが存在する場合True
+        bool: 状態が存在する場合True
     """
-    flag_file = f"{mode}_mode_{user_id}.json" if mode not in ["add_task"] else f"{mode}_mode_{user_id}.flag"
-    exists = os.path.exists(flag_file)
-    if exists:
-        print(f"[check_flag_file] フラグ検出: {flag_file}")
-    return exists
+    try:
+        from models.database import db
+
+        state_type = f"{mode}_mode"
+        exists = db.check_user_state(user_id, state_type)
+
+        if exists:
+            print(f"[check_flag_file] 状態検出: user_id={user_id}, state_type={state_type}")
+
+        return exists
+    except Exception as e:
+        print(f"[check_flag_file] エラー: {e}")
+        return False
 
 
 def delete_flag_file(user_id: str, mode: str) -> bool:
     """
-    フラグファイルを削除
+    ユーザーの状態を削除（データベース版）
 
     Args:
         user_id: ユーザーID
@@ -80,12 +91,15 @@ def delete_flag_file(user_id: str, mode: str) -> bool:
         bool: 削除成功時True
     """
     try:
-        flag_file = f"{mode}_mode_{user_id}.json" if mode not in ["add_task"] else f"{mode}_mode_{user_id}.flag"
-        if os.path.exists(flag_file):
-            os.remove(flag_file)
-            print(f"[delete_flag_file] フラグファイル削除: {flag_file}")
-            return True
-        return False
+        from models.database import db
+
+        state_type = f"{mode}_mode"
+        success = db.delete_user_state(user_id, state_type)
+
+        if success:
+            print(f"[delete_flag_file] 状態削除: user_id={user_id}, state_type={state_type}")
+
+        return success
     except Exception as e:
         print(f"[delete_flag_file] エラー: {e}")
         import traceback
@@ -185,7 +199,7 @@ def format_due_date(due_date_str: str) -> str:
 
 def load_flag_data(user_id: str, mode: str) -> Optional[dict]:
     """
-    フラグファイルからデータを読み込み
+    ユーザーの状態データを読み込み（データベース版）
 
     Args:
         user_id: ユーザーID
@@ -195,11 +209,10 @@ def load_flag_data(user_id: str, mode: str) -> Optional[dict]:
         Optional[dict]: 読み込んだデータ、失敗時None
     """
     try:
-        flag_file = f"{mode}_mode_{user_id}.json"
-        if os.path.exists(flag_file):
-            with open(flag_file, "r") as f:
-                return json.load(f)
-        return None
+        from models.database import db
+
+        state_type = f"{mode}_mode"
+        return db.get_user_state(user_id, state_type)
     except Exception as e:
         print(f"[load_flag_data] エラー: {e}")
         return None
