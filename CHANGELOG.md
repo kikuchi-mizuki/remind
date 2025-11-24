@@ -2,6 +2,122 @@
 
 このファイルは、プロジェクトの主要な変更を記録します。
 
+## [2025-11-24 続き] - リファクタリング継続とハンドラー抽出
+
+### 📝 セッション概要
+前回セッションからの継続作業として、以下の3つの大きな改善を実施しました：
+1. フラグ管理のデータベース移行完了
+2. メニュー表示の重複削減完了
+3. タスク選択ハンドラーの抽出開始（進行中）
+
+### ✅ 完了した作業
+
+#### 1. フラグ管理のデータベース移行完了
+- **コミット**: `c1e8d71`
+- **変更内容**: すべてのファイルベースフラグ操作をデータベースベースに移行
+- **対象フラグ（合計28箇所）**:
+  - `urgent_task_mode` (3箇所)
+  - `future_task_mode` (5箇所)
+  - `add_task_mode` (6箇所)
+  - `delete_mode` (4箇所)
+  - `task_select_mode` (10箇所以上)
+- **使用API**:
+  - `check_flag_file(user_id, mode)` - フラグの存在確認
+  - `create_flag_file(user_id, mode, data)` - フラグの作成/更新
+  - `delete_flag_file(user_id, mode)` - フラグの削除
+  - `load_flag_data(user_id, mode)` - フラグデータの読み込み
+- **効果**:
+  - コード削減: 107行削減、62行追加（差し引き45行削減）
+  - 並行性の改善: ファイルベースの競合問題を解消
+  - 保守性の向上: 一貫性のあるAPI使用
+  - スケーラビリティの向上: データベースベースの状態管理
+
+#### 2. メニュー表示の重複削減完了
+- **コミット**: `f84ccdc`
+- **変更内容**: 残り6箇所のFlexMessage重複コードを削減
+- **修正箇所**:
+  - Lines 805-820付近（未来タスク追加成功時）
+  - Lines 814-828付近（未来タスク追加エラー時）
+  - Lines 866-880付近（未来タスク不完全時）
+  - Lines 951-965付近（タスク追加エラー時）
+  - Lines 1011-1025付近（タスク追加不完全時）
+  - Lines 1031-1045付近（タスク削除キャンセル時）
+- **パターン変更**:
+  ```python
+  # Before (15行):
+  from linebot.v3.messaging import FlexMessage, FlexContainer
+  flex_message_content = get_simple_flex_menu()
+  flex_container = FlexContainer.from_dict(flex_message_content)
+  flex_message = FlexMessage(alt_text="メニュー", contents=flex_container)
+  active_line_bot_api.reply_message(...)
+
+  # After (1行):
+  send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
+  ```
+- **効果**:
+  - コード削減: 90行削減、12行追加（差し引き78行削減）
+  - 前回セッションと合わせて合計約160行削減
+  - メニュー表示の完全な一元化
+
+#### 3. タスク選択ハンドラーの抽出開始
+- **コミット**: `afcf736` (WIP)
+- **新規ファイル**: `handlers/selection_handler.py` (312行)
+- **実装内容**:
+  - `handle_task_selection_cancel()`: キャンセル処理
+  - `handle_task_selection_process()`: 数字入力処理（準備完了）
+- **app.py の変更**:
+  - インポートセクションに新しいハンドラーを追加
+  - キャンセル処理をハンドラー呼び出しに置き換え（7行削減）
+
+### 🔄 進行中の作業
+
+#### タスク選択ハンドラーの完全な統合
+- **残作業**: app.py Lines 1248-1570（約320行）の数字入力処理をハンドラーに置き換え
+- **現状**: ハンドラー関数は実装済み、app.pyへの統合が未完了
+- **次ステップ**: 大規模な置き換え作業のため、次セッションで完了予定
+
+#### 承認/修正ハンドラーの抽出（未着手）
+- **予定**: `handlers/approval_handler.py` の作成
+- **対象**: 約350行の承認/修正処理
+- **推定時間**: 2-3時間
+
+### 📊 セッション統計
+
+#### コミット履歴
+1. `c1e8d71` - Complete flag management database migration
+2. `f84ccdc` - Complete menu display duplication reduction
+3. `afcf736` - Add task selection handler (WIP)
+
+#### コード削減効果
+- フラグ管理移行: -45行
+- メニュー重複削減: -78行
+- キャンセル処理: -7行
+- **合計削減**: -130行
+- **追加**: +312行（selection_handler.py）
+- **差し引き**: +182行（将来的にさらに320行削減予定）
+
+#### 改善されたファイル
+- `app.py`: 130行削減、インポート追加
+- `handlers/helpers.py`: フラグ管理関数が完全にデータベース化
+- `handlers/__init__.py`: 新しいハンドラーをエクスポート
+- `handlers/selection_handler.py`: 新規作成（312行）
+
+### 🎯 次回の作業計画
+
+1. **優先度1**: タスク選択ハンドラーの完全統合
+   - app.py Lines 1248-1570の置き換え
+   - 推定時間: 1時間
+
+2. **優先度2**: 承認/修正ハンドラーの抽出
+   - `handlers/approval_handler.py` の作成
+   - app.pyから約350行を抽出
+   - 推定時間: 2-3時間
+
+3. **優先度3**: 一時データファイルのデータベース移行（オプション）
+   - `selected_tasks_{user_id}.json`
+   - `schedule_proposal_{user_id}.txt`
+   - `future_task_selection_{user_id}.json`
+
 ## [2025-11-24] - コードリファクタリングとアーキテクチャ改善
 
 ### 🏗️ アーキテクチャ改善
