@@ -638,10 +638,8 @@ def callback():
                     # --- ここから下は認証済みユーザーのみ ---
 
                     # 緊急タスク追加モードフラグを最優先で判定
-                    import os
-                    urgent_mode_file = f"urgent_task_mode_{user_id}.json"
-                    if os.path.exists(urgent_mode_file):
-                        print(f"[DEBUG] 緊急タスク追加モードフラグ検出: {urgent_mode_file}")
+                    if check_flag_file(user_id, "urgent_task"):
+                        print(f"[DEBUG] 緊急タスク追加モードフラグ検出: user_id={user_id}")
                         try:
                             task_info = task_service.parse_task_message(user_message)
                             task = task_service.create_task(user_id, task_info)
@@ -721,8 +719,8 @@ def callback():
                                     reply_text = f"✅ 緊急タスクを追加しましたが、カレンダーへの配置に失敗しました。\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
                             else:
                                 reply_text = f"✅ 緊急タスクを追加しました！\n\n📋 タスク: {task.name}\n⏰ 所要時間: {task.duration_minutes}分"
-                            
-                            os.remove(urgent_mode_file)
+
+                            delete_flag_file(user_id, "urgent_task")
                             
                             # メニュー画面を表示
                             send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu, text=reply_text)
@@ -739,15 +737,14 @@ def callback():
                             continue
 
                     # 未来タスク追加モードフラグを判定
-                    future_mode_file = f"future_task_mode_{user_id}.json"
-                    if os.path.exists(future_mode_file):
-                        print(f"[DEBUG] 未来タスク追加モードフラグ検出: {future_mode_file}")
+                    if check_flag_file(user_id, "future_task"):
+                        print(f"[DEBUG] 未来タスク追加モードフラグ検出: user_id={user_id}")
                         
                         # キャンセル処理を先に確認
                         cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
                         normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
                         if normalized_message in [w.lower() for w in cancel_words]:
-                            os.remove(future_mode_file)
+                            delete_flag_file(user_id, "future_task")
                             reply_text = "❌ 未来タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
                             
                             # メニュー画面を表示
@@ -792,9 +789,9 @@ def callback():
                                     task_info["due_date"] = None
                                     task_service.create_future_task(user_id, task_info)
                                     created_count = 1
-                                
+
                                 # フラグ削除
-                                os.remove(future_mode_file)
+                                delete_flag_file(user_id, "future_task")
                                 
                                 # 未来タスク一覧を取得して表示
                                 future_tasks = task_service.get_user_future_tasks(user_id)
@@ -823,7 +820,7 @@ def callback():
                             except Exception as e:
                                 print(f"[DEBUG] 未来タスク追加エラー: {e}")
                                 # エラー時はモードを終了してメニューを表示
-                                os.remove(future_mode_file)
+                                delete_flag_file(user_id, "future_task")
                                 reply_text = f"⚠️ 未来タスク追加中にエラーが発生しました: {e}"
                                 
                                 # メニュー画面を表示
@@ -877,7 +874,7 @@ def callback():
                             # 不完全なタスク依頼またはその他の場合：モードを終了してメニューを表示
                             else:
                                 # モードを終了してメニューを表示
-                                os.remove(future_mode_file)
+                                delete_flag_file(user_id, "future_task")
                                 reply_text = """⚠️ タスクの情報が不完全です。
 
 📝 正しい形式で送信してください：
@@ -909,15 +906,14 @@ def callback():
                                 continue
 
                     # タスク追加モードフラグを判定
-                    add_flag = f"add_task_mode_{user_id}.flag"
-                    if os.path.exists(add_flag):
-                        print(f"[DEBUG] タスク追加モードフラグ検出: {add_flag}")
+                    if check_flag_file(user_id, "add_task"):
+                        print(f"[DEBUG] タスク追加モードフラグ検出: user_id={user_id}")
                         
                         # キャンセル処理を先に確認
                         cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
                         normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
                         if normalized_message in [w.lower() for w in cancel_words]:
-                            os.remove(add_flag)
+                            delete_flag_file(user_id, "add_task")
                             reply_text = "❌ タスク追加をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
                             
                             # メニュー画面を表示
@@ -955,15 +951,15 @@ def callback():
                                     for task_info in tasks_info:
                                         task = task_service.create_task(user_id, task_info)
                                         created_tasks.append(task.name)
-                                    
-                                    os.remove(add_flag)
+
+                                    delete_flag_file(user_id, "add_task")
                                     all_tasks = task_service.get_user_tasks(user_id)
                                     task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                     reply_text = f"✅ {len(created_tasks)}個のタスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
                                 else:
                                     # 単一タスクの場合は最初にパースした情報を使用
                                     task = task_service.create_task(user_id, task_info)
-                                    os.remove(add_flag)
+                                    delete_flag_file(user_id, "add_task")
                                     all_tasks = task_service.get_user_tasks(user_id)
                                     task_list_text = task_service.format_task_list(all_tasks, show_select_guide=False)
                                     reply_text = f"✅ タスクを追加しました！\n\n{task_list_text}\n\nタスクの追加や削除があれば、いつでもお気軽にお声かけください！"
@@ -987,7 +983,7 @@ def callback():
                             except Exception as e:
                                 print(f"[DEBUG] タスク追加エラー: {e}")
                                 # エラー時はモードを終了してメニューを表示
-                                os.remove(add_flag)
+                                delete_flag_file(user_id, "add_task")
                                 reply_text = f"⚠️ タスク追加中にエラーが発生しました: {e}"
                                 
                                 # メニュー画面を表示
@@ -1045,7 +1041,7 @@ def callback():
                             # 不完全なタスク依頼またはその他の場合：モードを終了してメニューを表示
                             else:
                                 # モードを終了してメニューを表示
-                                os.remove(add_flag)
+                                delete_flag_file(user_id, "add_task")
                                 reply_text = """⚠️ タスクの情報が不完全です。
 
 📝 正しい形式で送信してください：
@@ -1082,10 +1078,8 @@ def callback():
 
                     try:
                         # 削除モード判定を追加
-                        import os
-                        delete_mode_file = f"delete_mode_{user_id}.json"
-                        if os.path.exists(delete_mode_file):
-                            print(f"[DEBUG] 削除モード判定: {delete_mode_file} 存在")
+                        if check_flag_file(user_id, "delete"):
+                            print(f"[DEBUG] 削除モード判定: user_id={user_id} 存在")
                             
                             # 削除モードでキャンセル処理
                             cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
@@ -1093,8 +1087,8 @@ def callback():
                             print(f"[DEBUG] 削除モードキャンセル判定: normalized_message='{normalized_message}'")
                             if normalized_message in [w.lower() for w in cancel_words]:
                                 # 削除モードファイルを削除してモードをリセット
-                                os.remove(delete_mode_file)
-                                print(f"[DEBUG] 削除モードリセット: {delete_mode_file} 削除")
+                                delete_flag_file(user_id, "delete")
+                                print(f"[DEBUG] 削除モードリセット: user_id={user_id} 削除")
                                 
                                 reply_text = "❌ タスク削除をキャンセルしました。\n\n何かお手伝いできることがあれば、お気軽にお声かけください！"
                                 
@@ -1189,8 +1183,8 @@ def callback():
                                     else:
                                         print(f"[DEBUG] 未来タスク削除失敗: {num}. {task.name}")
                             # 削除モードファイルを削除
-                            os.remove(delete_mode_file)
-                            print(f"[DEBUG] 削除モードファイル削除: {delete_mode_file}")
+                            delete_flag_file(user_id, "delete")
+                            print(f"[DEBUG] 削除モードファイル削除: user_id={user_id}")
                             if deleted:
                                 reply_text = "✅ タスクを削除しました！\n" + "\n".join(deleted)
                             else:
@@ -1288,23 +1282,20 @@ def callback():
                                     pass
 
                         # タスク選択処理を先に実行（数字入力の場合）
-                        import os
-
-                        select_flag = f"task_select_mode_{user_id}.flag"
                         print(
-                            f"[DEBUG] タスク選択フラグ確認: {select_flag}, exists={os.path.exists(select_flag)}"
+                            f"[DEBUG] タスク選択フラグ確認: user_id={user_id}, exists={check_flag_file(user_id, 'task_select')}"
                         )
                         
                         # タスク選択モードでキャンセル処理
-                        if os.path.exists(select_flag):
+                        if check_flag_file(user_id, "task_select"):
                             # キャンセルワード判定
                             cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
                             normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
                             print(f"[DEBUG] タスク選択キャンセル判定: normalized_message='{normalized_message}'")
                             if normalized_message in [w.lower() for w in cancel_words]:
                                 # フラグファイルを削除してモードをリセット
-                                os.remove(select_flag)
-                                print(f"[DEBUG] タスク選択モードリセット: {select_flag} 削除")
+                                delete_flag_file(user_id, "task_select")
+                                print(f"[DEBUG] タスク選択モードリセット: user_id={user_id} 削除")
                                 
                                 # 通常のFlexMessageメニューを表示
                                 send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu)
@@ -1333,33 +1324,27 @@ def callback():
                             )
                         
                         if is_number_input:
-                            if os.path.exists(select_flag):
-                                print(f"[DEBUG] タスク選択フラグ検出: {select_flag}")
+                            if check_flag_file(user_id, "task_select"):
+                                print(f"[DEBUG] タスク選択フラグ検出: user_id={user_id}")
                                 print(
                                     f"[DEBUG] タスク選択処理開始: user_message='{user_message}'"
                                 )
                                 try:
                                     # 選択モードを先に判定（display_tasksの作成方法を決めるため）
+                                    flag_data = load_flag_data(user_id, "task_select")
                                     mode_content = ""
                                     flag_timestamp = None
                                     target_date_str = None
-                                    try:
-                                        with open(select_flag, "r", encoding="utf-8") as f:
-                                            content = f.read().strip()
-                                            # JSON形式の場合はパース
-                                            if content.startswith("{"):
-                                                flag_data = json.loads(content)
-                                                mode_content = flag_data.get("mode", "")
-                                                flag_timestamp = flag_data.get("timestamp")
-                                                target_date_str = flag_data.get("target_date")
-                                                # 旧形式互換のため、mode=schedule の形式に変換
-                                                if mode_content:
-                                                    mode_content = f"mode={mode_content}"
-                                            else:
-                                                # 旧形式（mode=schedule など）
-                                                mode_content = content
-                                    except Exception as e:
-                                        print(f"[DEBUG] フラグファイル読み込みエラー: {e}")
+
+                                    if flag_data:
+                                        mode = flag_data.get("mode", "")
+                                        flag_timestamp = flag_data.get("timestamp")
+                                        target_date_str = flag_data.get("target_date")
+                                        # mode=schedule の形式に変換
+                                        if mode:
+                                            mode_content = f"mode={mode}"
+                                    else:
+                                        print(f"[DEBUG] フラグデータの読み込みに失敗しました")
                                         mode_content = ""
 
                                     is_schedule_mode = "mode=schedule" in mode_content
@@ -1640,8 +1625,8 @@ def callback():
                                             json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
 
                                     # フラグ削除と送信
-                                    os.remove(select_flag)
-                                    print(f"[DEBUG] タスク選択モードフラグ削除完了: {select_flag}")
+                                    delete_flag_file(user_id, "task_select")
+                                    print(f"[DEBUG] タスク選択モードフラグ削除完了: user_id={user_id}")
                                     print(f"[DEBUG] 選択結果送信開始: {reply_text[:100]}...")
                                     active_line_bot_api.reply_message(
                                         ReplyMessageRequest(
@@ -2391,30 +2376,15 @@ def callback():
                         elif user_message.strip() == "修正する":
                             try:
                                 # 現在のモードを判定
-                                import os
-                                select_flag = f"task_select_mode_{user_id}.flag"
                                 current_mode = "schedule"  # デフォルト
-                                
-                                # フラグファイルから現在のモードを読み取り（JSON形式と旧形式に対応）
-                                try:
-                                    with open(select_flag, "r", encoding="utf-8") as f:
-                                        content = f.read().strip()
-                                        print(f"[修正処理] フラグファイル内容: '{content[:100]}'")
-                                        # JSON形式の場合はパース
-                                        if content.startswith("{"):
-                                            flag_data = json.loads(content)
-                                            mode = flag_data.get("mode", "schedule")
-                                            current_mode = mode
-                                            print(f"[修正処理] JSON形式のフラグを読み取り: mode={mode}")
-                                        else:
-                                            # 旧形式（mode=schedule など）
-                                            if "mode=future_schedule" in content:
-                                                current_mode = "future_schedule"
-                                            elif "mode=schedule" in content:
-                                                current_mode = "schedule"
-                                except Exception as e:
-                                    print(f"[修正処理] フラグファイル読み取りエラー: {e}")
-                                    pass
+
+                                # フラグデータベースから現在のモードを読み取り
+                                flag_data = load_flag_data(user_id, "task_select")
+                                if flag_data:
+                                    current_mode = flag_data.get("mode", "schedule")
+                                    print(f"[修正処理] フラグデータを読み取り: mode={current_mode}")
+                                else:
+                                    print(f"[修正処理] フラグデータが見つかりません、デフォルトモード使用")
                                 
                                 # 未来タスク選択モードファイルの存在も確認（ただし、フラグファイルで既に判定済みの場合はスキップ）
                                 if current_mode == "schedule":  # デフォルトの場合は追加確認
@@ -2462,14 +2432,10 @@ def callback():
                                     morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
                                     reply_text = task_service.format_task_list(all_tasks, show_select_guide=True, guide_text=morning_guide)
                                     print(f"[修正処理] 今日のタスク選択画面に戻る")
-                                    
-                                    # 今日のタスク選択モードに戻るため、フラグファイルを更新
-                                    try:
-                                        with open(select_flag, "w") as f:
-                                            f.write("mode=schedule")
-                                        print(f"[修正処理] 今日のタスク選択モードフラグ更新: {select_flag}")
-                                    except Exception as e:
-                                        print(f"[修正処理] フラグファイル更新エラー: {e}")
+
+                                    # 今日のタスク選択モードに戻るため、フラグを更新
+                                    create_flag_file(user_id, "task_select", {"mode": "schedule"})
+                                    print(f"[修正処理] 今日のタスク選択モードフラグ更新: user_id={user_id}")
 
                                 active_line_bot_api.reply_message(
                                     ReplyMessageRequest(
@@ -2749,24 +2715,13 @@ def callback():
                         # session ディレクトリのファイルも確認
                         future_selection_file = f"future_task_selection_{user_id}.json"
                         future_selection_file_alt = os.path.abspath(os.path.join(os.path.dirname(__file__), "session", f"future_task_selection_{user_id}.json"))
-                        # 互換の選択フラグ（task_select_mode_*.flag）が future_schedule を指す場合も拾う
-                        legacy_select_flag = f"task_select_mode_{user_id}.flag"
+                        # 互換の選択フラグ（task_select_mode）が future_schedule を指す場合も拾う
                         legacy_mode = None
-                        if os.path.exists(legacy_select_flag):
-                            try:
-                                with open(legacy_select_flag, "r", encoding="utf-8") as f:
-                                    content = f.read().strip()
-                                    # JSON形式の場合はパース
-                                    if content.startswith("{"):
-                                        flag_data = json.loads(content)
-                                        mode = flag_data.get("mode", "")
-                                        if mode:
-                                            legacy_mode = f"mode={mode}"
-                                    else:
-                                        # 旧形式
-                                        legacy_mode = content
-                            except Exception:
-                                legacy_mode = None
+                        flag_data = load_flag_data(user_id, "task_select")
+                        if flag_data:
+                            mode = flag_data.get("mode", "")
+                            if mode:
+                                legacy_mode = f"mode={mode}"
                         print(
                             f"[DEBUG] 未来タスク選択モードファイル確認: {future_selection_file}={os.path.exists(future_selection_file)}, alt={future_selection_file_alt}={os.path.exists(future_selection_file_alt)}, legacy_mode={legacy_mode}"
                         )
