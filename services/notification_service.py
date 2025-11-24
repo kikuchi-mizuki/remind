@@ -844,7 +844,7 @@ class NotificationService:
                         print(f"[send_future_task_selection] 未来タスク選択モードデータ保存: user_id={user_id}")
 
                         # タスク選択モードフラグを設定（mode=future_scheduleで未来タスク選択として識別）
-                        self.db.set_user_state(user_id, "task_select", future_selection_data)
+                        self.db.set_user_state(user_id, "task_select_mode", future_selection_data)
                         print(f"[send_future_task_selection] タスク選択モードフラグ設定: user_id={user_id}, mode=future_schedule")
 
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
