@@ -164,6 +164,7 @@ class Database:
 
     def create_task(self, task: Task) -> bool:
         """タスクを作成"""
+        conn = None
         try:
             print(f"[create_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, repeat={task.repeat}, status={task.status}, created_at={task.created_at}, due_date={task.due_date}, priority={task.priority}, task_type={task.task_type}")
             conn = sqlite3.connect(self.db_path)
@@ -171,17 +172,24 @@ class Database:
             cursor.execute('''
                 INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
+            ''', (task.task_id, task.user_id, task.name, task.duration_minutes,
                   task.repeat, task.status, task.created_at, task.due_date, task.priority, task.task_type))
             conn.commit()
-            conn.close()
             return True
         except Exception as e:
             print(f"[create_task] Error creating task: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
             return False
+        finally:
+            if conn:
+                conn.close()
 
     def create_future_task(self, task: Task) -> bool:
         """未来タスクを作成（tasksテーブルに統一）"""
+        conn = None
         try:
             print(f"[create_future_task] INSERT値: task_id={task.task_id}, user_id={task.user_id}, name={task.name}, duration_minutes={task.duration_minutes}, priority={task.priority}, status={task.status}, created_at={task.created_at}, task_type={task.task_type}")
             conn = sqlite3.connect(self.db_path)
@@ -189,14 +197,20 @@ class Database:
             cursor.execute('''
                 INSERT INTO tasks (task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (task.task_id, task.user_id, task.name, task.duration_minutes, 
+            ''', (task.task_id, task.user_id, task.name, task.duration_minutes,
                   task.repeat, task.status, task.created_at, task.due_date, task.priority, task.task_type))
             conn.commit()
-            conn.close()
             return True
         except Exception as e:
             print(f"[create_future_task] Error creating future task: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
             return False
+        finally:
+            if conn:
+                conn.close()
 
     def get_user_tasks(self, user_id: str, status: str = "active", task_type: str = "daily") -> List[Task]:
         """ユーザーのタスク一覧を取得"""

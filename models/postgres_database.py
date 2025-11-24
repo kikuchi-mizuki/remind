@@ -205,21 +205,25 @@ class PostgreSQLDatabase:
                         else:
                             token = TokenModel(user_id=user_id, token_json=token_json)
                             session.add(token)
-                        
+
                         session.commit()
-                        session.close()
                         print(f"[save_token] PostgreSQL保存成功: user_id={user_id}")
                         return True
                     except Exception as e:
                         session.rollback()
-                        session.close()
                         print(f"[save_token] PostgreSQL保存エラー: {e}")
+                        import traceback
+                        traceback.print_exc()
                         return False
+                    finally:
+                        session.close()
             else:
                 # SQLiteフォールバック
                 return self.sqlite_db.save_token(user_id, token_json)
         except Exception as e:
             print(f"Error saving token: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def get_token(self, user_id: str) -> Optional[str]:
@@ -230,8 +234,7 @@ class PostgreSQLDatabase:
                 if session:
                     try:
                         token = session.query(TokenModel).filter_by(user_id=user_id).first()
-                        session.close()
-                        
+
                         if token:
                             print(f"[get_token] PostgreSQL取得成功: user_id={user_id}")
                             return token.token_json
@@ -239,14 +242,19 @@ class PostgreSQLDatabase:
                             print(f"[get_token] PostgreSQLトークンなし: user_id={user_id}")
                             return None
                     except Exception as e:
-                        session.close()
                         print(f"[get_token] PostgreSQL取得エラー: {e}")
+                        import traceback
+                        traceback.print_exc()
                         return None
+                    finally:
+                        session.close()
             else:
                 # SQLiteフォールバック
                 return self.sqlite_db.get_token(user_id)
         except Exception as e:
             print(f"Error getting token: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def save_user_channel(self, user_id: str, channel_id: str) -> bool:

@@ -35,8 +35,28 @@ import hashlib
 import base64
 
 load_dotenv()
+
+# 必須環境変数のチェック
+required_env_vars = {
+    "FLASK_SECRET_KEY": "Flaskセッション暗号化キー",
+    "LINE_CHANNEL_ACCESS_TOKEN": "LINEチャネルアクセストークン",
+    "LINE_CHANNEL_SECRET": "LINEチャネルシークレット",
+    "OPENAI_API_KEY": "OpenAI APIキー",
+    "CLIENT_SECRETS_JSON": "Google OAuth2設定"
+}
+
+missing_vars = []
+for var, description in required_env_vars.items():
+    if not os.environ.get(var):
+        missing_vars.append(f"{var} ({description})")
+
+if missing_vars:
+    error_message = "以下の必須環境変数が設定されていません:\n" + "\n".join(f"  - {var}" for var in missing_vars)
+    print(f"[ERROR] {error_message}")
+    raise RuntimeError(error_message)
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your-default-secret-key")
+app.secret_key = os.environ["FLASK_SECRET_KEY"]  # デフォルト値を削除
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 
@@ -124,8 +144,9 @@ def is_google_authenticated(user_id):
     print(f"[is_google_authenticated] 開始: user_id={user_id}")
     print(f"[is_google_authenticated] DBファイルパス: {db.db_path}")
     token_json = db.get_token(user_id)
+    # セキュリティ: トークンの内容はログに出力しない
     print(
-        f"[is_google_authenticated] DBから取得: token_json={token_json[:100] if token_json else 'None'}"
+        f"[is_google_authenticated] DBから取得: token_json={'存在する' if token_json else 'None'} (長さ: {len(token_json) if token_json else 0})"
     )
     if not token_json:
         print(f"[is_google_authenticated] トークンが存在しません")
@@ -304,8 +325,9 @@ def oauth2callback():
                 print(f"[oauth2callback] ERROR: user_id is None, token保存スキップ")
             else:
                 token_json = creds.to_json()
+                # セキュリティ: トークンの内容はログに出力しない
                 print(
-                    f"[oauth2callback] save_token呼び出し: user_id={user_id}, token_json先頭100={token_json[:100]}"
+                    f"[oauth2callback] save_token呼び出し: user_id={user_id}, token_json_length={len(token_json)}"
                 )
                 print(f"[oauth2callback] DBファイルパス: {db.db_path}")
                 db.save_token(str(user_id), token_json)

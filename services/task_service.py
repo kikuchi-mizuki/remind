@@ -194,8 +194,13 @@ class TaskService:
                 priority_removed = True
                 print(f"[parse_task_message] 優先度記号除去後: '{task_name}'")
             
+            # 入力検証
             if not task_name:
                 raise ValueError("タスク名が見つかりませんでした")
+            if len(task_name) > 200:
+                raise ValueError("タスク名は200文字以内にしてください")
+            if len(task_name) < 1:
+                raise ValueError("タスク名を入力してください")
             
             # 優先度の判定
             detected_urgent = False
