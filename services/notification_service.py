@@ -188,47 +188,16 @@ class NotificationService:
             moved_count = self._move_overdue_tasks_to_today(user_id)
             # タスク一覧を取得して通知メッセージを作成（8時通知では全てのタスクを表示）
             tasks = self.task_service.get_user_tasks(user_id)
-            
-            # タスク選択モードフラグを作成（タイムスタンプ付き）
-            import os
+
+            # タスク選択モードフラグをデータベースに設定
             import json
-            select_flag = f"task_select_mode_{user_id}.flag"
-            # 既存のフラグファイルを確認（タイムスタンプ付きフォーマットに対応）
-            existing_flag_valid = False
-            if os.path.exists(select_flag):
-                try:
-                    with open(select_flag, "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                        # JSON形式の場合はタイムスタンプを確認
-                        if content.startswith("{"):
-                            flag_data = json.loads(content)
-                            flag_timestamp = flag_data.get("timestamp")
-                            if flag_timestamp:
-                                from datetime import datetime as dt
-                                import pytz
-                                jst = pytz.timezone('Asia/Tokyo')
-                                flag_time = dt.fromisoformat(flag_timestamp)
-                                # flag_timeがnaiveの場合はJSTを設定
-                                if flag_time.tzinfo is None:
-                                    flag_time = jst.localize(flag_time)
-                                current_time = dt.now(jst)
-                                # フラグが作成されてから24時間以内の場合は保持
-                                if (current_time - flag_time).total_seconds() < 24 * 3600:
-                                    existing_flag_valid = True
-                                    print(f"[_send_task_notification_to_user_multi_tenant] 既存のフラグが有効（作成時刻: {flag_timestamp}）")
-                except Exception as e:
-                    print(f"[_send_task_notification_to_user_multi_tenant] 既存フラグ確認エラー: {e}")
-            
-            # 既存のフラグが有効でない場合のみ新規作成
-            if not existing_flag_valid:
-                flag_data = {
-                    "mode": "schedule",
-                    "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat(),
-                    "task_count": len(tasks)
-                }
-                with open(select_flag, "w", encoding="utf-8") as f:
-                    json.dump(flag_data, f, ensure_ascii=False)
-                print(f"[_send_task_notification_to_user_multi_tenant] タスク選択モードフラグ作成: {select_flag} (タスク数: {len(tasks)})")
+            flag_data = {
+                "mode": "schedule",
+                "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat(),
+                "task_count": len(tasks)
+            }
+            self.db.set_user_state(user_id, "task_select_mode", flag_data)
+            print(f"[_send_task_notification_to_user_multi_tenant] タスク選択モードフラグ設定: user_id={user_id}, タスク数={len(tasks)}")
             
             # タスク一覧コマンドと同じ詳細な形式で送信（朝8時は「今日やるタスク」ガイド）
             morning_guide = "今日やるタスクを選んでください！\n例：１、３、５"
@@ -813,19 +782,16 @@ class NotificationService:
                     for idx, t in enumerate(today_tasks, 1):
                         msg += f"{idx}. {t.name} ({t.duration_minutes}分)\n"
                     msg += "＝＝＝＝＝＝\n終わったタスクを選んでください！\n例：１、３、５"
-                    
-                    # タスク選択モードフラグを作成
-                    import os
+
+                    # タスク選択モードフラグをデータベースに設定
                     import json
-                    select_flag = f"task_select_mode_{user_id}.flag"
                     flag_payload = {
                         "mode": "complete",
                         "target_date": today_str,
                         "timestamp": datetime.now(jst).isoformat(),
                     }
-                    with open(select_flag, "w", encoding="utf-8") as f:
-                        json.dump(flag_payload, f, ensure_ascii=False)
-                    print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}, payload={flag_payload}")
+                    self.db.set_user_state(user_id, "task_select_mode", flag_payload)
+                    print(f"[send_carryover_check] タスク選択モードフラグ設定: user_id={user_id}, payload={flag_payload}")
                 
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
                 # マルチテナント対応で通知送信（一括取得したチャネルIDを使用）
