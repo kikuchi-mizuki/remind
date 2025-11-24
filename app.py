@@ -48,6 +48,10 @@ from handlers.task_handler import (
 from handlers.urgent_handler import handle_urgent_task_add_command
 from handlers.future_handler import handle_future_task_add_command
 from handlers.helpers import send_reply_with_menu
+from handlers.selection_handler import (
+    handle_task_selection_cancel,
+    handle_task_selection_process,
+)
 
 load_dotenv()
 
@@ -1210,17 +1214,11 @@ def callback():
                         
                         # タスク選択モードでキャンセル処理
                         if check_flag_file(user_id, "task_select"):
-                            # キャンセルワード判定
                             cancel_words = ["キャンセル", "やめる", "中止", "戻る"]
                             normalized_message = user_message.strip().replace('　','').replace('\n','').lower()
                             print(f"[DEBUG] タスク選択キャンセル判定: normalized_message='{normalized_message}'")
                             if normalized_message in [w.lower() for w in cancel_words]:
-                                # フラグファイルを削除してモードをリセット
-                                delete_flag_file(user_id, "task_select")
-                                print(f"[DEBUG] タスク選択モードリセット: user_id={user_id} 削除")
-                                
-                                # 通常のFlexMessageメニューを表示
-                                send_reply_with_menu(active_line_bot_api, reply_token, get_simple_flex_menu)
+                                handle_task_selection_cancel(active_line_bot_api, reply_token, user_id, get_simple_flex_menu)
                                 continue
                         # AIによる数字入力判定を試行
                         is_number_input = False

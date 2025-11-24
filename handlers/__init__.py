@@ -12,6 +12,10 @@ from .helpers import (
     create_flex_menu,
     send_reply_with_menu,
 )
+from .selection_handler import (
+    handle_task_selection_cancel,
+    handle_task_selection_process,
+)
 
 __all__ = [
     'create_flag_file',
@@ -22,4 +26,6 @@ __all__ = [
     'format_due_date',
     'create_flex_menu',
     'send_reply_with_menu',
+    'handle_task_selection_cancel',
+    'handle_task_selection_process',
 ]
