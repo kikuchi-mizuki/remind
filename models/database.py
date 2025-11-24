@@ -157,7 +157,19 @@ class Database:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
-        
+
+        # user_statesテーブルの作成（ユーザーの状態管理：フラグファイルの代替）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_states (
+                user_id TEXT NOT NULL,
+                state_type TEXT NOT NULL,
+                state_data TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, state_type)
+            )
+        ''')
+
         conn.commit()
         conn.close()
         print(f"[init_database] 完了: {self.db_path}")
@@ -683,6 +695,146 @@ class Database:
             import traceback
             traceback.print_exc()
             return {}
+        finally:
+            if conn:
+                conn.close()
+
+    def set_user_state(self, user_id: str, state_type: str, state_data: Optional[dict] = None) -> bool:
+        """
+        ユーザーの状態を設定（フラグファイルの代替）
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ ('add_task_mode', 'urgent_task_mode', 'future_task_mode', 'delete_mode', 'task_select_mode' など)
+            state_data: 状態に関連するデータ（オプション、辞書形式）
+
+        Returns:
+            bool: 成功時True
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            state_data_json = json.dumps(state_data) if state_data else None
+            current_time = datetime.now().isoformat()
+
+            cursor.execute('''
+                INSERT OR REPLACE INTO user_states (user_id, state_type, state_data, created_at, updated_at)
+                VALUES (?, ?, ?,
+                    COALESCE((SELECT created_at FROM user_states WHERE user_id = ? AND state_type = ?), ?),
+                    ?)
+            ''', (user_id, state_type, state_data_json, user_id, state_type, current_time, current_time))
+
+            conn.commit()
+            print(f"[set_user_state] 状態設定: user_id={user_id}, state_type={state_type}")
+            return True
+        except Exception as e:
+            print(f"[set_user_state] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def get_user_state(self, user_id: str, state_type: str) -> Optional[dict]:
+        """
+        ユーザーの状態を取得
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ
+
+        Returns:
+            Optional[dict]: 状態データ（存在しない場合はNone）
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT state_data FROM user_states
+                WHERE user_id = ? AND state_type = ?
+            ''', (user_id, state_type))
+
+            result = cursor.fetchone()
+            if result and result[0]:
+                return json.loads(result[0])
+            return None
+        except Exception as e:
+            print(f"[get_user_state] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def check_user_state(self, user_id: str, state_type: str) -> bool:
+        """
+        ユーザーの状態が存在するかチェック
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ
+
+        Returns:
+            bool: 存在する場合True
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT 1 FROM user_states
+                WHERE user_id = ? AND state_type = ?
+            ''', (user_id, state_type))
+
+            result = cursor.fetchone()
+            return result is not None
+        except Exception as e:
+            print(f"[check_user_state] エラー: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def delete_user_state(self, user_id: str, state_type: str) -> bool:
+        """
+        ユーザーの状態を削除
+
+        Args:
+            user_id: ユーザーID
+            state_type: 状態タイプ
+
+        Returns:
+            bool: 成功時True
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                DELETE FROM user_states
+                WHERE user_id = ? AND state_type = ?
+            ''', (user_id, state_type))
+
+            conn.commit()
+            print(f"[delete_user_state] 状態削除: user_id={user_id}, state_type={state_type}")
+            return True
+        except Exception as e:
+            print(f"[delete_user_state] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return False
         finally:
             if conn:
                 conn.close()
