@@ -11,15 +11,21 @@ from typing import List
 from linebot.v3.messaging import MessagingApi, PushMessageRequest, TextMessage, FlexMessage, Configuration, ApiClient
 from models.database import db, Task
 from services.task_service import TaskService
+from services.notification_error_handler import (
+    NotificationErrorHandler,
+    RetryConfig,
+    NotificationError,
+    ErrorType
+)
 
 class NotificationService:
     """通知サービスクラス"""
-    
-    def __init__(self):
+
+    def __init__(self, retry_config: RetryConfig = None):
         import os
         print(f"[DEBUG] (notification_service.py) LINE_CHANNEL_ACCESS_TOKEN: {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}")
         print(f"[DEBUG] (notification_service.py) os.environ: {os.environ}")
-        
+
         # マルチテナント対応: MultiTenantServiceを使用
         from services.multi_tenant_service import MultiTenantService
         self.multi_tenant_service = MultiTenantService()
@@ -31,6 +37,9 @@ class NotificationService:
         # データベース初期化
         from models.database import init_db
         self.db = init_db()
+
+        # エラーハンドラーの初期化
+        self.error_handler = NotificationErrorHandler(retry_config)
         
         # LINE Bot API初期化
         channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
@@ -44,6 +53,51 @@ class NotificationService:
         
         print(f"[NotificationService] マルチテナント対応で初期化完了")
         print(f"[NotificationService] 利用可能チャネル: {self.multi_tenant_service.get_all_channel_ids()}")
+
+    def _send_message_with_retry(
+        self,
+        line_bot_api: MessagingApi,
+        user_id: str,
+        messages: list,
+        operation_name: str = "send_message"
+    ) -> bool:
+        """
+        LINE API呼び出しをリトライロジック付きで実行
+
+        Args:
+            line_bot_api: MessagingApiインスタンス
+            user_id: 送信先ユーザーID
+            messages: 送信するメッセージリスト
+            operation_name: 操作名（ログ用）
+
+        Returns:
+            成功した場合True、失敗した場合False
+        """
+        def send_push_message():
+            """実際のpush_message呼び出し"""
+            line_bot_api.push_message(
+                PushMessageRequest(to=user_id, messages=messages)
+            )
+
+        try:
+            self.error_handler.execute_with_retry(
+                send_push_message,
+                operation_name=f"{operation_name} to {user_id}"
+            )
+            return True
+
+        except NotificationError as e:
+            self.error_handler.logger.error(
+                f"[_send_message_with_retry] 通知送信失敗 "
+                f"(user_id: {user_id}, error_type: {e.error_type.value}): {e.message}"
+            )
+            return False
+
+        except Exception as e:
+            self.error_handler.logger.error(
+                f"[_send_message_with_retry] 予期しないエラー (user_id: {user_id}): {str(e)}"
+            )
+            return False
 
     def _check_duplicate_execution(self, notification_type: str, cooldown_minutes: int = 5) -> bool:
         """重複実行をチェックし、必要に応じて実行を防ぐ（DBベース）"""
@@ -185,10 +239,19 @@ class NotificationService:
             # 期限切れタスクが移動された場合は通知を追加
             if moved_count > 0:
                 message = f"⚠️ {moved_count}個の期限切れタスクを今日に移動しました\n\n" + message
-            
-            # 通知送信
-            line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            print(f"[_send_task_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) に送信完了")
+
+            # 通知送信（リトライロジック付き）
+            success = self._send_message_with_retry(
+                line_bot_api=line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="daily_task_notification"
+            )
+
+            if success:
+                print(f"[_send_task_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) に送信完了")
+            else:
+                print(f"[_send_task_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) への送信失敗")
             
         except Exception as e:
             print(f"[_send_task_notification_to_user_multi_tenant] エラー: {e}")
@@ -212,9 +275,18 @@ class NotificationService:
                 print(f"[_send_carryover_notification_to_user_multi_tenant] チャネル {user_channel_id} のAPIクライアントが取得できません")
                 return
             
-            # 通知送信
-            line_bot_api.push_message(PushMessageRequest(to=user_id, messages=[TextMessage(text=message)]))
-            print(f"[_send_carryover_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) に送信完了")
+            # 通知送信（リトライロジック付き）
+            success = self._send_message_with_retry(
+                line_bot_api=line_bot_api,
+                user_id=user_id,
+                messages=[TextMessage(text=message)],
+                operation_name="carryover_notification"
+            )
+
+            if success:
+                print(f"[_send_carryover_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) に送信完了")
+            else:
+                print(f"[_send_carryover_notification_to_user_multi_tenant] ユーザー {user_id} (チャネル: {user_channel_id}) への送信失敗")
             
         except Exception as e:
             print(f"[_send_carryover_notification_to_user_multi_tenant] エラー: {e}")
