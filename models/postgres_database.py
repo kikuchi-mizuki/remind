@@ -1224,6 +1224,46 @@ class PostgreSQLDatabase:
             traceback.print_exc()
             return None
 
+    def delete_user_session(self, user_id: str, session_type: str) -> bool:
+        """
+        ユーザーセッションデータを削除
+
+        Args:
+            user_id: ユーザーID
+            session_type: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+
+        Returns:
+            削除成功時True、失敗時False
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    deleted_count = session.query(UserSessionModel).filter(
+                        UserSessionModel.user_id == user_id,
+                        UserSessionModel.session_type == session_type
+                    ).delete()
+
+                    session.commit()
+                    print(f"[delete_user_session] セッション削除: user_id={user_id}, type={session_type}, 削除数={deleted_count}")
+                    return True
+                except Exception as e:
+                    session.rollback()
+                    print(f"[delete_user_session] PostgreSQLエラー: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    return False
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.delete_user_session(user_id, session_type)
+        except Exception as e:
+            print(f"[delete_user_session] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
     def set_user_state(self, user_id: str, state_type: str, state_data: Optional[dict] = None) -> bool:
         """
         ユーザーの状態を設定（フラグファイルの代替）
