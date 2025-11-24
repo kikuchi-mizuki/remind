@@ -134,7 +134,7 @@ else:
 
 task_service = TaskService(db)
 calendar_service = CalendarService()
-openai_service = OpenAIService()
+openai_service = OpenAIService(db=db, enable_cache=True, cache_ttl_hours=24)
 notification_service = NotificationService()
 multi_tenant_service = MultiTenantService()
 
@@ -1050,9 +1050,9 @@ def callback():
                             import re
                             # AIで番号抽出
                             from services.openai_service import OpenAIService
-                            openai_service = OpenAIService()
+                            local_openai_service = OpenAIService(db=db, enable_cache=True, cache_ttl_hours=24)
                             print(f"[DEBUG] AI抽出開始: 入力メッセージ='{user_message}'")
-                            ai_result = openai_service.extract_task_numbers_from_message(user_message)
+                            ai_result = local_openai_service.extract_task_numbers_from_message(user_message)
                             print(f"[DEBUG] AI抽出結果: {ai_result}")
                             if ai_result and (ai_result.get("tasks") or ai_result.get("future_tasks")):
                                 task_numbers = [str(n) for n in ai_result.get("tasks", [])]
@@ -1785,7 +1785,7 @@ def callback():
                                         import pytz
 
                                         calendar_service = CalendarService()
-                                        openai_service = OpenAIService()
+                                        local_openai_service = OpenAIService(db=db, enable_cache=True, cache_ttl_hours=24)
 
                                         jst = pytz.timezone("Asia/Tokyo")
                                         today = datetime.now(jst)
@@ -1800,7 +1800,7 @@ def callback():
 
                                         if free_times:
                                             # スケジュール提案を生成（来週のスケジュールとして）
-                                            proposal = openai_service.generate_schedule_proposal(
+                                            proposal = local_openai_service.generate_schedule_proposal(
                                                 [selected_task],
                                                 free_times,
                                                 week_info="来週",

@@ -3,13 +3,18 @@ from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from openai import OpenAI
 from models.database import Task
+import hashlib
+import json
 
 class OpenAIService:
     """OpenAI APIを使用したスケジュール提案サービスクラス"""
-    
-    def __init__(self):
+
+    def __init__(self, db=None, enable_cache: bool = True, cache_ttl_hours: int = 24):
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.model = "gpt-4o-mini"  # または "gpt-4o"
+        self.db = db
+        self.enable_cache = enable_cache
+        self.cache_ttl_hours = cache_ttl_hours
 
     def generate_schedule_proposal(
         self,
@@ -237,23 +242,14 @@ class OpenAIService:
     def get_priority_classification(self, prompt: str) -> str:
         """タスクの優先度を分類"""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "あなたはタスク管理の専門家です。与えられたタスクの緊急度と重要度を分析し、適切な優先度カテゴリを選択してください。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+            system_content = "あなたはタスク管理の専門家です。与えられたタスクの緊急度と重要度を分析し、適切な優先度カテゴリを選択してください。"
+            result = self._get_cached_or_call_api(
+                prompt=prompt,
+                system_content=system_content,
                 max_tokens=50,
                 temperature=0.3
             )
-            result = response.choices[0].message.content or "normal"
-            return result.strip()
+            return result.strip() if result else "normal"
         except Exception as e:
             print(f"OpenAI API error in priority classification: {e}")
             return "normal"
@@ -274,22 +270,14 @@ class OpenAIService:
 優先度のみを返してください（high/medium/low）
 """
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "あなたはタスク管理の専門家です。タスクの優先度を適切に判断してください。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+            system_content = "あなたはタスク管理の専門家です。タスクの優先度を適切に判断してください。"
+            result = self._get_cached_or_call_api(
+                prompt=prompt,
+                system_content=system_content,
                 max_tokens=10,
                 temperature=0.3
             )
-            return (response.choices[0].message.content or "").strip().lower()
+            return result.strip().lower() if result else "medium"
         except Exception as e:
             print(f"OpenAI API error: {e}")
             return "medium"  # デフォルトは中優先度
@@ -634,16 +622,13 @@ class OpenAIService:
 出力は日付のみ、余計な説明や記号は一切不要です。
 """
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "あなたは日本語の自然言語日付抽出の専門家です。口語表現や曖昧な表現も柔軟に解釈して、適切な期日を設定してください。"},
-                    {"role": "user", "content": prompt}
-                ],
+            system_content = "あなたは日本語の自然言語日付抽出の専門家です。口語表現や曖昧な表現も柔軟に解釈して、適切な期日を設定してください。"
+            raw = self._get_cached_or_call_api(
+                prompt=prompt,
+                system_content=system_content,
                 max_tokens=20,
-                temperature=0.1  # 少し柔軟性を持たせる
+                temperature=0.1
             )
-            raw = response.choices[0].message.content or ""
             # 日付形式だけ抽出
             import re
             m = re.search(r'(\d{4}-\d{2}-\d{2})', raw)
@@ -683,19 +668,16 @@ class OpenAIService:
 JSON以外の余計な説明や文章は一切出力しないでください。
 """
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "あなたは日本語メッセージの意図を分類するAIです。指定された形式でJSONのみを返してください。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                max_tokens=300
+            system_content = "あなたは日本語メッセージの意図を分類するAIです。指定された形式でJSONのみを返してください。"
+            result_text = self._get_cached_or_call_api(
+                prompt=prompt,
+                system_content=system_content,
+                max_tokens=300,
+                temperature=0.1
             )
-            
-            result_text = response.choices[0].message.content.strip()
+
             print(f"[classify_user_intent] AI応答: {result_text}")
-            
+
             # JSONパース
             import json
             import re
@@ -704,12 +686,84 @@ JSON以外の余計な説明や文章は一切出力しないでください。
                 result = json.loads(m.group(0))
                 print(f"[classify_user_intent] 分類結果: {result}")
                 return result
-            
+
             return {"intent": "other", "confidence": 0.0, "reason": "JSON解析エラー"}
-            
+
         except Exception as e:
             print(f"[classify_user_intent] エラー: {e}")
             return {"intent": "other", "confidence": 0.0, "reason": "分類エラー"}
+
+    def _compute_prompt_hash(self, prompt: str) -> str:
+        """プロンプトのSHA256ハッシュを計算"""
+        return hashlib.sha256(prompt.encode('utf-8')).hexdigest()
+
+    def _get_cached_or_call_api(
+        self,
+        prompt: str,
+        system_content: str,
+        max_tokens: int,
+        temperature: float,
+        model: Optional[str] = None
+    ) -> str:
+        """
+        キャッシュをチェックし、存在すればそれを返す。
+        存在しなければAPIを呼び出し、結果をキャッシュに保存してから返す。
+        """
+        if model is None:
+            model = self.model
+
+        # キャッシュが無効化されている、またはdbが設定されていない場合は直接API呼び出し
+        if not self.enable_cache or not self.db:
+            return self._call_openai_api(prompt, system_content, max_tokens, temperature, model)
+
+        # プロンプトのハッシュを計算
+        prompt_hash = self._compute_prompt_hash(prompt + system_content)
+
+        # キャッシュをチェック
+        cached_response = self.db.get_cached_response(model, prompt_hash)
+        if cached_response:
+            print(f"[_get_cached_or_call_api] キャッシュから取得: hash={prompt_hash[:16]}...")
+            return cached_response
+
+        # キャッシュミス: APIを呼び出し
+        response = self._call_openai_api(prompt, system_content, max_tokens, temperature, model)
+
+        # レスポンスをキャッシュに保存
+        if response:
+            self.db.set_cached_response(
+                model=model,
+                prompt_hash=prompt_hash,
+                prompt_preview=prompt[:200],
+                response=response,
+                ttl_hours=self.cache_ttl_hours
+            )
+            print(f"[_get_cached_or_call_api] キャッシュに保存: hash={prompt_hash[:16]}...")
+
+        return response
+
+    def _call_openai_api(
+        self,
+        prompt: str,
+        system_content: str,
+        max_tokens: int,
+        temperature: float,
+        model: str
+    ) -> str:
+        """OpenAI APIを直接呼び出す"""
+        try:
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            print(f"[_call_openai_api] OpenAI API error: {e}")
+            return ""
 
     def extract_task_numbers_from_message(self, message: str) -> Optional[dict]:
         """日本語メッセージから通常タスク・未来タスクの番号をAIで抽出し、{"tasks": [1,3], "future_tasks": [2]}のdictで返す"""
@@ -735,18 +789,15 @@ JSON以外の余計な説明や文章は一切出力しないでください。
 - JSON以外の余計な説明や文章は一切出力しないでください。
 """
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "あなたは日本語の自然言語解析の専門家です。"},
-                    {"role": "user", "content": prompt}
-                ],
+            system_content = "あなたは日本語の自然言語解析の専門家です。"
+            raw = self._get_cached_or_call_api(
+                prompt=prompt,
+                system_content=system_content,
                 max_tokens=100,
                 temperature=0.0
             )
             import json
             import re
-            raw = response.choices[0].message.content or ""
             # JSON部分のみ抽出
             m = re.search(r'\{.*\}', raw, re.DOTALL)
             if m:

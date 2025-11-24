@@ -170,6 +170,26 @@ class Database:
             )
         ''')
 
+        # openai_cacheテーブルの作成（OpenAI APIレスポンスのキャッシュ）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS openai_cache (
+                cache_key TEXT PRIMARY KEY,
+                model TEXT NOT NULL,
+                prompt_hash TEXT NOT NULL,
+                prompt_preview TEXT,
+                response TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                hit_count INTEGER DEFAULT 0
+            )
+        ''')
+
+        # expires_atにインデックスを作成（クリーンアップクエリの高速化）
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_openai_cache_expires_at
+            ON openai_cache(expires_at)
+        ''')
+
         conn.commit()
         conn.close()
         print(f"[init_database] 完了: {self.db_path}")
@@ -835,6 +855,175 @@ class Database:
             if conn:
                 conn.rollback()
             return False
+        finally:
+            if conn:
+                conn.close()
+
+    def get_cached_response(self, model: str, prompt_hash: str) -> Optional[str]:
+        """キャッシュされたOpenAI APIレスポンスを取得"""
+        conn = None
+        try:
+            cache_key = f"{model}:{prompt_hash}"
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 有効期限内のキャッシュを取得
+            cursor.execute('''
+                SELECT response, hit_count
+                FROM openai_cache
+                WHERE cache_key = ? AND expires_at > CURRENT_TIMESTAMP
+            ''', (cache_key,))
+
+            result = cursor.fetchone()
+            if result:
+                response, hit_count = result
+                # ヒット数を更新
+                cursor.execute('''
+                    UPDATE openai_cache
+                    SET hit_count = ?
+                    WHERE cache_key = ?
+                ''', (hit_count + 1, cache_key))
+                conn.commit()
+                print(f"[get_cached_response] キャッシュヒット: key={cache_key}, hit_count={hit_count + 1}")
+                return response
+            else:
+                print(f"[get_cached_response] キャッシュミス: key={cache_key}")
+                return None
+
+        except Exception as e:
+            print(f"[get_cached_response] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def set_cached_response(self, model: str, prompt_hash: str, prompt_preview: str, response: str, ttl_hours: int = 24) -> bool:
+        """OpenAI APIレスポンスをキャッシュに保存"""
+        conn = None
+        try:
+            from datetime import datetime, timedelta
+            cache_key = f"{model}:{prompt_hash}"
+            expires_at = datetime.now() + timedelta(hours=ttl_hours)
+
+            # prompt_previewは最初の200文字のみ保存
+            preview = prompt_preview[:200] if prompt_preview else ""
+
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # UPSERT操作（既存の場合は更新、存在しない場合は挿入）
+            cursor.execute('''
+                INSERT INTO openai_cache (cache_key, model, prompt_hash, prompt_preview, response, expires_at, hit_count)
+                VALUES (?, ?, ?, ?, ?, ?, 0)
+                ON CONFLICT(cache_key) DO UPDATE SET
+                    response = excluded.response,
+                    expires_at = excluded.expires_at,
+                    created_at = CURRENT_TIMESTAMP,
+                    hit_count = 0
+            ''', (cache_key, model, prompt_hash, preview, response, expires_at))
+
+            conn.commit()
+            print(f"[set_cached_response] キャッシュ保存: key={cache_key}, ttl={ttl_hours}h, expires_at={expires_at}")
+            return True
+
+        except Exception as e:
+            print(f"[set_cached_response] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def cleanup_expired_cache(self) -> int:
+        """期限切れのキャッシュを削除"""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 期限切れのキャッシュを削除
+            cursor.execute('''
+                DELETE FROM openai_cache
+                WHERE expires_at <= CURRENT_TIMESTAMP
+            ''')
+
+            deleted_count = cursor.rowcount
+            conn.commit()
+
+            if deleted_count > 0:
+                print(f"[cleanup_expired_cache] {deleted_count}件の期限切れキャッシュを削除")
+
+            return deleted_count
+
+        except Exception as e:
+            print(f"[cleanup_expired_cache] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return 0
+        finally:
+            if conn:
+                conn.close()
+
+    def get_cache_stats(self) -> dict:
+        """キャッシュ統計を取得"""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 総キャッシュ数
+            cursor.execute('SELECT COUNT(*) FROM openai_cache')
+            total_count = cursor.fetchone()[0]
+
+            # 有効なキャッシュ数
+            cursor.execute('SELECT COUNT(*) FROM openai_cache WHERE expires_at > CURRENT_TIMESTAMP')
+            valid_count = cursor.fetchone()[0]
+
+            # 期限切れキャッシュ数
+            expired_count = total_count - valid_count
+
+            # 総ヒット数
+            cursor.execute('SELECT SUM(hit_count) FROM openai_cache')
+            total_hits = cursor.fetchone()[0] or 0
+
+            # モデル別の統計
+            cursor.execute('''
+                SELECT model, COUNT(*), SUM(hit_count)
+                FROM openai_cache
+                WHERE expires_at > CURRENT_TIMESTAMP
+                GROUP BY model
+            ''')
+            model_stats = {}
+            for row in cursor.fetchall():
+                model, count, hits = row
+                model_stats[model] = {
+                    'count': count,
+                    'hits': hits or 0
+                }
+
+            stats = {
+                'total_count': total_count,
+                'valid_count': valid_count,
+                'expired_count': expired_count,
+                'total_hits': total_hits,
+                'model_stats': model_stats
+            }
+
+            print(f"[get_cache_stats] 統計: {stats}")
+            return stats
+
+        except Exception as e:
+            print(f"[get_cache_stats] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
         finally:
             if conn:
                 conn.close()

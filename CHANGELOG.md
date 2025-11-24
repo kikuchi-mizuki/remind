@@ -2,6 +2,194 @@
 
 このファイルは、プロジェクトの主要な変更を記録します。
 
+## [2025-11-24 続き3] - OpenAI APIレスポンスキャッシュの実装
+
+### 📝 セッション概要
+前回セッションの成果を踏まえ、OpenAI APIのレスポンスをキャッシュする機能を実装しました。これにより、同じプロンプトに対するAPI呼び出しを削減し、コスト削減とレスポンス速度の向上を実現しました。
+
+### ✅ 完了した作業
+
+#### 1. データベースキャッシュテーブルの追加
+- **新規テーブル**: `openai_cache`
+- **カラム構成**:
+  - cache_key: モデル名 + プロンプトハッシュの組み合わせ（PRIMARY KEY）
+  - model: 使用したモデル名
+  - prompt_hash: プロンプトのSHA256ハッシュ値
+  - prompt_preview: プロンプトの最初の200文字（デバッグ用）
+  - response: OpenAI APIのレスポンス内容
+  - created_at: キャッシュ作成日時
+  - expires_at: キャッシュ有効期限
+  - hit_count: キャッシュヒット回数
+- **インデックス**: expires_atにインデックスを作成（クリーンアップクエリの高速化）
+
+#### 2. データベースキャッシュメソッドの実装
+- **新規メソッド**:
+  - `get_cached_response(model, prompt_hash)`: キャッシュ取得＋ヒット数カウント
+  - `set_cached_response(model, prompt_hash, prompt_preview, response, ttl_hours)`: キャッシュ保存（UPSERT）
+  - `cleanup_expired_cache()`: 期限切れキャッシュの削除
+  - `get_cache_stats()`: キャッシュ統計の取得
+- **実装場所**: models/database.py (Lines 862-1029)
+
+#### 3. OpenAIServiceのキャッシュ対応
+- **コンストラクタ拡張**: dbインスタンス、enable_cache、cache_ttl_hoursのパラメータ追加
+- **新規ヘルパーメソッド**:
+  - `_compute_prompt_hash(prompt)`: SHA256ハッシュ計算
+  - `_get_cached_or_call_api(prompt, system_content, max_tokens, temperature, model)`: キャッシュチェック→API呼び出し→キャッシュ保存の共通ロジック
+  - `_call_openai_api(prompt, system_content, max_tokens, temperature, model)`: OpenAI API直接呼び出し
+- **キャッシュ対応メソッド**:
+  - `get_priority_classification()` - タスク優先度分類
+  - `analyze_task_priority()` - タスク優先度分析
+  - `extract_due_date_from_text()` - 自然言語から期日抽出
+  - `classify_user_intent()` - ユーザー意図分類
+  - `extract_task_numbers_from_message()` - メッセージからタスク番号抽出
+
+#### 4. 既存コードのキャッシュ統合
+- **app.py**: OpenAIService初期化時にdbインスタンスを渡すように修正（3箇所）
+- **services/task_service.py**: OpenAIService初期化時にdbインスタンスを渡すように修正（3箇所）
+- **キャッシュ設定**: デフォルトTTL=24時間、enable_cache=True
+
+#### 5. ユニットテストの追加
+- **新規ファイル**: tests/test_openai_cache.py (247行)
+- **テストクラス**:
+  - `TestOpenAICacheDatabase`: データベースキャッシュ機能のテスト（6テストケース）
+  - `TestOpenAIServiceCache`: OpenAIServiceキャッシュ機能のテスト（5テストケース）
+- **テストカバレッジ**:
+  - キャッシュの保存と取得
+  - キャッシュヒット数のカウント
+  - 期限切れキャッシュの削除
+  - キャッシュのUPSERT（更新）
+  - キャッシュ統計の取得
+  - プロンプトハッシュの計算
+  - キャッシュ有効/無効時の動作
+
+### 📊 統計情報
+
+#### ファイル変更統計
+- **models/database.py**: +184行（キャッシュテーブル+メソッド）
+- **services/openai_service.py**: +82行（キャッシュロジック）
+- **app.py**: 3箇所修正（db渡し）
+- **services/task_service.py**: 3箇所修正（db渡し）
+- **tests/test_openai_cache.py**: +247行（新規）
+- **純増減**: +513行
+
+#### 新規追加機能
+- データベーステーブル: 1個（openai_cache）
+- データベースメソッド: 4個
+- OpenAIServiceメソッド: 3個
+- テストケース: 11個
+
+### 🎯 効果と利点
+
+1. **コスト削減**
+   - 同じプロンプトへのAPI呼び出しを削減
+   - 期日抽出、優先度分析などの頻繁な呼び出しをキャッシュ
+   - キャッシュヒット率に応じてAPI利用料金が削減
+
+2. **レスポンス速度向上**
+   - キャッシュヒット時はデータベースアクセスのみ（数ms）
+   - API呼び出し時の待ち時間（数秒）を削減
+   - ユーザー体験の向上
+
+3. **システム信頼性向上**
+   - API障害時でもキャッシュから応答可能
+   - API レートリミット対策
+   - 負荷分散効果
+
+4. **運用性の向上**
+   - キャッシュ統計による使用状況の可視化
+   - 期限切れキャッシュの自動クリーンアップ
+   - キャッシュヒット数の追跡
+
+### 🔧 使用方法
+
+#### キャッシュの有効化
+```python
+# デフォルトでキャッシュ有効（TTL=24時間）
+from services.openai_service import OpenAIService
+from models.database import init_db
+
+db = init_db()
+openai_service = OpenAIService(db=db, enable_cache=True, cache_ttl_hours=24)
+
+# キャッシュ無効化も可能
+openai_service = OpenAIService(db=db, enable_cache=False)
+```
+
+#### キャッシュ統計の確認
+```python
+db = init_db()
+stats = db.get_cache_stats()
+print(f"総キャッシュ数: {stats['total_count']}")
+print(f"有効キャッシュ数: {stats['valid_count']}")
+print(f"総ヒット数: {stats['total_hits']}")
+print(f"モデル別統計: {stats['model_stats']}")
+```
+
+#### 期限切れキャッシュのクリーンアップ
+```python
+db = init_db()
+deleted_count = db.cleanup_expired_cache()
+print(f"{deleted_count}件の期限切れキャッシュを削除")
+```
+
+### 🧪 テスト実行方法
+
+```bash
+# pytestのインストール
+pip install pytest pytest-mock
+
+# キャッシュテストのみ実行
+pytest tests/test_openai_cache.py -v
+
+# すべてのテスト実行
+pytest tests/ -v
+
+# カバレッジレポート生成
+pip install pytest-cov
+pytest tests/test_openai_cache.py --cov=models.database --cov=services.openai_service --cov-report=html
+```
+
+### 📝 次のステップ（優先度順）
+
+1. **通知サービスのエラーハンドリング強化**（中優先度）
+   - タイムアウト処理の改善
+   - リトライロジックの実装
+   - エラーログの充実
+
+2. **一時ファイルのデータベース移行**（低優先度）
+   - `selected_tasks_{user_id}.json` → データベース
+   - `schedule_proposal_{user_id}.txt` → データベース
+   - `future_task_selection_{user_id}.json` → データベース
+
+3. **キャッシュ機能の拡張**（オプション）
+   - `generate_schedule_proposal()`のキャッシュ対応
+   - Redis等の外部キャッシュサーバーとの統合
+   - キャッシュウォームアップ機能
+
+4. **テストカバレッジの向上**（継続的改善）
+   - 目標: 80%以上のカバレッジ
+   - エッジケースのテスト追加
+   - 統合テストの追加
+
+### 📈 セッション統計
+
+#### コミット履歴
+1. 実装予定: `Add OpenAI API response caching feature`
+
+#### コード変更
+- **追加**: 513行
+- **削除**: 0行（既存コードは修正のみ）
+- **純増**: +513行
+
+#### 時間効率
+- キャッシュテーブル設計・実装: 約30分
+- OpenAIServiceキャッシュロジック実装: 約1時間
+- 既存コード統合: 約30分
+- ユニットテスト作成: 約1時間
+- 合計: 約3時間
+
+---
+
 ## [2025-11-24 続き2] - さらなるハンドラー抽出とユニットテスト追加
 
 ### 📝 セッション概要

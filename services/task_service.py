@@ -168,7 +168,7 @@ class TaskService:
                 else:
                     try:
                         from services.openai_service import OpenAIService
-                        ai_service = OpenAIService()
+                        ai_service = OpenAIService(db=self.db, enable_cache=True, cache_ttl_hours=24)
                         ai_date = ai_service.extract_due_date_from_text(message)
                         if ai_date:
                             due_date = ai_date
@@ -370,7 +370,7 @@ class TaskService:
         # 手動処理で見つからなかった場合、AIによる解析を試行
         try:
             from services.openai_service import OpenAIService
-            ai_service = OpenAIService()
+            ai_service = OpenAIService(db=self.db, enable_cache=True, cache_ttl_hours=24)
             ai_result = ai_service.extract_due_date_from_text(text)
             if ai_result:
                 print(f"[_parse_natural_date_expression] AI解析結果: {ai_result}")
@@ -430,7 +430,7 @@ class TaskService:
         """タスクの優先度を判定（AIを使用）"""
         try:
             from services.openai_service import OpenAIService
-            ai_service = OpenAIService()
+            ai_service = OpenAIService(db=self.db, enable_cache=True, cache_ttl_hours=24)
             # 現在の日付を取得
             jst = pytz.timezone('Asia/Tokyo')
             today = datetime.now(jst)
