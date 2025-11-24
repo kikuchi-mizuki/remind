@@ -1185,6 +1185,45 @@ class PostgreSQLDatabase:
             traceback.print_exc()
             return False
 
+    def get_user_session(self, user_id: str, session_type: str) -> Optional[str]:
+        """
+        ユーザーセッションデータを取得
+
+        Args:
+            user_id: ユーザーID
+            session_type: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+
+        Returns:
+            セッションデータ（文字列）、存在しないまたは期限切れの場合はNone
+        """
+        try:
+            if self.engine:
+                session = self._get_session()
+                try:
+                    # 有効期限内のセッションデータを取得
+                    result = session.query(UserSessionModel).filter(
+                        UserSessionModel.user_id == user_id,
+                        UserSessionModel.session_type == session_type,
+                        (UserSessionModel.expires_at.is_(None) | (UserSessionModel.expires_at > datetime.now()))
+                    ).first()
+
+                    if result:
+                        print(f"[get_user_session] セッション取得成功: user_id={user_id}, type={session_type}, データ長={len(result.data)}")
+                        return result.data
+                    else:
+                        print(f"[get_user_session] セッションが見つかりません: user_id={user_id}, type={session_type}")
+                        return None
+                finally:
+                    session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_user_session(user_id, session_type)
+        except Exception as e:
+            print(f"[get_user_session] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
     def set_user_state(self, user_id: str, state_type: str, state_data: Optional[dict] = None) -> bool:
         """
         ユーザーの状態を設定（フラグファイルの代替）
