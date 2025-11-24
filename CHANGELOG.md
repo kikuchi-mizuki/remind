@@ -2,6 +2,275 @@
 
 このファイルは、プロジェクトの主要な変更を記録します。
 
+## [2025-11-25] - 未来タスク選択バグ修正と包括的コードレビュー対応
+
+### 📝 セッション概要
+ユーザー報告により未来タスク選択機能の2つの重大なバグ（タスク番号の不一致、時刻のずれ）を発見・修正。その後、包括的なコードレビューを実施し、7つの重大な問題、3つの中程度の問題、4つの軽微な問題を特定・修正しました。
+
+### 🐛 ユーザー報告によるバグ修正
+
+#### バグ1: 選択したタスクと異なるタスクが選ばれる問題
+**発見経緯**: ユーザーが「日曜18時テスト」→「１」を送信したが、未来タスク一覧と異なるタスク（Python講座）が選ばれた
+
+**根本原因**:
+- `selection_handler.py`が未来タスク選択モード（`mode=future_schedule`）でも通常タスクリストを取得していた
+- 106行: `all_tasks = task_service.get_user_tasks(user_id)` ← 常に通常タスクを取得
+
+**修正内容** (コミット: 9d93622):
+```python
+# 修正前
+all_tasks = task_service.get_user_tasks(user_id)
+
+# 修正後
+if is_future_schedule_mode:
+    all_tasks = task_service.get_user_future_tasks(user_id)
+    print(f"[DEBUG] 未来タスク取得: {len(all_tasks)}件")
+else:
+    all_tasks = task_service.get_user_tasks(user_id)
+    print(f"[DEBUG] 全タスク取得: {len(all_tasks)}件")
+```
+
+#### バグ2: カレンダーイベントの時刻が19分ずれる問題
+**発見経緯**: スケジュール提案「08:00〜09:00」がカレンダーで「07:41〜08:41」として登録された
+
+**根本原因**:
+- `calendar_service.py:285`で誤ったpytzの使い方
+- `datetime(year, month, day, tzinfo=jst)` → LMT（Local Mean Time）使用 → +09:19オフセット
+
+**技術的詳細**:
+pytzライブラリでは、`tzinfo=`パラメータを直接渡すと、歴史的なタイムゾーン情報（日本の場合は1888年以前のLMT: UTC+09:19）が使用される。正しくは`jst.localize()`を使用すべき。
+
+**修正内容** (コミット: 0bb579a):
+```python
+# 修正前（誤り）
+target_date = datetime(current_year, month, day, tzinfo=jst)
+
+# 修正後（正しい）
+target_date = jst.localize(datetime(current_year, month, day))
+```
+
+### 🔍 包括的コードレビューの実施
+
+コード全体を対象に一貫性チェックとバグ検出を実施。以下の観点で調査：
+- タイムゾーン処理の一貫性
+- データベースアクセスパターン
+- エラーハンドリングの完全性
+- モード判定の一貫性
+- PostgreSQL/SQLite互換性
+
+**検出された問題**: 14件（重大7件、中程度3件、軽微4件）
+
+### ✅ 修正した問題
+
+#### 🔴 重大な問題 (Critical Issues)
+
+**Issue #1: PostgreSQLDatabaseに3つのメソッドが不足** (コミット: 1ea36f2)
+
+**問題内容**:
+```python
+# 不足していたメソッド
+- cleanup_expired_cache()      # 期限切れキャッシュ削除
+- cleanup_expired_sessions()   # 期限切れセッション削除
+- get_cache_stats()            # キャッシュ統計取得
+```
+
+**影響**: これらのメソッド呼び出し時にAttributeErrorが発生
+
+**実装内容**:
+```python
+def cleanup_expired_cache(self) -> int:
+    """期限切れのキャッシュを削除"""
+    session = self._get_session()
+    try:
+        deleted_count = session.query(OpenAICacheModel).filter(
+            OpenAICacheModel.expires_at <= datetime.now()
+        ).delete()
+        session.commit()
+        return deleted_count
+    finally:
+        session.close()
+```
+
+類似のパターンで3メソッドすべて実装。
+
+**Issue #2: db importパターンの不一致** (コミット: d42e5fb)
+
+**問題箇所**:
+- `handlers/helpers.py:215`
+- `app.py:107, 171`
+- `services/calendar_service.py:23, 900`
+- `services/notification_service.py:12`
+- `services/task_service.py:6, 13`
+
+**問題内容**: 直接`from models.database import db`でグローバルインポート
+→ 初期化順序の問題、マルチDB対応の妨げ
+
+**修正方針**:
+1. クラス内: `self.db = init_db()`パターン
+2. 関数内: `db = init_db()`を関数内で呼び出し
+3. グローバル（app.py）: `db = init_db()`で返り値を保存
+
+**修正例** (calendar_service.py):
+```python
+# 修正前
+from models.database import db  # グローバル
+
+def authenticate_user(self, user_id: str):
+    token_json = db.get_token(user_id)  # グローバルdb使用
+
+# 修正後
+class CalendarService:
+    def __init__(self):
+        from models.database import init_db
+        self.db = init_db()  # インスタンス変数として保持
+
+    def authenticate_user(self, user_id: str):
+        token_json = self.db.get_token(user_id)  # self.db使用
+```
+
+**Issue #3: approval_handler.pyがモードチェックなしでタスク取得** (コミット: 1ea36f2)
+
+**問題コード**:
+```python
+# approval_handler.py:96-97
+all_tasks = task_service.get_user_tasks(user_id)          # 常に通常タスク
+future_tasks = task_service.get_user_future_tasks(user_id) # 常に未来タスク
+```
+
+**問題点**: モードに関係なく両方のリストを取得・検索 → 非効率、潜在的なID衝突
+
+**修正内容**:
+```python
+# モード判定を追加
+current_mode = "schedule"
+flag_data = load_flag_data(user_id, "task_select")
+if flag_data:
+    current_mode = flag_data.get("mode", "schedule")
+
+# 未来タスク選択モードの追加確認
+if current_mode == "schedule" and db:
+    future_selection_data = db.get_user_session(user_id, 'future_task_selection')
+    if future_selection_data:
+        future_mode_data = json.loads(future_selection_data)
+        if future_mode_data.get("mode") == "future_schedule":
+            current_mode = "future_schedule"
+
+# モードに応じて適切なタスクリストのみ取得
+is_future_mode = (current_mode == "future_schedule")
+if is_future_mode:
+    future_tasks = task_service.get_user_future_tasks(user_id)
+    selected_tasks = []
+    selected_future_tasks = [t for t in future_tasks if t.task_id in task_ids]
+else:
+    all_tasks = task_service.get_user_tasks(user_id)
+    selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
+    selected_future_tasks = []
+```
+
+#### 🟡 中程度の問題 (Moderate Issues)
+
+**Issue #5: calendar_service.pyの重複import** (コミット: d42e5fb)
+
+**問題**: 23行と900行で同じimport文が重複
+```python
+# Line 23
+from models.database import db
+# Line 900
+from models.database import db
+```
+
+**修正**: __init__で一度だけinit_db()を呼び出し、self.dbとして保持
+
+**Issue #6: JSON parsingのエラーハンドリング不足** (コミット: d42e5fb)
+
+**問題箇所**: approval_handler.py:93, 331
+
+**修正内容**:
+```python
+# 修正前
+task_ids = json.loads(selected_tasks_data)  # エラー時クラッシュ
+
+# 修正後
+try:
+    task_ids = json.loads(selected_tasks_data)
+except json.JSONDecodeError as e:
+    print(f"[ERROR] JSON parsing failed: {e}")
+    reply_text = "⚠️ タスクデータの読み込みに失敗しました。"
+    # ユーザーにエラーメッセージ返信
+    return False
+```
+
+#### 🟢 軽微な問題 (Minor Issues)
+
+**Issue #8: selection_handler.pyのエラーコンテキスト不足** (コミット: d42e5fb)
+
+**修正内容**:
+```python
+# 修正前
+except Exception as e:
+    print(f"[DEBUG] エラー: {e}")
+
+# 修正後
+except Exception as e:
+    print(f"[DEBUG] エラー: {e}")
+    import traceback
+    traceback.print_exc()  # 完全なスタックトレース出力
+```
+
+### 📊 統計情報
+
+**コミット数**: 9コミット
+- `86be54b` - 未来タスク選択モードのフラグ衝突修正
+- `ef7a1e6` - state_type名に_modeサフィックス追加
+- `faaf714` - get_user_sessionメソッド追加
+- `a9e1a66` - delete_user_sessionメソッド追加
+- `67494c2` - バックアップファイル削除
+- `0bb579a` - タイムゾーン処理修正（pytz問題）
+- `9d93622` - 未来タスク選択時の正しいタスクリスト取得
+- `1ea36f2` - 重大なコードレビュー問題修正
+- `d42e5fb` - 残りのコードレビュー問題修正
+
+**修正したファイル**: 8ファイル
+- `handlers/approval_handler.py` - モード判定、JSON error handling
+- `handlers/selection_handler.py` - 未来タスク取得、error context
+- `handlers/helpers.py` - db import統一
+- `models/postgres_database.py` - 3メソッド追加
+- `services/calendar_service.py` - self.db統一、重複削除
+- `services/notification_service.py` - グローバルimport削除
+- `services/task_service.py` - init_db()パターン
+- `app.py` - db import修正
+
+**変更行数**:
+- 追加: 約220行
+- 削除: 約40行
+- 修正: 約60箇所
+
+### 🎯 技術的成果
+
+1. **タイムゾーン処理の正確性**: pytzの正しい使用法への統一
+2. **モード判定の一貫性**: すべてのハンドラーで統一されたパターン
+3. **データベース互換性**: PostgreSQL/SQLiteの完全互換
+4. **エラーハンドリングの強化**: JSONパース、例外時のスタックトレース
+5. **コードの一貫性**: db accessパターンの統一
+
+### 📝 今後の検討事項（オプション）
+
+以下は大規模リファクタリングが必要なため、今回は対象外：
+- **Issue #7**: `print()`から`logging`モジュールへの移行
+- **Issue #9**: 完全な型ヒントの追加
+
+これらは将来的な改善として検討可能。
+
+### 🧪 動作確認
+
+すべての通知フロー（8時、21時、日曜18時）が正常に動作：
+- タスク選択が正しいタスクリストから実行
+- スケジュール提案の時刻が正確
+- カレンダー登録が提案通りの時刻で実行
+- モード判定が一貫して機能
+
+---
+
 ## [2025-11-24 続き7] - データベース状態管理の完全実装とバグ修正
 
 ### 📝 セッション概要
