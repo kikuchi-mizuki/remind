@@ -401,7 +401,8 @@ class NotificationService:
                     task_due = datetime.strptime(t.due_date, '%Y-%m-%d').date()
                     if task_due == today.date():
                         today_tasks.append(t)
-                except Exception:
+                except (ValueError, AttributeError) as e:
+                    print(f"[DEBUG] Date parsing error for task {t.name}: {e}")
                     continue
 
             # --- ここでタスク選択モードフラグを必ず作成（タイムスタンプ付き） ---

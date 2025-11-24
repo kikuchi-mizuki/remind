@@ -704,7 +704,8 @@ class TaskService:
                     weekday_names = ['月', '火', '水', '木', '金', '土', '日']
                     weekday = weekday_names[due_date_obj.weekday()]
                     section_title = f"{int(m)}月{int(d)}日({weekday})まで"
-                except Exception:
+                except (ValueError, IndexError) as e:
+                    print(f"[DEBUG] Date parsing error: {e}")
                     section_title = f"{due}まで"
             else:
                 section_title = "期日未設定"

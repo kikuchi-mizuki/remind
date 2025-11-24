@@ -120,8 +120,8 @@ def _handle_schedule_approval(
                     if future_mode_data.get("mode") == "future_schedule":
                         current_mode = "future_schedule"
                         print(f"[DEBUG] 未来タスク選択モード検出")
-                except Exception:
-                    pass
+                except json.JSONDecodeError as e:
+                    print(f"[DEBUG] JSON decode error in future_mode_data: {e}")
 
         # モードに応じて適切なタスクリストを取得
         is_future_mode = (current_mode == "future_schedule")
@@ -132,12 +132,20 @@ def _handle_schedule_approval(
             selected_tasks = []
             selected_future_tasks = [t for t in future_tasks if t.task_id in task_ids]
             print(f"[DEBUG] 未来タスクモード: {len(selected_future_tasks)}個の未来タスクを選択")
+            # 存在しないタスクIDをチェック
+            missing_ids = set(task_ids) - {t.task_id for t in future_tasks}
+            if missing_ids:
+                print(f"[WARNING] Missing task IDs in future tasks: {missing_ids}")
         else:
             # 通常タスクのみ取得
             all_tasks = task_service.get_user_tasks(user_id)
             selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
             selected_future_tasks = []
             print(f"[DEBUG] 通常タスクモード: {len(selected_tasks)}個のタスクを選択")
+            # 存在しないタスクIDをチェック
+            missing_ids = set(task_ids) - {t.task_id for t in all_tasks}
+            if missing_ids:
+                print(f"[WARNING] Missing task IDs: {missing_ids}")
 
         # 未来タスクがある場合は通常のタスクに変換
         for future_task in selected_future_tasks:

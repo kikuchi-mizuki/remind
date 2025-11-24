@@ -19,14 +19,17 @@ class OpenAIService:
     def generate_schedule_proposal(
         self,
         tasks: List[Task],
-        free_times: List[dict] = [],
+        free_times: List[dict] = None,
         week_info: str = "",
         base_date: Optional[datetime] = None
     ) -> str:
         """選択されたタスクと空き時間からスケジュール提案を生成"""
+        if free_times is None:
+            free_times = []
+
         if not tasks:
             return "タスクが選択されていません。"
-        
+
         # デバッグ情報を追加
         print(f"[DEBUG] OpenAIサービス: 受信したタスク数: {len(tasks)}")
         print(f"[DEBUG] OpenAIサービス: 受信したタスク詳細: {[(i+1, task.name, task.duration_minutes) for i, task in enumerate(tasks)]}")

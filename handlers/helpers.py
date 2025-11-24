@@ -283,7 +283,7 @@ def delete_data_file(filename: str) -> bool:
         return False
     except Exception as e:
         print(f"[delete_data_file] エラー: {e}")
-        return None
+        return False
 
 
 def create_flex_menu(flex_menu_func, user_id: Optional[str] = None) -> FlexMessage:

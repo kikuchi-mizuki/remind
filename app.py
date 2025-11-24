@@ -166,7 +166,8 @@ if not os.path.exists("client_secrets.json"):
 # Google認証済みユーザー管理（tokenファイルの存在と有効性で判定）
 def is_google_authenticated(user_id):
     """tokenの存在と有効性をDBでチェック"""
-    from models.database import db
+    from models.database import init_db
+    db = init_db()
 
     print(f"[is_google_authenticated] 開始: user_id={user_id}")
     print(f"[is_google_authenticated] DBファイルパス: {db.db_path}")
@@ -346,7 +347,8 @@ def oauth2callback():
         import os
 
         try:
-            from models.database import db
+            from models.database import init_db
+            db = init_db()
 
             if not user_id:
                 print(f"[oauth2callback] ERROR: user_id is None, token保存スキップ")
@@ -504,7 +506,7 @@ def oauth2callback():
                     free_times = calendar_service.get_free_busy_times(
                         str(user_id), today
                     )
-                    if not free_times and len(free_times) == 0:
+                    if not free_times:
                         # Google認証エラーの可能性
                         reply_text = (
                             "❌ Googleカレンダーへのアクセスに失敗しました。\n\n"
@@ -627,7 +629,8 @@ def callback():
                     user_id = event["source"].get("userId", "")
 
                     # ユーザーをデータベースに登録（初回メッセージ時）
-                    from models.database import db
+                    from models.database import init_db
+                    db = init_db()
 
                     db.register_user(user_id)
                     

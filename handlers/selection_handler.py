@@ -160,7 +160,8 @@ def handle_task_selection_process(
                         weekday = weekday_names[due_date_obj.weekday()]
                         due_str = f"{int(m)}月{int(d)}日({weekday})"
                         due_order.append((due_str, due, group))
-                    except Exception:
+                    except (ValueError, IndexError) as e:
+                        print(f"[DEBUG] Date parsing error: {e}")
                         due_order.append((due, due, group))
                 else:
                     due_order.append(('期日未設定', due, group))
@@ -180,7 +181,7 @@ def handle_task_selection_process(
         selected_numbers = []
         try:
             ai_result = openai_service.extract_task_numbers_from_message(user_message)
-            if ai_result and "tasks" in ai_result:
+            if ai_result and isinstance(ai_result.get("tasks"), list):
                 selected_numbers = ai_result["tasks"]
                 print(f"[DEBUG] AI数字解析成功: {selected_numbers}")
         except Exception as e:
