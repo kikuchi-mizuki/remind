@@ -868,32 +868,19 @@ class NotificationService:
                     else:
                         message = self.task_service.format_future_task_list(future_tasks, show_select_guide=True)
                         
-                        # 未来タスク選択モードファイルを作成（来週提案モード）
-                        import os
-                        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "session"))
-                        os.makedirs(base_dir, exist_ok=True)
-                        future_selection_file = os.path.join(base_dir, f"future_task_selection_{user_id}.json")
-                        with open(future_selection_file, "w") as f:
-                            import json
-                            json.dump({"mode": "future_schedule", "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()}, f)
-                        print(f"[send_future_task_selection] 未来タスク選択モードファイル作成: {future_selection_file}")
-                        # 既存の選択フラグも作成して早い分岐で拾えるようにする
-                        try:
-                            select_flag = f"task_select_mode_{user_id}.flag"
-                            with open(select_flag, "w") as f:
-                                f.write("mode=future_schedule")
-                            print(f"[send_future_task_selection] 互換選択フラグ作成: {select_flag}")
-                        except Exception as ee:
-                            print(f"[send_future_task_selection] 互換選択フラグ作成エラー: {ee}")
-                        # 互換のため、カレントディレクトリ直下にも同名ファイルを出力（読取側がどちらでも拾えるように）
-                        try:
-                            cwd_flag = f"future_task_selection_{user_id}.json"
-                            with open(cwd_flag, "w") as f:
-                                import json
-                                json.dump({"mode": "future_schedule", "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()}, f)
-                            print(f"[send_future_task_selection] 互換フラグ作成: {cwd_flag}")
-                        except Exception as ee:
-                            print(f"[send_future_task_selection] 互換フラグ作成エラー: {ee}")
+                        # 未来タスク選択モードをデータベースに保存（来週提案モード）
+                        import json
+                        future_selection_data = {
+                            "mode": "future_schedule",
+                            "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()
+                        }
+                        db.set_user_session(
+                            user_id,
+                            'future_task_selection',
+                            json.dumps(future_selection_data),
+                            expires_hours=48  # 48時間有効
+                        )
+                        print(f"[send_future_task_selection] 未来タスク選択モードデータ保存: user_id={user_id}")
                     
                     print(f"[send_future_task_selection] メッセージ送信: {message[:100]}...")
 

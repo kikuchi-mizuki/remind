@@ -20,7 +20,8 @@ def handle_approval(
     user_id: str,
     task_service,
     calendar_service,
-    get_simple_flex_menu
+    get_simple_flex_menu,
+    db=None
 ) -> bool:
     """
     「はい」コマンドの処理
@@ -34,13 +35,14 @@ def handle_approval(
         task_service: タスクサービス
         calendar_service: カレンダーサービス
         get_simple_flex_menu: メニュー生成関数
+        db: データベースインスタンス
 
     Returns:
         bool: 処理成功時True
     """
-    # まずスケジュール提案ファイルをチェック
-    schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
-    if os.path.exists(schedule_proposal_file):
+    # データベースからスケジュール提案をチェック
+    schedule_proposal = db.get_user_session(user_id, 'schedule_proposal') if db else None
+    if schedule_proposal:
         # スケジュール提案が存在する場合、承認処理を実行
         return _handle_schedule_approval(
             line_bot_api,
@@ -49,7 +51,8 @@ def handle_approval(
             task_service,
             calendar_service,
             get_simple_flex_menu,
-            schedule_proposal_file
+            schedule_proposal,
+            db
         )
 
     # スケジュール提案がない場合の削除処理
@@ -58,7 +61,8 @@ def handle_approval(
         reply_token,
         user_id,
         task_service,
-        get_simple_flex_menu
+        get_simple_flex_menu,
+        db
     )
 
 
@@ -69,17 +73,14 @@ def _handle_schedule_approval(
     task_service,
     calendar_service,
     get_simple_flex_menu,
-    schedule_proposal_file: str
+    proposal: str,
+    db=None
 ) -> bool:
     """スケジュール提案の承認処理"""
     try:
-        # スケジュール提案を読み込み
-        with open(schedule_proposal_file, "r") as f:
-            proposal = f.read()
-
         # 選択されたタスクを取得
-        selected_tasks_file = f"selected_tasks_{user_id}.json"
-        if not os.path.exists(selected_tasks_file):
+        selected_tasks_data = db.get_user_session(user_id, 'selected_tasks') if db else None
+        if not selected_tasks_data:
             reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
             line_bot_api.reply_message(
                 ReplyMessageRequest(
@@ -89,8 +90,7 @@ def _handle_schedule_approval(
             )
             return False
 
-        with open(selected_tasks_file, "r") as f:
-            task_ids = json.load(f)
+        task_ids = json.loads(selected_tasks_data)
 
         # 通常のタスクと未来タスクの両方を確認
         all_tasks = task_service.get_user_tasks(user_id)
@@ -158,11 +158,10 @@ def _handle_schedule_approval(
             jst
         )
 
-        # ファイルを削除
-        if os.path.exists(schedule_proposal_file):
-            os.remove(schedule_proposal_file)
-        if os.path.exists(selected_tasks_file):
-            os.remove(selected_tasks_file)
+        # データベースからセッションデータを削除
+        if db:
+            db.delete_user_session(user_id, 'schedule_proposal')
+            db.delete_user_session(user_id, 'selected_tasks')
 
         # メニュー画面を表示
         flex_message_content = get_simple_flex_menu()
@@ -283,12 +282,13 @@ def _handle_task_deletion(
     reply_token: str,
     user_id: str,
     task_service,
-    get_simple_flex_menu
+    get_simple_flex_menu,
+    db=None
 ) -> bool:
     """タスク削除の承認処理"""
-    selected_tasks_file = f"selected_tasks_{user_id}.json"
+    selected_tasks_data = db.get_user_session(user_id, 'selected_tasks') if db else None
 
-    if not os.path.exists(selected_tasks_file):
+    if not selected_tasks_data:
         reply_text = "⚠️ 先にタスクを選択してください。"
         line_bot_api.reply_message(
             ReplyMessageRequest(
@@ -300,8 +300,7 @@ def _handle_task_deletion(
 
     try:
         # 選択されたタスクを読み込み
-        with open(selected_tasks_file, "r") as f:
-            task_ids = json.load(f)
+        task_ids = json.loads(selected_tasks_data)
 
         all_tasks = task_service.get_user_tasks(user_id)
         selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
@@ -335,8 +334,9 @@ def _handle_task_deletion(
         else:
             reply_text = "⚠️ タスクの削除に失敗しました。"
 
-        # 選択されたタスクファイルを削除
-        os.remove(selected_tasks_file)
+        # データベースからセッションデータを削除
+        if db:
+            db.delete_user_session(user_id, 'selected_tasks')
 
         # メニュー画面を表示
         flex_message_content = get_simple_flex_menu()
@@ -369,7 +369,8 @@ def handle_modification(
     line_bot_api,
     reply_token: str,
     user_id: str,
-    task_service
+    task_service,
+    db=None
 ) -> bool:
     """
     「修正する」コマンドの処理
@@ -380,6 +381,7 @@ def handle_modification(
         reply_token: リプライトークン
         user_id: ユーザーID
         task_service: タスクサービス
+        db: データベースインスタンス
 
     Returns:
         bool: 処理成功時True
@@ -398,38 +400,36 @@ def handle_modification(
         else:
             print(f"[修正処理] フラグデータが見つかりません、デフォルトモード使用")
 
-        # 未来タスク選択モードファイルの存在も確認（ただし、フラグファイルで既に判定済みの場合はスキップ）
-        if current_mode == "schedule":  # デフォルトの場合は追加確認
-            future_selection_file = f"future_task_selection_{user_id}.json"
-            if os.path.exists(future_selection_file):
-                # 未来タスク選択モードファイルの内容を確認
+        # データベースから未来タスク選択モードをチェック
+        if current_mode == "schedule" and db:  # デフォルトの場合は追加確認
+            future_selection_data = db.get_user_session(user_id, 'future_task_selection')
+            if future_selection_data:
+                # 未来タスク選択モードデータの内容を確認
                 try:
-                    with open(future_selection_file, "r", encoding="utf-8") as f:
-                        future_mode_data = json.load(f)
-                        if future_mode_data.get("mode") == "future_schedule":
-                            print(f"[修正処理] 未来タスク選択モードファイル内容確認: {future_mode_data}")
-                            current_mode = "future_schedule"
-                        else:
-                            print(f"[修正処理] 未来タスク選択モードファイル存在するが内容が異なる: {future_mode_data}")
+                    future_mode_data = json.loads(future_selection_data)
+                    if future_mode_data.get("mode") == "future_schedule":
+                        print(f"[修正処理] 未来タスク選択モードデータ内容確認: {future_mode_data}")
+                        current_mode = "future_schedule"
+                    else:
+                        print(f"[修正処理] 未来タスク選択モードデータ存在するが内容が異なる: {future_mode_data}")
                 except Exception as e:
-                    print(f"[修正処理] 未来タスク選択モードファイル読み取りエラー: {e}")
-                    # ファイルが存在する場合は未来タスクモードと判定
+                    print(f"[修正処理] 未来タスク選択モードデータ読み取りエラー: {e}")
+                    # データが存在する場合は未来タスクモードと判定
                     current_mode = "future_schedule"
 
-        # スケジュール提案ファイルの内容も確認
-        schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
-        if os.path.exists(schedule_proposal_file):
-            try:
-                with open(schedule_proposal_file, "r", encoding="utf-8") as f:
-                    proposal_content = f.read()
-                    if "来週のスケジュール提案" in proposal_content:
+        # データベースからスケジュール提案の内容も確認
+        if db:
+            schedule_proposal = db.get_user_session(user_id, 'schedule_proposal')
+            if schedule_proposal:
+                try:
+                    if "来週のスケジュール提案" in schedule_proposal:
                         print(f"[修正処理] 来週のスケジュール提案を検出")
                         current_mode = "future_schedule"
-                    elif "本日のスケジュール提案" in proposal_content:
+                    elif "本日のスケジュール提案" in schedule_proposal:
                         print(f"[修正処理] 本日のスケジュール提案を検出")
                         current_mode = "schedule"
-            except Exception as e:
-                print(f"[修正処理] スケジュール提案ファイル読み取りエラー: {e}")
+                except Exception as e:
+                    print(f"[修正処理] スケジュール提案データ読み取りエラー: {e}")
 
         print(f"[修正処理] 現在のモード: {current_mode}")
 

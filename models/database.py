@@ -190,6 +190,30 @@ class Database:
             ON openai_cache(expires_at)
         ''')
 
+        # user_sessionsテーブルの作成（一時ファイルの代替）
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                session_type TEXT NOT NULL,
+                data TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                UNIQUE(user_id, session_type)
+            )
+        ''')
+
+        # user_sessionsテーブルのインデックス作成
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
+            ON user_sessions(user_id)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at
+            ON user_sessions(expires_at)
+        ''')
+
         conn.commit()
         conn.close()
         print(f"[init_database] 完了: {self.db_path}")
@@ -1024,6 +1048,168 @@ class Database:
             import traceback
             traceback.print_exc()
             return {}
+        finally:
+            if conn:
+                conn.close()
+
+    def get_user_session(self, user_id: str, session_type: str) -> Optional[str]:
+        """
+        ユーザーセッションデータを取得
+
+        Args:
+            user_id: ユーザーID
+            session_type: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+
+        Returns:
+            セッションデータ（文字列）、存在しないまたは期限切れの場合はNone
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 有効期限内のセッションデータを取得
+            cursor.execute('''
+                SELECT data FROM user_sessions
+                WHERE user_id = ? AND session_type = ?
+                AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+            ''', (user_id, session_type))
+
+            result = cursor.fetchone()
+            if result:
+                print(f"[get_user_session] セッション取得成功: user_id={user_id}, type={session_type}, データ長={len(result[0])}")
+                return result[0]
+            else:
+                print(f"[get_user_session] セッションが見つかりません: user_id={user_id}, type={session_type}")
+                return None
+
+        except Exception as e:
+            print(f"[get_user_session] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+        finally:
+            if conn:
+                conn.close()
+
+    def set_user_session(self, user_id: str, session_type: str, data: str, expires_hours: Optional[int] = None) -> bool:
+        """
+        ユーザーセッションデータを保存（UPSERT）
+
+        Args:
+            user_id: ユーザーID
+            session_type: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+            data: セッションデータ（文字列またはJSON文字列）
+            expires_hours: 有効期限（時間）、Noneの場合は無期限
+
+        Returns:
+            保存成功時True、失敗時False
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 有効期限を計算
+            expires_at = None
+            if expires_hours is not None:
+                cursor.execute("SELECT datetime('now', '+{} hours')".format(expires_hours))
+                expires_at = cursor.fetchone()[0]
+
+            # UPSERT: 既存レコードがあれば更新、なければ挿入
+            cursor.execute('''
+                INSERT INTO user_sessions (user_id, session_type, data, expires_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, session_type)
+                DO UPDATE SET
+                    data = excluded.data,
+                    expires_at = excluded.expires_at,
+                    created_at = CURRENT_TIMESTAMP
+            ''', (user_id, session_type, data, expires_at))
+
+            conn.commit()
+            print(f"[set_user_session] セッション保存成功: user_id={user_id}, type={session_type}, データ長={len(data)}, 期限={expires_at}")
+            return True
+
+        except Exception as e:
+            print(f"[set_user_session] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def delete_user_session(self, user_id: str, session_type: str) -> bool:
+        """
+        ユーザーセッションデータを削除
+
+        Args:
+            user_id: ユーザーID
+            session_type: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+
+        Returns:
+            削除成功時True、失敗時False
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                DELETE FROM user_sessions
+                WHERE user_id = ? AND session_type = ?
+            ''', (user_id, session_type))
+
+            deleted_count = cursor.rowcount
+            conn.commit()
+
+            print(f"[delete_user_session] セッション削除: user_id={user_id}, type={session_type}, 削除数={deleted_count}")
+            return True
+
+        except Exception as e:
+            print(f"[delete_user_session] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return False
+        finally:
+            if conn:
+                conn.close()
+
+    def cleanup_expired_sessions(self) -> int:
+        """
+        期限切れのセッションデータを削除
+
+        Returns:
+            削除したセッション数
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                DELETE FROM user_sessions
+                WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+            ''')
+
+            deleted_count = cursor.rowcount
+            conn.commit()
+
+            print(f"[cleanup_expired_sessions] 期限切れセッション削除: {deleted_count}件")
+            return deleted_count
+
+        except Exception as e:
+            print(f"[cleanup_expired_sessions] エラー: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
+            return 0
         finally:
             if conn:
                 conn.close()

@@ -2,6 +2,152 @@
 
 このファイルは、プロジェクトの主要な変更を記録します。
 
+## [2025-11-24 続き6] - 一時ファイルのデータベース移行
+
+### 📝 セッション概要
+3つの一時ファイル（selected_tasks, schedule_proposal, future_task_selection）をデータベーステーブルに移行し、ファイルシステムへの依存を削減しました。これにより、データの永続性、スケーラビリティ、および管理の容易さが向上しました。
+
+### ✅ 完了した作業
+
+#### 1. データベーステーブル設計と実装
+**user_sessionsテーブルの作成**:
+- `session_id`: PRIMARY KEY AUTOINCREMENT
+- `user_id`: ユーザーID
+- `session_type`: セッションタイプ ('selected_tasks', 'schedule_proposal', 'future_task_selection')
+- `data`: セッションデータ（JSON文字列またはテキスト）
+- `created_at`: 作成日時
+- `expires_at`: 有効期限（オプション）
+- UNIQUE制約: (user_id, session_type)
+
+**インデックス作成**:
+- `idx_user_sessions_user_id`: user_idのインデックス
+- `idx_user_sessions_expires_at`: expires_atのインデックス（クリーンアップ用）
+
+#### 2. CRUDメソッドの実装
+**models/database.py** に4つのメソッドを追加:
+1. `get_user_session(user_id, session_type)` - セッションデータ取得
+2. `set_user_session(user_id, session_type, data, expires_hours)` - セッションデータ保存（UPSERT）
+3. `delete_user_session(user_id, session_type)` - セッションデータ削除
+4. `cleanup_expired_sessions()` - 期限切れセッションのクリーンアップ
+
+#### 3. ファイルアクセスコードの置き換え
+**変更したファイル**:
+1. **handlers/approval_handler.py** (3関数更新)
+   - `handle_approval()`: スケジュール提案とタスク削除の承認処理
+   - `_handle_schedule_approval()`: スケジュール承認とセッションデータ削除
+   - `_handle_task_deletion()`: タスク削除承認とセッションデータ削除
+   - `handle_modification()`: 修正処理時のセッションデータ確認
+
+2. **handlers/selection_handler.py** (1関数更新)
+   - `handle_task_selection_process()`: タスク選択時のセッションデータ保存
+
+3. **services/notification_service.py** (1関数更新)
+   - `send_future_task_selection()`: 未来タスク選択モードのセッションデータ保存
+
+4. **app.py** (3箇所更新)
+   - スケジュール提案時のセッションデータ保存
+   - 関数呼び出しにdbパラメータ追加（3箇所）
+
+#### 4. ユニットテスト作成
+**tests/test_user_sessions.py** を作成（9テストケース）:
+1. `test_set_and_get_session` - セッションデータの保存と取得
+2. `test_set_session_with_expiration` - 有効期限付きセッション
+3. `test_update_existing_session` - 既存セッションの更新（UPSERT）
+4. `test_get_nonexistent_session` - 存在しないセッションの取得
+5. `test_delete_session` - セッションデータの削除
+6. `test_multiple_session_types` - 複数セッションタイプの管理
+7. `test_cleanup_expired_sessions` - 期限切れセッションのクリーンアップ
+8. `test_session_isolation_between_users` - ユーザー間のセッション分離
+
+### 📊 統計情報
+
+#### ファイル変更統計
+- **models/database.py**: +161行（テーブル作成 +28行、CRUDメソッド +133行）
+- **handlers/approval_handler.py**: +15行 / -42行 = 純減 -27行
+- **handlers/selection_handler.py**: +13行 / -7行 = 純増 +6行
+- **services/notification_service.py**: +12行 / -24行 = 純減 -12行
+- **app.py**: +3行 / -3行 = 純増 0行
+- **tests/test_user_sessions.py**: +156行（新規）
+- **総計**: +360行 / -76行 = 純増 +284行
+
+#### テスト統計
+- **新規テストファイル**: 1個
+- **テストケース数**: 9個
+- **テスト対象メソッド**: 4個（CRUD操作）
+
+#### 移行統計
+- **削除した一時ファイル依存**: 3種類
+  - `selected_tasks_{user_id}.json` → DB
+  - `schedule_proposal_{user_id}.txt` → DB
+  - `future_task_selection_{user_id}.json` → DB
+- **変更した関数**: 8個
+- **更新した呼び出し箇所**: 3個
+
+### 🎯 効果と利点
+
+1. **データの永続性向上**
+   - ファイルシステムの問題（権限、ディスク容量）から解放
+   - データベーストランザクションによる一貫性保証
+   - 自動的なデータ保護とバックアップ
+
+2. **スケーラビリティの向上**
+   - 複数プロセス/インスタンスからのアクセスが安全
+   - ロックやファイル競合の問題を回避
+   - クラウド環境での運用が容易
+
+3. **管理の容易さ**
+   - 期限切れデータの自動クリーンアップ
+   - SQLクエリによる柔軟なデータ取得
+   - 統一されたデータ管理インターフェース
+
+4. **セキュリティの向上**
+   - ファイルシステムへのアクセス不要
+   - データベース権限による制御
+   - より細かいアクセス制御が可能
+
+### 🔄 後方互換性
+
+- 既存のファイルベースのコードは完全に削除
+- データベーステーブルが自動的に作成される
+- 既存のワークフローに影響なし
+
+### 📝 技術的詳細
+
+#### セッションタイプ
+1. **selected_tasks**: 選択されたタスクのID配列（JSON）
+2. **schedule_proposal**: スケジュール提案テキスト
+3. **future_task_selection**: 未来タスク選択モードフラグ（JSON）
+
+#### 有効期限の設定
+- デフォルト: 無期限（expires_at = NULL）
+- スケジュール提案: 24時間
+- 未来タスク選択: 48時間
+- 削除確認: 24時間
+
+#### UPSERT動作
+SQLiteの `INSERT ... ON CONFLICT DO UPDATE` を使用し、既存レコードがあれば更新、なければ挿入する動作を実現。
+
+### 🧪 テストカバレッジ
+
+すべての主要機能をテストでカバー:
+- ✅ セッションデータの保存と取得
+- ✅ 有効期限付きセッション
+- ✅ UPSERT動作
+- ✅ セッション削除
+- ✅ 複数セッションタイプ
+- ✅ 期限切れクリーンアップ
+- ✅ ユーザー間の分離
+
+### 次のステップ
+
+今後の改善案:
+1. Redis統合（キャッシュ層の追加）
+2. セッションデータの暗号化
+3. より細かい有効期限制御
+4. セッション統計の可視化
+
+---
+
 ## [2025-11-24 続き5] - 全LINE API呼び出しへのリトライロジック適用完了
 
 ### 📝 セッション概要

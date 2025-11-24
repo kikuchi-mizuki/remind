@@ -46,7 +46,8 @@ def handle_task_selection_process(
     calendar_service,
     notification_service,
     is_google_authenticated,
-    get_google_auth_url
+    get_google_auth_url,
+    db=None
 ) -> bool:
     """
     タスク選択処理（数字入力時）
@@ -264,13 +265,15 @@ def handle_task_selection_process(
                 if proposal:
                     reply_text = proposal
 
-                    # スケジュール提案を一時ファイルに保存
-                    schedule_proposal_file = f"schedule_proposal_{user_id}.txt"
-                    with open(schedule_proposal_file, "w", encoding="utf-8") as f:
-                        f.write(proposal)
-                    selected_tasks_file = f"selected_tasks_{user_id}.json"
-                    with open(selected_tasks_file, "w", encoding="utf-8") as f:
-                        json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
+                    # スケジュール提案をデータベースに保存
+                    if db:
+                        db.set_user_session(user_id, 'schedule_proposal', proposal, expires_hours=24)
+                        db.set_user_session(
+                            user_id,
+                            'selected_tasks',
+                            json.dumps([task.task_id for task in selected_tasks]),
+                            expires_hours=24
+                        )
                 else:
                     reply_text = "⚠️ スケジュール提案の生成に失敗しました。"
             except Exception as e:
@@ -284,9 +287,14 @@ def handle_task_selection_process(
             for i, name in enumerate(task_names, 1):
                 reply_text += f"{i}. {name}\n"
             reply_text += "\n削除する場合は「はい」、キャンセルする場合は「キャンセル」と送信してください。"
-            selected_tasks_file = f"selected_tasks_{user_id}.json"
-            with open(selected_tasks_file, "w", encoding="utf-8") as f:
-                json.dump([task.task_id for task in selected_tasks], f, ensure_ascii=False)
+            # 選択されたタスクをデータベースに保存
+            if db:
+                db.set_user_session(
+                    user_id,
+                    'selected_tasks',
+                    json.dumps([task.task_id for task in selected_tasks]),
+                    expires_hours=24
+                )
 
         # フラグ削除と送信
         delete_flag_file(user_id, "task_select")

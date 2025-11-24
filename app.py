@@ -495,10 +495,10 @@ def oauth2callback():
                 # datetime は先頭でインポート済み
                 import pytz
 
-                selected_path = f"selected_tasks_{user_id}.json"
-                if os.path.exists(selected_path):
-                    with open(selected_path, "r") as f:
-                        task_ids = json.load(f)
+                # データベースから選択されたタスクを取得
+                selected_tasks_data = db.get_user_session(user_id, 'selected_tasks')
+                if selected_tasks_data:
+                    task_ids = json.loads(selected_tasks_data)
                     all_tasks = task_service.get_user_tasks(str(user_id))
                     selected_tasks = [t for t in all_tasks if t.task_id in task_ids]
                     jst = pytz.timezone("Asia/Tokyo")
@@ -529,8 +529,8 @@ def oauth2callback():
                     proposal = openai_service.generate_schedule_proposal(
                         selected_tasks, free_times
                     )
-                    with open(f"schedule_proposal_{user_id}.txt", "w") as f:
-                        f.write(proposal)
+                    # データベースにスケジュール提案を保存
+                    db.set_user_session(user_id, 'schedule_proposal', proposal, expires_hours=24)
                     # ここでproposalをそのまま送信
                     print("[LINE送信直前 proposal]", proposal)
                     line_bot_api.reply_message(
@@ -1265,7 +1265,8 @@ def callback():
                                     calendar_service,
                                     notification_service,
                                     is_google_authenticated,
-                                    get_google_auth_url
+                                    get_google_auth_url,
+                                    db
                                 )
                                 continue
 
@@ -1309,7 +1310,8 @@ def callback():
                                 user_id,
                                 task_service,
                                 calendar_service,
-                                get_simple_flex_menu
+                                get_simple_flex_menu,
+                                db
                             )
                             continue
                         elif user_message.strip() == "8時テスト":
@@ -1633,7 +1635,8 @@ def callback():
                                 active_line_bot_api,
                                 reply_token,
                                 user_id,
-                                task_service
+                                task_service,
+                                db
                             )
                             continue
                         elif (
