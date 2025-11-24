@@ -54,19 +54,24 @@ class NotificationService:
                 return False
                 
             from models.database import db
-            now = datetime.now()
-            
+            import pytz
+            jst = pytz.timezone('Asia/Tokyo')
+            now = datetime.now(jst)
+
             # DBから最後の実行時刻を取得
             last_execution = db.get_last_notification_execution(notification_type)
-            
+
             if last_execution:
                 last_time = datetime.fromisoformat(last_execution)
+                # last_timeがnaiveの場合はJSTを設定
+                if last_time.tzinfo is None:
+                    last_time = jst.localize(last_time)
                 time_diff = (now - last_time).total_seconds()
-                
+
                 if time_diff < cooldown_minutes * 60:
                     print(f"[_check_duplicate_execution] {notification_type} の重複実行を防止: 前回実行から {time_diff:.1f}秒")
                     return True
-            
+
             # 実行時刻をDBに保存
             db.save_notification_execution(notification_type, now.isoformat())
             return False
@@ -148,9 +153,15 @@ class NotificationService:
                             flag_timestamp = flag_data.get("timestamp")
                             if flag_timestamp:
                                 from datetime import datetime as dt
+                                import pytz
+                                jst = pytz.timezone('Asia/Tokyo')
                                 flag_time = dt.fromisoformat(flag_timestamp)
+                                # flag_timeがnaiveの場合はJSTを設定
+                                if flag_time.tzinfo is None:
+                                    flag_time = jst.localize(flag_time)
+                                current_time = dt.now(jst)
                                 # フラグが作成されてから24時間以内の場合は保持
-                                if (dt.now() - flag_time).total_seconds() < 24 * 3600:
+                                if (current_time - flag_time).total_seconds() < 24 * 3600:
                                     existing_flag_valid = True
                                     print(f"[_send_task_notification_to_user_multi_tenant] 既存のフラグが有効（作成時刻: {flag_timestamp}）")
                 except Exception as e:
@@ -160,7 +171,7 @@ class NotificationService:
             if not existing_flag_valid:
                 flag_data = {
                     "mode": "schedule",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat(),
                     "task_count": len(tasks)
                 }
                 with open(select_flag, "w", encoding="utf-8") as f:
@@ -372,9 +383,15 @@ class NotificationService:
                             flag_timestamp = flag_data.get("timestamp")
                             if flag_timestamp:
                                 from datetime import datetime as dt
+                                import pytz
+                                jst = pytz.timezone('Asia/Tokyo')
                                 flag_time = dt.fromisoformat(flag_timestamp)
+                                # flag_timeがnaiveの場合はJSTを設定
+                                if flag_time.tzinfo is None:
+                                    flag_time = jst.localize(flag_time)
+                                current_time = dt.now(jst)
                                 # フラグが作成されてから24時間以内の場合は保持
-                                if (dt.now() - flag_time).total_seconds() < 24 * 3600:
+                                if (current_time - flag_time).total_seconds() < 24 * 3600:
                                     existing_flag_valid = True
                                     print(f"[send_daily_task_notification] 既存のフラグが有効（作成時刻: {flag_timestamp}）")
                 except Exception as e:
@@ -384,7 +401,7 @@ class NotificationService:
             if not existing_flag_valid:
                 flag_data = {
                     "mode": "schedule",
-                    "timestamp": datetime.now().isoformat(),
+                    "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat(),
                     "task_count": len(all_tasks)
                 }
                 with open(select_flag, "w", encoding="utf-8") as f:
@@ -731,7 +748,7 @@ class NotificationService:
                         future_selection_file = os.path.join(base_dir, f"future_task_selection_{user_id}.json")
                         with open(future_selection_file, "w") as f:
                             import json
-                            json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
+                            json.dump({"mode": "future_schedule", "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()}, f)
                         print(f"[send_future_task_selection] 未来タスク選択モードファイル作成: {future_selection_file}")
                         # 既存の選択フラグも作成して早い分岐で拾えるようにする
                         try:
@@ -746,7 +763,7 @@ class NotificationService:
                             cwd_flag = f"future_task_selection_{user_id}.json"
                             with open(cwd_flag, "w") as f:
                                 import json
-                                json.dump({"mode": "future_schedule", "timestamp": datetime.now().isoformat()}, f)
+                                json.dump({"mode": "future_schedule", "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()}, f)
                             print(f"[send_future_task_selection] 互換フラグ作成: {cwd_flag}")
                         except Exception as ee:
                             print(f"[send_future_task_selection] 互換フラグ作成エラー: {ee}")

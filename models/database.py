@@ -214,17 +214,18 @@ class Database:
 
     def get_user_tasks(self, user_id: str, status: str = "active", task_type: str = "daily") -> List[Task]:
         """ユーザーのタスク一覧を取得"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
+
             cursor.execute('''
                 SELECT task_id, user_id, name, duration_minutes, repeat, status, created_at, due_date, priority, task_type
                 FROM tasks
                 WHERE user_id = ? AND status = ? AND task_type = ?
                 ORDER BY created_at DESC
             ''', (user_id, status, task_type))
-            
+
             tasks = []
             for row in cursor.fetchall():
                 task = Task(
@@ -240,12 +241,16 @@ class Database:
                     task_type=row[9] if row[9] else "daily"
                 )
                 tasks.append(task)
-            
-            conn.close()
+
             return tasks
         except Exception as e:
             print(f"Error getting user tasks: {e}")
+            import traceback
+            traceback.print_exc()
             return []
+        finally:
+            if conn:
+                conn.close()
 
     def get_user_future_tasks(self, user_id: str, status: str = "active") -> List[Task]:
         """ユーザーの未来タスク一覧を取得"""
@@ -354,22 +359,22 @@ class Database:
 
     def delete_task(self, task_id: str) -> bool:
         """タスクを削除（通常タスクと未来タスクの両方に対応）"""
+        conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
+
             # tasksテーブルから削除を試行
             cursor.execute('''
                 DELETE FROM tasks
                 WHERE task_id = ?
             ''', (task_id,))
-            
+
             # 削除された行数を確認
             rows_deleted = cursor.rowcount
-            
+
             conn.commit()
-            conn.close()
-            
+
             if rows_deleted > 0:
                 print(f"[delete_task] 成功: task_id={task_id}, rows_deleted={rows_deleted}")
                 return True
@@ -378,7 +383,14 @@ class Database:
                 return False
         except Exception as e:
             print(f"Error deleting task: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                conn.rollback()
             return False
+        finally:
+            if conn:
+                conn.close()
 
     def save_schedule_proposal(self, user_id: str, proposal_data: dict) -> bool:
         """スケジュール提案を保存"""
