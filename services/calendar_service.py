@@ -256,21 +256,43 @@ class CalendarService:
             
             # 未来タスクかどうかを判定（来週のスケジュール提案かチェック）
             is_future_task = any('来週のスケジュール提案' in line for line in lines)
-            
+
+            # base_dateの設定（来週のスケジュール提案の場合は来週の月曜日を基準にする）
+            if is_future_task:
+                # 来週の月曜日を計算
+                days_until_next_monday = (0 - today.weekday() + 7) % 7
+                if days_until_next_monday == 0:
+                    days_until_next_monday = 7  # 今日が月曜日の場合は1週間後
+                base_date = today + timedelta(days=days_until_next_monday)
+            else:
+                base_date = today
+
+            target_date = base_date  # 初期値を設定
+
             while i < len(lines):
                 line = lines[i]
-                
-                # 日付行を検出（例: 7/22(月)）
+
+                # 日付行を検出（例: 12/02(月)）
                 date_match = re.match(r'(\d{1,2})/(\d{1,2})\([月火水木金土日]\)', line)
-                target_date = today
-                if date_match and is_future_task:
-                    # 来週の日付を計算
+                if date_match:
+                    # 日付行が検出された場合、target_dateを更新
                     month = int(date_match.group(1))
                     day = int(date_match.group(2))
                     current_year = today.year
-                    # 来週の日付を計算（簡易版）
-                    target_date = today + timedelta(days=7)
-                    target_date = target_date.replace(month=month, day=day)
+
+                    # 年を考慮した日付計算
+                    try:
+                        target_date = datetime(current_year, month, day, tzinfo=jst)
+                        # もし計算した日付が過去の場合は来年にする
+                        if target_date < today:
+                            target_date = datetime(current_year + 1, month, day, tzinfo=jst)
+                    except ValueError:
+                        # 無効な日付の場合はbase_dateを使用
+                        target_date = base_date
+
+                    print(f"[DEBUG] 日付行検出: {line}, target_date={target_date.strftime('%Y-%m-%d')}")
+                    i += 1
+                    continue
                 
                                     # 🕒時刻行＋📝タスク行の2行セットを1つの予定として扱う
                 if line.startswith('🕒') and i+1 < len(lines) and lines[i+1].startswith('📝'):
