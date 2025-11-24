@@ -16,6 +16,10 @@ from .selection_handler import (
     handle_task_selection_cancel,
     handle_task_selection_process,
 )
+from .approval_handler import (
+    handle_approval,
+    handle_modification,
+)
 
 __all__ = [
     'create_flag_file',
@@ -28,4 +32,6 @@ __all__ = [
     'send_reply_with_menu',
     'handle_task_selection_cancel',
     'handle_task_selection_process',
+    'handle_approval',
+    'handle_modification',
 ]
