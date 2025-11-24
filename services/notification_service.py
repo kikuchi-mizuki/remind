@@ -127,7 +127,7 @@ class NotificationService:
                     return True
 
             # 実行時刻をDBに保存
-            db.save_notification_execution(notification_type, now.isoformat())
+            self.db.save_notification_execution(notification_type, now.isoformat())
             return False
             
         except Exception as e:
@@ -311,14 +311,14 @@ class NotificationService:
             # デフォルトチャネルを優先
             if 'default' in available_channels:
                 # デフォルトチャネルをデータベースに保存
-                db.save_user_channel(user_id, 'default')
+                self.db.save_user_channel(user_id, 'default')
                 return 'default'
-            
+
             # 最初のチャネルを使用
             if available_channels:
                 selected_channel = available_channels[0]
                 # 選択したチャネルをデータベースに保存
-                db.save_user_channel(user_id, selected_channel)
+                self.db.save_user_channel(user_id, selected_channel)
                 return selected_channel
             
             print(f"[_get_user_channel_id] 利用可能なチャネルが見つかりません")
@@ -347,7 +347,7 @@ class NotificationService:
                     try:
                         from google.auth.transport.requests import Request
                         creds.refresh(Request())
-                        db.save_token(user_id, creds.to_json())
+                        self.db.save_token(user_id, creds.to_json())
                         return True
                     except Exception as e:
                         print(f"Token refresh failed: {e}")
@@ -874,7 +874,7 @@ class NotificationService:
                             "mode": "future_schedule",
                             "timestamp": datetime.now(pytz.timezone('Asia/Tokyo')).isoformat()
                         }
-                        db.set_user_session(
+                        self.db.set_user_session(
                             user_id,
                             'future_task_selection',
                             json.dumps(future_selection_data),
