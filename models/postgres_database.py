@@ -314,7 +314,35 @@ class PostgreSQLDatabase:
         except Exception as e:
             print(f"Error getting user channel: {e}")
             return None
-    
+
+    def get_all_user_channels(self) -> dict:
+        """全ユーザーのチャネルIDを一括取得（N+1クエリ問題の解決）"""
+        try:
+            if self.Session:
+                session = self._get_session()
+                if session:
+                    try:
+                        print(f"[get_all_user_channels] PostgreSQL一括取得開始")
+                        user_channels_list = session.query(UserChannelModel).all()
+                        user_channels = {uc.user_id: uc.channel_id for uc in user_channels_list}
+                        print(f"[get_all_user_channels] PostgreSQL成功: {len(user_channels)}件取得")
+                        return user_channels
+                    except Exception as e:
+                        print(f"[get_all_user_channels] PostgreSQLエラー: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        return {}
+                    finally:
+                        session.close()
+            else:
+                # SQLiteフォールバック
+                return self.sqlite_db.get_all_user_channels()
+        except Exception as e:
+            print(f"Error getting all user channels: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
     def get_all_user_ids(self) -> List[str]:
         """全ユーザーIDを取得"""
         try:

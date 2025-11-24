@@ -87,15 +87,22 @@ class NotificationService:
         
         user_ids = self._get_active_user_ids()
         print(f"[send_daily_task_notification] ユーザー数: {len(user_ids)}")
-        
+
         if not user_ids:
             print(f"[send_daily_task_notification] ⚠️  アクティブユーザーが見つかりません")
             return
-            
+
+        # N+1クエリ問題の解決：全ユーザーのチャネルIDを一括取得
+        from models.database import db
+        user_channels = db.get_all_user_channels()
+        print(f"[send_daily_task_notification] チャネル情報を一括取得: {len(user_channels)}件")
+
         for user_id in user_ids:
             try:
                 print(f"[send_daily_task_notification] ユーザー {user_id} に送信中...")
-                self._send_task_notification_to_user_multi_tenant(user_id)
+                # 一括取得したデータを使用
+                user_channel_id = user_channels.get(user_id)
+                self._send_task_notification_to_user_multi_tenant(user_id, user_channel_id)
                 print(f"[send_daily_task_notification] ユーザー {user_id} に送信完了")
             except Exception as e:
                 print(f"[send_daily_task_notification] ユーザー {user_id} への送信エラー: {e}")
@@ -103,11 +110,13 @@ class NotificationService:
                 traceback.print_exc()
         print(f"[send_daily_task_notification] 完了: {datetime.now()}")
 
-    def _send_task_notification_to_user_multi_tenant(self, user_id: str):
+    def _send_task_notification_to_user_multi_tenant(self, user_id: str, user_channel_id: str = None):
         """マルチテナント対応のタスク通知送信"""
         try:
-            # ユーザーのチャネルIDを取得（データベースから）
-            user_channel_id = self._get_user_channel_id(user_id)
+            # チャネルIDが渡されていない場合は個別取得（後方互換性のため）
+            if not user_channel_id:
+                user_channel_id = self._get_user_channel_id(user_id)
+
             if not user_channel_id:
                 print(f"[_send_task_notification_to_user_multi_tenant] ユーザー {user_id} のチャネルIDが見つかりません")
                 return
@@ -175,11 +184,13 @@ class NotificationService:
             import traceback
             traceback.print_exc()
 
-    def _send_carryover_notification_to_user_multi_tenant(self, user_id: str, message: str):
+    def _send_carryover_notification_to_user_multi_tenant(self, user_id: str, message: str, user_channel_id: str = None):
         """マルチテナント対応の21時通知送信"""
         try:
-            # ユーザーのチャネルIDを取得（データベースから）
-            user_channel_id = self._get_user_channel_id(user_id)
+            # チャネルIDが渡されていない場合は個別取得（後方互換性のため）
+            if not user_channel_id:
+                user_channel_id = self._get_user_channel_id(user_id)
+
             if not user_channel_id:
                 print(f"[_send_carryover_notification_to_user_multi_tenant] ユーザー {user_id} のチャネルIDが見つかりません")
                 return
@@ -641,6 +652,12 @@ class NotificationService:
         import pytz
         user_ids = self._get_active_user_ids()
         print(f"[send_carryover_check] ユーザー数: {len(user_ids)}")
+
+        # N+1クエリ問題の解決：全ユーザーのチャネルIDを一括取得
+        from models.database import db
+        user_channels = db.get_all_user_channels()
+        print(f"[send_carryover_check] チャネル情報を一括取得: {len(user_channels)}件")
+
         jst = pytz.timezone('Asia/Tokyo')
         today_str = datetime.now(jst).strftime('%Y-%m-%d')
         print(f"[send_carryover_check] 今日の日付: {today_str}")
@@ -672,8 +689,9 @@ class NotificationService:
                     print(f"[send_carryover_check] タスク選択モードフラグ作成: {select_flag}, payload={flag_payload}")
                 
                 print(f"[send_carryover_check] メッセージ送信: {msg[:100]}...")
-                # マルチテナント対応で通知送信
-                self._send_carryover_notification_to_user_multi_tenant(user_id, msg)
+                # マルチテナント対応で通知送信（一括取得したチャネルIDを使用）
+                user_channel_id = user_channels.get(user_id)
+                self._send_carryover_notification_to_user_multi_tenant(user_id, msg, user_channel_id)
                 print(f"[send_carryover_check] ユーザー {user_id} に送信完了")
             except Exception as e:
                 print(f"[send_carryover_check] ユーザー {user_id} への送信エラー: {e}")

@@ -405,10 +405,9 @@ class OpenAIService:
                 continue
             # 🔥を除去し、⭐️を⭐に変更（複数の⭐️も対応）
             line = line.replace('🔥', '')
-            # 複数の⭐️を⭐に統一（より確実な処理）
-            while '⭐️⭐️' in line:
-                line = line.replace('⭐️⭐️', '⭐')
-            line = line.replace('⭐️', '⭐')
+            # 複数の⭐️を⭐に統一（正規表現で一度に処理）
+            import re
+            line = re.sub(r'⭐️+', '⭐', line)
             result.append(line)
         # 3. 理由・まとめがなければ追加
         if not seen_reason:

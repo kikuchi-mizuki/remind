@@ -650,6 +650,31 @@ class Database:
             print(f"Error getting user channel: {e}")
             return None
 
+    def get_all_user_channels(self) -> dict:
+        """全ユーザーのチャネルIDを一括取得（N+1クエリ問題の解決）"""
+        conn = None
+        try:
+            print(f"[get_all_user_channels] 開始")
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT user_id, channel_id
+                FROM user_channels
+            ''')
+
+            user_channels = {row[0]: row[1] for row in cursor.fetchall()}
+            print(f"[get_all_user_channels] 成功: {len(user_channels)}件取得")
+            return user_channels
+        except Exception as e:
+            print(f"Error getting all user channels: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+        finally:
+            if conn:
+                conn.close()
+
 # グローバルデータベースインスタンス
 db = None
 
