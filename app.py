@@ -2113,6 +2113,65 @@ def get_button_menu():
     }
 
 
+# グレースフルシャットダウンハンドラー
+import atexit
+import signal
+import sys
+
+
+def shutdown_handler():
+    """アプリケーション終了時の処理"""
+    print(f"\n[Shutdown] グレースフルシャットダウン開始: {datetime.now()}")
+
+    try:
+        # スケジューラーを停止
+        if notification_service and hasattr(notification_service, 'is_running'):
+            if notification_service.is_running:
+                print("[Shutdown] スケジューラーを停止中...")
+                notification_service.is_running = False
+
+                # スケジューラースレッドが停止するまで待機（最大5秒）
+                if notification_service.scheduler_thread and notification_service.scheduler_thread.is_alive():
+                    notification_service.scheduler_thread.join(timeout=5)
+                    if notification_service.scheduler_thread.is_alive():
+                        print("[Shutdown] WARNING: スケジューラースレッドが5秒以内に停止しませんでした")
+                    else:
+                        print("[Shutdown] スケジューラーを正常に停止しました")
+
+        # データベース接続をクローズ
+        print("[Shutdown] データベース接続をクリーンアップ中...")
+        try:
+            from models.database import init_db
+            db = init_db()
+            if hasattr(db, 'engine'):
+                db.engine.dispose()
+                print("[Shutdown] PostgreSQL接続プールをクローズしました")
+        except Exception as e:
+            print(f"[Shutdown] データベースクローズエラー: {e}")
+
+        print(f"[Shutdown] グレースフルシャットダウン完了: {datetime.now()}\n")
+
+    except Exception as e:
+        print(f"[Shutdown] シャットダウンエラー: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def signal_handler(signum, frame):
+    """SIGTERMやSIGINTを受信したときの処理"""
+    print(f"\n[Signal] シグナル {signum} を受信しました")
+    shutdown_handler()
+    sys.exit(0)
+
+
+# シャットダウンハンドラーを登録
+atexit.register(shutdown_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
+print("[Startup] グレースフルシャットダウンハンドラーを登録しました")
+
+
 if __name__ == "__main__":
     # アプリケーション起動
     import os
