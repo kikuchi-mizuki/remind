@@ -84,33 +84,56 @@ class OpenAIService:
         # デバッグ情報を追加
         print(f"[DEBUG] OpenAIサービス: 作成されたプロンプト: {prompt[:500]}...")
         
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "あなたは効率的なスケジュール管理の専門家です。与えられたタスクと空き時間をもとに、生産性を最大化するスケジュールを提案してください。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                max_tokens=1000,
-                temperature=0.7
-            )
-            raw = response.choices[0].message.content or ""
-            proposal = self._format_schedule_output(raw)
-            if self._needs_fallback(proposal, tasks):
-                print("[DEBUG] フォールバック判定: AI出力が要件を満たしていません。決定的スケジュールを生成します。")
-                fallback = self._build_deterministic_schedule(tasks, free_times, week_info, base_date)
-                if fallback:
-                    return fallback
-            return proposal
-        except Exception as e:
-            print(f"OpenAI API error: {e}")
-            fallback = self._build_deterministic_schedule(tasks, free_times, week_info, base_date)
+        # リトライロジック付きでOpenAI APIを呼び出し
+        import time
+        max_retries = 3
+        base_delay = 1  # 秒
+
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "あなたは効率的なスケジュール管理の専門家です。与えられたタスクと空き時間をもとに、生産性を最大化するスケジュールを提案してください。"
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    max_tokens=1000,
+                    temperature=0.7,
+                    timeout=30  # 30秒タイムアウト
+                )
+                raw = response.choices[0].message.content or ""
+                proposal = self._format_schedule_output(raw)
+                if self._needs_fallback(proposal, tasks):
+                    print("[DEBUG] フォールバック判定: AI出力が要件を満たしていません。決定的スケジュールを生成します。")
+                    fallback = self._build_deterministic_schedule(tasks, free_times, week_info, base_date)
+                    if fallback:
+                        return fallback
+                return proposal
+
+            except Exception as e:
+                error_type = type(e).__name__
+                print(f"[OpenAI] API error (attempt {attempt + 1}/{max_retries}): {error_type} - {e}")
+
+                # レート制限エラーの場合は長めに待機
+                is_rate_limit = "rate" in str(e).lower() or "429" in str(e)
+
+                if attempt < max_retries - 1:  # 最後の試行でなければリトライ
+                    # Exponential backoff
+                    delay = base_delay * (2 ** attempt)
+                    if is_rate_limit:
+                        delay *= 3  # レート制限の場合は3倍長く待つ
+                    print(f"[OpenAI] Retrying in {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    # 全てのリトライが失敗した場合はフォールバック
+                    print(f"[OpenAI] All retries exhausted, falling back to deterministic schedule")
+                    fallback = self._build_deterministic_schedule(tasks, free_times, week_info, base_date)
             if fallback:
                 return fallback
             return self._generate_fallback_schedule(tasks) or ""

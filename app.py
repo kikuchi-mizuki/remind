@@ -122,6 +122,51 @@ else:
 def index():
     return "LINEタスクスケジューリングBot is running!", 200
 
+
+@app.route("/health")
+def health_check():
+    """ヘルスチェックエンドポイント - スケジューラーとデータベースの状態を確認"""
+    try:
+        health_status = {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "checks": {}
+        }
+
+        # スケジューラーの状態チェック
+        if notification_service and hasattr(notification_service, 'is_running'):
+            health_status["checks"]["scheduler"] = {
+                "running": notification_service.is_running,
+                "thread_alive": notification_service.scheduler_thread.is_alive() if notification_service.scheduler_thread else False
+            }
+
+            if not notification_service.is_running:
+                health_status["status"] = "degraded"
+                health_status["checks"]["scheduler"]["message"] = "Scheduler is not running"
+        else:
+            health_status["status"] = "degraded"
+            health_status["checks"]["scheduler"] = {"running": False, "message": "Scheduler not initialized"}
+
+        # データベース接続チェック
+        try:
+            from models.database import init_db
+            db = init_db()
+            # 簡単なクエリを実行してDB接続を確認
+            test_result = db.get_all_users()
+            health_status["checks"]["database"] = {"connected": True, "user_count": len(test_result) if test_result else 0}
+        except Exception as e:
+            health_status["status"] = "unhealthy"
+            health_status["checks"]["database"] = {"connected": False, "error": str(e)}
+
+        # ステータスコードを決定
+        status_code = 200 if health_status["status"] == "healthy" else 503
+
+        return health_status, status_code
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+
+
 # データベースインスタンスの確認
 if hasattr(db, 'db_path'):
     print(f"[app.py] データベースインスタンス確認: {db.db_path}")
@@ -625,8 +670,21 @@ def callback():
                 if event.get("type") == "message" and "replyToken" in event:
                     reply_token = event["replyToken"]
                     user_message = event["message"]["text"]
-                    print(f"[DEBUG] 受信user_message: '{user_message}'", flush=True)
+                    print(f"[DEBUG] 受信user_message長: {len(user_message)}", flush=True)
                     user_id = event["source"].get("userId", "")
+
+                    # 入力バリデーション（セキュリティ対策）
+                    from utils.validation import validate_and_sanitize
+                    is_valid, sanitized_message, error_msg = validate_and_sanitize(user_message)
+                    if not is_valid:
+                        active_line_bot_api.reply_message(
+                            ReplyMessageRequest(
+                                replyToken=reply_token,
+                                messages=[TextMessage(text=f"⚠️ {error_msg}")],
+                            )
+                        )
+                        continue
+                    user_message = sanitized_message
 
                     # ユーザーをデータベースに登録（初回メッセージ時）
                     from models.database import init_db
