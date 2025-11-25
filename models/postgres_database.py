@@ -136,7 +136,13 @@ class PostgreSQLDatabase:
                 return
             
             print(f"[PostgreSQLDatabase] PostgreSQL接続開始: {database_url[:50]}...")
-            self.engine = create_engine(database_url)
+            self.engine = create_engine(
+                database_url,
+                pool_size=20,  # 同時接続数
+                max_overflow=40,  # プールサイズを超える追加接続数
+                pool_pre_ping=True,  # 接続が有効かチェック
+                pool_recycle=3600  # 1時間で接続をリサイクル
+            )
             self.Session = sessionmaker(bind=self.engine)
             
             # テーブル作成

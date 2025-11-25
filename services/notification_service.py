@@ -23,8 +23,6 @@ class NotificationService:
 
     def __init__(self, retry_config: RetryConfig = None):
         import os
-        print(f"[DEBUG] (notification_service.py) LINE_CHANNEL_ACCESS_TOKEN: {os.getenv('LINE_CHANNEL_ACCESS_TOKEN')}")
-        print(f"[DEBUG] (notification_service.py) os.environ: {os.environ}")
 
         # マルチテナント対応: MultiTenantServiceを使用
         from services.multi_tenant_service import MultiTenantService
@@ -563,6 +561,8 @@ class NotificationService:
         # 週次レポートは不要のため無効化
         # schedule.every().sunday.at("11:00").do(self._send_weekly_reports_to_all_users)  # JST 20:00→UTC 11:00
         schedule.every().day.at("12:00").do(self.send_carryover_check)  # JST 21:00
+        # セッションとキャッシュのクリーンアップ（毎時）
+        schedule.every().hour.do(self._cleanup_expired_data)
         
         print(f"[start_scheduler] スケジュール設定完了:")
         print(f"[start_scheduler] - 毎日 23:00 UTC (JST 8:00): タスク一覧通知")
@@ -869,6 +869,30 @@ class NotificationService:
             print(f"[send_future_task_selection] 完了: {datetime.now()}")
         except Exception as e:
             print(f"Error sending future task selection: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _cleanup_expired_data(self):
+        """期限切れのセッションとキャッシュをクリーンアップ"""
+        try:
+            print(f"[cleanup] クリーンアップ開始: {datetime.now()}")
+
+            # データベースインスタンスを取得
+            from models.database import init_db
+            db = init_db()
+
+            # 期限切れセッションを削除
+            sessions_deleted = db.cleanup_expired_sessions()
+            print(f"[cleanup] 削除したセッション数: {sessions_deleted}")
+
+            # 期限切れキャッシュを削除
+            cache_deleted = db.cleanup_expired_cache()
+            print(f"[cleanup] 削除したキャッシュ数: {cache_deleted}")
+
+            print(f"[cleanup] クリーンアップ完了: {datetime.now()}")
+
+        except Exception as e:
+            print(f"[cleanup] エラー: {e}")
             import traceback
             traceback.print_exc()
 

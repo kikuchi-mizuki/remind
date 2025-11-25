@@ -1110,11 +1110,11 @@ class Database:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            # 有効期限を計算
+            # 有効期限を計算（SQLインジェクション対策：Python側で計算）
             expires_at = None
             if expires_hours is not None:
-                cursor.execute("SELECT datetime('now', '+{} hours')".format(expires_hours))
-                expires_at = cursor.fetchone()[0]
+                from datetime import datetime, timedelta
+                expires_at = (datetime.now() + timedelta(hours=expires_hours)).isoformat()
 
             # UPSERT: 既存レコードがあれば更新、なければ挿入
             cursor.execute('''

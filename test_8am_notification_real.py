@@ -14,9 +14,11 @@ def test_8am_notification_real():
     """実際の8時通知テスト"""
     print("=== 実際の8時通知テスト開始 ===")
     
-    # 環境変数設定
-    os.environ['LINE_CHANNEL_ACCESS_TOKEN'] = "IkHMQ9ofRKSSn4lPbYsnzwBJv1VrNBAJkfgiFOgSUSfN6cYbYIxx6mr2iK04qfN/567RLIM+AjkVuFepihrlPaf++IiiFnL43PaMqChddnkCfDItoXMydZj7l0hgzjHe4hE5wQQlODhNqBZ6hHo+XwdB04t89/1O/w1cDnyilFU="
-    os.environ['LINE_CHANNEL_SECRET'] = "0458a82f5e85976cd037016936a1bba3"
+    # 環境変数設定（環境変数から読み込む - ハードコードしない）
+    if not os.environ.get('LINE_CHANNEL_ACCESS_TOKEN'):
+        raise ValueError("LINE_CHANNEL_ACCESS_TOKEN environment variable is required")
+    if not os.environ.get('LINE_CHANNEL_SECRET'):
+        raise ValueError("LINE_CHANNEL_SECRET environment variable is required")
     
     # データベース初期化
     db = init_db()
