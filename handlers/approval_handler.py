@@ -82,7 +82,7 @@ def _handle_schedule_approval(
         # 選択されたタスクを取得
         selected_tasks_data = db.get_user_session(user_id, 'selected_tasks') if db else None
         if not selected_tasks_data:
-            reply_text = "⚠️ 選択されたタスクが見つかりませんでした。"
+            reply_text = "⚠️ セッションが期限切れになりました。\n\nスケジュール提案の有効期限は24時間です。\nもう一度タスクを選択してください。"
             line_bot_api.reply_message(
                 ReplyMessageRequest(
                     replyToken=reply_token,
@@ -94,14 +94,18 @@ def _handle_schedule_approval(
         try:
             task_ids = json.loads(selected_tasks_data)
         except json.JSONDecodeError as e:
-            print(f"[ERROR] JSON parsing failed: {e}")
-            reply_text = "⚠️ タスクデータの読み込みに失敗しました。もう一度タスクを選択してください。"
+            print(f"[ERROR] JSON parsing failed: {e}, data: {selected_tasks_data}")
+            reply_text = "⚠️ タスクデータが破損しています。\n\nお手数ですが、もう一度タスクを選択してください。"
             line_bot_api.reply_message(
                 ReplyMessageRequest(
                     replyToken=reply_token,
                     messages=[TextMessage(text=reply_text)],
                 )
             )
+            # 破損したデータを削除
+            if db:
+                db.delete_user_session(user_id, 'selected_tasks')
+                db.delete_user_session(user_id, 'schedule_proposal')
             return False
 
         # モードを判定
